@@ -4,6 +4,7 @@ import { Videos } from './pages/Videos';
 import { Settings } from './pages/Settings';
 import { Guide } from './pages/Guide';
 import { Review } from './pages/Review';
+import { Privacy, Terms } from './pages/Legal';
 import { getCode, setCode } from './lib/api';
 
 const TABS = ['Videos', 'Settings', 'Guide'] as const;
@@ -34,6 +35,7 @@ function AccessGate({ onDone }: { onDone: () => void }) {
 export default function App() {
   const path = window.location.pathname;
   const review = path.match(/^\/review\/([\w-]+)/);
+  const legal = path.startsWith('/terms') ? 'terms' : path.startsWith('/privacy') ? 'privacy' : null;
   const [tab, setTab] = useState<Tab>(path.startsWith('/settings') ? 'Settings' : path.startsWith('/guide') ? 'Guide' : 'Videos');
   const [hasCode, setHasCode] = useState(!!getCode());
 
@@ -61,7 +63,7 @@ export default function App() {
         <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-3 px-3 sm:px-4">
           <Logo />
           <span className="hidden whitespace-nowrap font-display text-lg font-semibold tracking-tight min-[400px]:inline">Trend Videos</span>
-          {!review && (
+          {!review && !legal && (
             <nav className="ml-auto flex gap-1" aria-label="Main">
               {TABS.map((t) => (
                 <button key={t} onClick={() => go(t)} aria-current={tab === t ? 'page' : undefined} className={`rounded-lg px-2.5 py-1.5 text-sm transition sm:px-3 ${tab === t ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-slate-100'}`}>
@@ -73,7 +75,9 @@ export default function App() {
         </div>
       </header>
       <main className="mx-auto max-w-[1400px] px-3 pb-12 pt-4 sm:px-4 lg:px-6">
-        {review ? (
+        {legal ? (
+          legal === 'terms' ? <Terms /> : <Privacy />
+        ) : review ? (
           <Review id={review[1]} sig={new URLSearchParams(window.location.search).get('sig') ?? ''} />
         ) : tab === 'Guide' ? (
           <Guide />
@@ -85,6 +89,10 @@ export default function App() {
           <Settings />
         )}
       </main>
+      <footer className="pb-8 text-center text-xs text-slate-500">
+        <a className="hover:text-slate-300" href="/terms">Terms of Service</a> · <a className="hover:text-slate-300" href="/privacy">Privacy Policy</a>
+        {legal && <> · <a className="hover:text-slate-300" href="/">Back to the app</a></>}
+      </footer>
     </div>
   );
 }

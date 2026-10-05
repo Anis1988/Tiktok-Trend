@@ -132,6 +132,7 @@ export function Guide() {
           <Key name="APP_SECRET">a long random text you make up (signs the email links). Put the same value in GitHub.</Key>
           <Key name="GH_DISPATCH_TOKEN">a GitHub fine-grained token for this repository with "Actions: Read and write" (lets the buttons start GitHub jobs).</Key>
           <Key name="TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET">later, once TikTok approves your developer app.</Key>
+          <Key name="VITE_CONTACT_EMAIL">optional: the email shown on the Terms and Privacy pages (TikTok's reviewers like to see one).</Key>
         </ul>
         <p><b>In GitHub</b> (repository → Settings → Secrets and variables → Actions → New repository secret):</p>
         <ul className="space-y-1.5 text-sm">
@@ -144,7 +145,7 @@ export function Guide() {
           <Key name="EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_USER_ID, EMAILJS_PRIVATE_KEY">the same values as the trading app (for the review emails). Then put your email in Settings → Review email.</Key>
           <Key name="TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET">later, same as in Netlify.</Key>
         </ul>
-        <p><b>TikTok developer app</b> (developers.tiktok.com): create an app, add the products <b>Login Kit</b> and <b>Content Posting API</b>, scopes <code>user.info.basic</code> and <code>video.upload</code>, and the redirect address <code>https://your-site.netlify.app/api/tiktok/callback</code>. Submit it for review. When approved, add its keys and tap <b>Connect TikTok</b> in Settings.</p>
+        <p><b>TikTok developer app</b> (developers.tiktok.com): create an app, add the products <b>Login Kit</b> and <b>Content Posting API</b>, scopes <code>user.info.basic</code> and <code>video.upload</code>, and the redirect address <code>https://your-site.netlify.app/api/tiktok/callback</code>. TikTok also asks for a Terms of Service and a Privacy Policy link: use <code>https://your-site.netlify.app/terms</code> and <code>https://your-site.netlify.app/privacy</code> (also linked at the bottom of every page). Submit it for review. When approved, add its keys and tap <b>Connect TikTok</b> in Settings.</p>
       </Section>
     </div>
   );
