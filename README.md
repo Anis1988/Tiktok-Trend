@@ -9,6 +9,7 @@ Makes short vertical videos about what's trending, emails you a preview, and aft
    Piper AI voice → Pixabay stock clips (or Pexels) → ffmpeg (720×1280, captions) → saved in Netlify Blobs → review email (EmailJS).
 2. **Netlify** hosts the app (`src/`) and small functions (`netlify/functions/`): list videos, stream them,
    approve/reject (signed email links work without logging in), settings, TikTok login.
+   "Make a video now" takes an optional subject (also on GitHub's Run workflow form); each run attaches the MP4 under "Artifacts" for 7 days.
 3. **Approve** → `publish.yml` uploads the video to your TikTok inbox/drafts (Content Posting API). You add a sound,
    turn on "AI-generated content", and post from the TikTok app. Before TikTok is connected: download and post yourself.
 

@@ -60,7 +60,7 @@ export const api = {
   videos: () => call<Video[]>('/api/videos'),
   video: (id: string, sig?: string) => call<Video>(`/api/videos?id=${encodeURIComponent(id)}${sig ? `&sig=${encodeURIComponent(sig)}` : ''}`),
   act: (action: 'approve' | 'reject' | 'posted' | 'retry', id: string, sig?: string) => post<Video>('/api/videos', { action, id, sig }),
-  makeNow: () => post<{ ok: boolean; message: string }>('/api/videos', { action: 'make-now' }),
+  makeNow: (subject?: string) => post<{ ok: boolean; message: string }>('/api/videos', { action: 'make-now', subject: subject?.trim() || undefined }),
   settings: () => call<AppSettings>('/api/settings'),
   saveSettings: (s: Partial<AppSettings>) => post<AppSettings>('/api/settings', s),
   tiktokStart: () => post<{ url: string; redirectUri: string }>('/api/tiktok/start', {}),

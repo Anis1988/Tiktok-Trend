@@ -2,13 +2,13 @@
  * Makes one video: today's trends -> AI script -> voice -> stock footage -> MP4 -> saved for review -> email.
  * Runs in GitHub Actions (see .github/workflows/generate.yml). MANUAL=1 skips the schedule checks.
  */
-import { mkdir, readFile, rm } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, rm } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import type { VideoRecord } from '../src/lib/types';
 import { getSettings, listVideos, readJson, saveVideo, store, writeJson } from '../netlify/lib/store';
 import { sign } from '../netlify/lib/sign';
 import { emailReady, sendEmail } from '../netlify/lib/mailer';
-import { findCandidates } from './lib/trends';
+import { findCandidates, subjectNews, type Candidate } from './lib/trends';
 import { MODEL, writeScript } from './lib/script';
 import { speak, voiceName } from './lib/tts';
 import { findClip, footageReady, type Clip } from './lib/footage';
@@ -33,17 +33,31 @@ async function main() {
   if (budget.day !== day()) Object.assign(budget, { day: day(), n: 0 });
   if (budget.n >= s.aiDailyLimit) throw new Error(`Daily AI limit reached (${s.aiDailyLimit}). Raise it in Settings or wait until tomorrow.`);
 
-  const since = new Date(Date.now() - 14 * 86400_000).toISOString();
-  const recent = videos.filter((v) => v.createdAt >= since).map((v) => v.topic);
-  const { candidates, errors } = await findCandidates(s.topics, s.country, recent);
-  if (errors.length) log('Some trend sources failed:', errors.join(' | '));
-  if (!candidates.length) throw new Error('No trends or news found right now.');
+  // A subject typed for this one video (app box or GitHub "Run workflow") replaces the trend search.
+  const subject = (process.env.SUBJECT ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  let candidates: Candidate[];
+  if (subject) {
+    log(`Subject: ${subject}`);
+    const c = await subjectNews(subject, s.country);
+    if (!c) throw new Error(`No recent news found about "${subject}". Try other words, or leave the subject empty for the top trend.`);
+    candidates = [c];
+  } else {
+    const since = new Date(Date.now() - 14 * 86400_000).toISOString();
+    const recent = videos.filter((v) => v.createdAt >= since).map((v) => v.topic);
+    const found = await findCandidates(s.topics, s.country, recent);
+    if (found.errors.length) log('Some trend sources failed:', found.errors.join(' | '));
+    if (!found.candidates.length) throw new Error('No trends or news found right now.');
+    candidates = found.candidates;
+  }
   log(`${candidates.length} candidates`);
 
   budget.n++;
   await writeJson('ai', budget);
   const sc = await writeScript(candidates, s);
-  if (sc.pick < 0 || !candidates[sc.pick]) return log('The AI found nothing suitable today:', sc.why);
+  if (sc.pick < 0 || !candidates[sc.pick]) {
+    if (subject) throw new Error(`The AI skipped "${subject}" (sad or risky subjects are avoided): ${sc.why}`);
+    return log('The AI found nothing suitable today:', sc.why);
+  }
   const cand = candidates[sc.pick];
   log(`Topic: ${cand.topic} — ${sc.why}`);
 
@@ -84,6 +98,11 @@ async function main() {
     const rec: VideoRecord = { ...base, status: 'pending', durationSec: Math.round(dur), sizeBytes: bytes.length, footage: [...new Map(credits.map((c) => [c.url, { by: c.by, url: c.url, site: c.site }])).values()] };
     await saveVideo(rec);
     log(`Saved ${id}`);
+    if (process.env.SAVE_COPY_DIR) {
+      // GitHub attaches this copy to the run, so the video can be downloaded even without the website.
+      await mkdir(process.env.SAVE_COPY_DIR, { recursive: true });
+      await copyFile(mp4, `${process.env.SAVE_COPY_DIR}/${id}.mp4`);
+    }
 
     await notify(rec, s.notifyEmail);
   } catch (e) {

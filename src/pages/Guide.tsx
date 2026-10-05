@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { VideoDetail } from '../components/VideoDetail';
+import { MakeNow } from './Videos';
 import { StatusChip } from '../components/ui';
 import type { Video } from '../lib/api';
 import type { VideoStatus } from '../lib/types';
@@ -52,7 +53,7 @@ export function Guide() {
 
       <Section title="How it works" open>
         <ol className="list-decimal space-y-2 pl-5">
-          <li><b>Find a topic.</b> Once a day the app looks at what people are searching for (Google Trends) and today's news on your topics (Google News).</li>
+          <li><b>Find a topic.</b> Once a day the app looks at what people are searching for (Google Trends) and today's news on your topics (Google News). You can also pick the subject yourself (see "Choosing the subject").</li>
           <li><b>Write the script.</b> Claude picks one good topic and writes a 30 to 60 second script using only facts from the headlines. It skips sad or risky subjects (deaths, disasters, crimes, elections, medical or money advice).</li>
           <li><b>Make the video.</b> An AI voice reads the script, free stock clips from Pixabay play behind it (cropped to vertical), and big captions show the words. Vertical 9:16, ready for TikTok.</li>
           <li><b>Email you.</b> You get an email with a link. Watch it, then tap <b>Approve</b> or <b>Reject</b>.</li>
@@ -61,10 +62,33 @@ export function Guide() {
         <p>Nothing is ever posted without your OK.</p>
       </Section>
 
+      <Section title="Choosing the subject">
+        <p>On the <b>Videos</b> page, the "Make a video now" box lets you choose what the next video is about.</p>
+        <Example caption="Made-up example; the button does nothing here.">
+          <MakeNow subject="iPhone 18" onSubject={() => {}} onMake={() => {}} />
+        </Example>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>Type a subject</b> (like "iPhone 18" or "Champions League"): the app reads the latest news about it (last 2 days, or last week if that's quiet) and makes the video from those facts.</li>
+          <li><b>Leave it empty</b>: the app picks the top trending topic right now.</li>
+          <li>If no news is found, or the subject is sad or risky (deaths, crimes, elections…), no video is made and you see why. It still counts as one AI script.</li>
+          <li>Topics in <b>Settings</b> are different: they guide every daily video. The subject box is for one video only.</li>
+          <li>Without the website: on GitHub, open <b>Actions → Make a video → Run workflow</b>, type the subject in the "Subject" box, and tap the green button.</li>
+        </ul>
+      </Section>
+
       <Section title="Reviewing a video">
         <Example caption="What you see when you open a video (made-up example; buttons do nothing here).">
           <VideoDetail v={EXAMPLE} example />
         </Example>
+      </Section>
+
+      <Section title="Getting the video file from GitHub">
+        <p>Every video is also attached to the GitHub run that made it, for 7 days. Handy when the website is down.</p>
+        <ol className="list-decimal space-y-1.5 pl-5">
+          <li>On GitHub, open <b>Actions</b> and tap the latest <b>Make a video</b> run (green tick).</li>
+          <li>Scroll to <b>Artifacts</b> at the bottom and tap <b>video</b>.</li>
+          <li>It downloads as a .zip: open it to get the .mp4, then watch it or post it from your phone.</li>
+        </ol>
       </Section>
 
       <Section title="What the labels mean">

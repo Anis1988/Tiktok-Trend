@@ -10,14 +10,14 @@ export const config = { path: '/api/videos' };
 const withSig = (v: VideoRecord) => ({ ...v, sig: sign(v.id) });
 
 const Post = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('make-now') }),
+  z.object({ action: z.literal('make-now'), subject: z.string().trim().max(80).optional() }),
   z.object({ action: z.enum(['approve', 'reject', 'posted', 'retry']), id: z.string().max(40), sig: z.string().max(64).optional() }),
 ]);
 
 /**
  * GET  /api/videos              -> all videos (access code)
  * GET  /api/videos?id=..&sig=.. -> one video (access code OR the signed email link)
- * POST {action:'make-now'}      -> start a new video now (access code)
+ * POST {action:'make-now', subject?} -> start a new video now, optionally about one subject (access code)
  * POST {action, id, sig?}       -> approve / reject / posted / retry (access code OR signed link)
  */
 export default async (req: Request): Promise<Response> => {
@@ -48,8 +48,9 @@ export default async (req: Request): Promise<Response> => {
 
   try {
     if (body.action === 'make-now') {
-      await dispatch('generate.yml', { manual: 'true' });
-      return json({ ok: true, message: 'Started. A new video takes 2 to 5 minutes; you will get an email.' });
+      const subject = body.subject?.replace(/[\r\n]+/g, ' ') ?? '';
+      await dispatch('generate.yml', { manual: 'true', subject });
+      return json({ ok: true, message: `Started${subject ? ` (about "${subject}")` : ''}. A new video takes 2 to 5 minutes; you will get an email.` });
     }
     const v = await getVideo(body.id);
     if (!v) return json({ error: 'Video not found.' }, 404);

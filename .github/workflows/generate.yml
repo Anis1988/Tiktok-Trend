@@ -13,6 +13,10 @@ on:
         description: 'Started from the app ("Make a video now")'
         required: false
         default: 'true'
+      subject:
+        description: 'Subject (optional), e.g. "iPhone 18". Leave empty for the top trend.'
+        required: false
+        default: ''
 
 concurrency:
   group: make-video
@@ -65,6 +69,8 @@ jobs:
         env:
           MANUAL: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
           PIPER_DIR: .piper
+          SUBJECT: ${{ inputs.subject }}
+          SAVE_COPY_DIR: done
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
@@ -77,3 +83,11 @@ jobs:
           EMAILJS_USER_ID: ${{ secrets.EMAILJS_USER_ID }}
           EMAILJS_PRIVATE_KEY: ${{ secrets.EMAILJS_PRIVATE_KEY }}
           AI_MODEL: ${{ vars.AI_MODEL }}
+      - name: Attach the video to this run (download it under "Artifacts")
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: video
+          path: done/
+          if-no-files-found: ignore
+          retention-days: 7

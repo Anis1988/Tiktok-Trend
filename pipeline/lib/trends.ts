@@ -51,6 +51,17 @@ export async function topicNews(topic: string, country: string): Promise<Candida
   }).filter((c) => c.headlines[0].title);
 }
 
+/** News about one subject you typed (last 2 days, then last week): one candidate with all its headlines. */
+export async function subjectNews(subject: string, country: string): Promise<Candidate | null> {
+  for (const when of ['2d', '7d']) {
+    const q = encodeURIComponent(`${subject} when:${when}`);
+    const xml = await get(`https://news.google.com/rss/search?q=${q}&hl=en-${country}&gl=${country}&ceid=${country}:en`);
+    const headlines = items(xml).slice(0, 8).map((it) => ({ title: tag(it, 'title'), url: tag(it, 'link'), site: tag(it, 'source') || undefined })).filter((h) => h.title);
+    if (headlines.length) return { topic: subject, headlines };
+  }
+  return null;
+}
+
 /** Everything worth considering today, minus topics used recently. */
 export async function findCandidates(topics: string[], country: string, recent: string[]): Promise<{ candidates: Candidate[]; errors: string[] }> {
   const jobs = [googleTrends(country), ...topics.map((t) => topicNews(t, country))];

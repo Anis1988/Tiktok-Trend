@@ -38,10 +38,12 @@ export function Videos() {
   }, []);
   useEffect(() => void load(), [load]);
 
+  const [subject, setSubject] = useState('');
   const makeNow = async () => {
     setBusy(true);
     try {
-      toast('info', (await api.makeNow()).message);
+      toast('info', (await api.makeNow(subject)).message);
+      setSubject('');
     } catch (e) {
       toast('error', e instanceof Error ? e.message : String(e));
     } finally {
@@ -61,9 +63,9 @@ export function Videos() {
         </div>
         <div className="flex gap-2">
           <button className="btn" onClick={() => void load()}>↻ Refresh</button>
-          <button className="btn-primary" disabled={busy} onClick={() => void makeNow()}>{busy ? <><span className="spinner" /> Starting…</> : '+ Make a video now'}</button>
         </div>
       </div>
+      <MakeNow subject={subject} onSubject={setSubject} busy={busy} onMake={() => void makeNow()} />
       {err && <p className="card text-sm text-red-200">{err}</p>}
       {status && <SetupChecklist st={status} />}
 
@@ -99,5 +101,19 @@ export function Videos() {
         </ul>
       )}
     </div>
+  );
+}
+
+/** "Make a video now", with an optional subject for this one video. */
+export function MakeNow({ subject, onSubject, busy, onMake }: { subject: string; onSubject: (s: string) => void; busy?: boolean; onMake: () => void }) {
+  return (
+    <form className="card space-y-2" onSubmit={(e) => (e.preventDefault(), onMake())}>
+      <label className="label block" htmlFor="subject">Make a video now</label>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <input id="subject" className="input w-full sm:flex-1" maxLength={80} placeholder="Subject (optional), e.g. iPhone 18, Champions League" value={subject} onChange={(e) => onSubject(e.target.value)} />
+        <button type="submit" className="btn-primary shrink-0" disabled={busy}>{busy ? <><span className="spinner" /> Starting…</> : subject.trim() ? '+ Make it about this' : '+ Make a video now'}</button>
+      </div>
+      <p className="text-xs text-slate-500">{subject.trim() ? `Uses the latest news about "${subject.trim()}".` : 'Empty: the app picks the top trending topic right now.'}</p>
+    </form>
   );
 }
