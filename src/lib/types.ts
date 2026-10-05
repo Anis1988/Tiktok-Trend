@@ -30,7 +30,7 @@ export interface VideoRecord {
   durationSec: number;
   sizeBytes: number;
   voice: string;
-  footage: { by: string; url: string }[]; // Pexels credits
+  footage: { by: string; url: string; site?: string }[]; // stock video credits (Pixabay / Pexels)
   model: string;
   error?: string;
   tiktok?: { publishId?: string; sentAt?: string; status?: string };

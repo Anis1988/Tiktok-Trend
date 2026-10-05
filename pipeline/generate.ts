@@ -11,7 +11,7 @@ import { emailReady, sendEmail } from '../netlify/lib/mailer';
 import { findCandidates } from './lib/trends';
 import { MODEL, writeScript } from './lib/script';
 import { speak, voiceName } from './lib/tts';
-import { findClip, type Clip } from './lib/footage';
+import { findClip, footageReady, type Clip } from './lib/footage';
 import { renderVideo, type Scene } from './lib/render';
 
 const day = () => new Date().toISOString().slice(0, 10);
@@ -46,6 +46,7 @@ async function main() {
   const cand = candidates[sc.pick];
   log(`Topic: ${cand.topic} — ${sc.why}`);
 
+  if (!footageReady()) log('No PIXABAY_API_KEY or PEXELS_API_KEY: scenes will use plain backgrounds.');
   const id = `${day()}-${randomBytes(3).toString('hex')}`;
   const dir = `out/${id}`;
   await mkdir(dir, { recursive: true });
@@ -59,18 +60,14 @@ async function main() {
   if (!base.sources.length) base.sources = cand.headlines;
 
   try {
-    const used = new Set<number>();
+    const used = new Set<string>();
     const scenes: Scene[] = [];
     const credits: Clip[] = [];
     for (const [i, l] of sc.lines.entries()) {
       const wav = `${dir}/l${i}.wav`;
       await speak(l.text, s.voice, wav, s.tone === 'punchy');
       let clip: Clip | null = null;
-      try {
-        clip = await findClip(l.footage, used, `${dir}/clip${i}.mp4`);
-      } catch (e) {
-        log(`Footage for "${l.footage}" failed:`, e instanceof Error ? e.message : e);
-      }
+      clip = await findClip(l.footage, used, `${dir}/clip${i}.mp4`);
       if (clip) credits.push(clip);
       scenes.push({ text: l.text, wav, clip: clip?.path ?? null });
     }
@@ -83,7 +80,7 @@ async function main() {
     const files = store('tt-files');
     await files.set(`${id}.mp4`, new Uint8Array(bytes).buffer);
     await files.set(`${id}.jpg`, new Uint8Array(await readFile(jpg)).buffer);
-    const rec: VideoRecord = { ...base, status: 'pending', durationSec: Math.round(dur), sizeBytes: bytes.length, footage: credits.map((c) => ({ by: c.by, url: c.url })) };
+    const rec: VideoRecord = { ...base, status: 'pending', durationSec: Math.round(dur), sizeBytes: bytes.length, footage: [...new Map(credits.map((c) => [c.url, { by: c.by, url: c.url, site: c.site }])).values()] };
     await saveVideo(rec);
     log(`Saved ${id}`);
 

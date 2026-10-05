@@ -80,7 +80,7 @@ export function VideoDetail({ v, onChange, tiktokConnected, example = false }: {
             <p><span className="label !text-[10px]">Sources</span> {v.sources.map((s, i) => <a key={i} className="mr-2 text-cyan-300 underline" href={s.url} target="_blank" rel="noopener noreferrer">{s.site ?? new URL(s.url).hostname}</a>)}</p>
           )}
           {v.footage.length > 0 && (
-            <p><span className="label !text-[10px]">Footage</span> Pexels: {v.footage.map((f, i) => <a key={i} className="mr-1 underline" href={f.url} target="_blank" rel="noopener noreferrer">{f.by}</a>)}</p>
+            <p><span className="label !text-[10px]">Footage</span> {v.footage.map((f, i) => <a key={i} className="mr-1 underline" href={f.url} target="_blank" rel="noopener noreferrer">{f.by} ({f.site ?? 'Pexels'})</a>)}</p>
           )}
           <p>Voice: {v.voice} (AI) · script: {v.model}</p>
         </div>

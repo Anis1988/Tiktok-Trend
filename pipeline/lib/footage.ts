@@ -4,40 +4,83 @@ export interface Clip {
   path: string;
   by: string;
   url: string;
+  site: 'Pexels' | 'Pixabay';
 }
 
-interface PexelsVideo {
-  id: number;
+interface Candidate {
+  key: string; // "site:id", so a clip is never used twice in one video
+  link: string;
+  width: number;
+  height: number;
+  by: string;
   url: string;
-  user: { name: string };
-  video_files: { link: string; width: number; height: number; file_type: string }[];
+  site: Clip['site'];
 }
 
-/**
- * Free stock video from Pexels (free API key). Portrait clips only; each clip is used once per video.
- * Returns null when there is no key or nothing fits (the video then uses a plain background).
- */
-export async function findClip(query: string, used: Set<number>, outPath: string): Promise<Clip | null> {
+/** Portrait clips first (closest to 1280 tall); landscape ones are cropped to vertical, so prefer the largest. */
+function best(cands: Candidate[], used: Set<string>): Candidate[] {
+  const free = cands.filter((c) => c.link && !used.has(c.key));
+  const portrait = free.filter((c) => c.height > c.width && c.height >= 960).sort((a, b) => Math.abs(a.height - 1280) - Math.abs(b.height - 1280));
+  const landscape = free.filter((c) => c.height <= c.width && c.height >= 720 && c.height <= 2160).sort((a, b) => b.height - a.height);
+  return [...portrait, ...landscape];
+}
+
+/** Pexels (free key; new keys are paused, so it is only used if you already have one). */
+async function pexels(query: string): Promise<Candidate[]> {
   const key = process.env.PEXELS_API_KEY;
-  if (!key) return null;
+  if (!key) return [];
   const res = await fetch(`https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&orientation=portrait&size=medium&per_page=15`, {
     headers: { Authorization: key },
     signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) throw new Error(`Pexels HTTP ${res.status}`);
-  const j = (await res.json()) as { videos?: PexelsVideo[] };
-  for (const v of j.videos ?? []) {
-    if (used.has(v.id)) continue;
-    const files = v.video_files
-      .filter((f) => f.file_type === 'video/mp4' && f.height > f.width && f.height >= 960)
-      .sort((a, b) => Math.abs(a.height - 1280) - Math.abs(b.height - 1280));
-    const f = files[0];
-    if (!f) continue;
-    const dl = await fetch(f.link, { signal: AbortSignal.timeout(60_000) });
-    if (!dl.ok) continue;
-    await writeFile(outPath, Buffer.from(await dl.arrayBuffer()));
-    used.add(v.id);
-    return { path: outPath, by: v.user.name, url: v.url };
+  const j = (await res.json()) as { videos?: { id: number; url: string; user: { name: string }; video_files: { link: string; width: number; height: number; file_type: string }[] }[] };
+  return (j.videos ?? []).flatMap((v) =>
+    v.video_files.filter((f) => f.file_type === 'video/mp4').map((f) => ({ key: `pexels:${v.id}`, link: f.link, width: f.width, height: f.height, by: v.user.name, url: v.url, site: 'Pexels' as const })),
+  );
+}
+
+/** Pixabay (free key, instant). Each video comes in several sizes. */
+async function pixabay(query: string): Promise<Candidate[]> {
+  const key = process.env.PIXABAY_API_KEY;
+  if (!key) return [];
+  const res = await fetch(`https://pixabay.com/api/videos/?key=${encodeURIComponent(key)}&q=${encodeURIComponent(query.slice(0, 100))}&safesearch=true&per_page=20`, {
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) throw new Error(`Pixabay HTTP ${res.status}`);
+  type Size = { url: string; width: number; height: number };
+  const j = (await res.json()) as { hits?: { id: number; pageURL: string; user: string; videos: Record<string, Size> }[] };
+  return (j.hits ?? []).flatMap((h) =>
+    Object.values(h.videos ?? {}).map((s) => ({ key: `pixabay:${h.id}`, link: s.url, width: s.width, height: s.height, by: h.user, url: h.pageURL, site: 'Pixabay' as const })),
+  );
+}
+
+export const footageReady = () => !!(process.env.PEXELS_API_KEY || process.env.PIXABAY_API_KEY);
+
+/**
+ * Free stock video for one scene: Pexels if you have a key, otherwise (or when it finds nothing) Pixabay.
+ * Returns null when there is no key or nothing fits; the scene then uses a plain background.
+ */
+export async function findClip(query: string, used: Set<string>, outPath: string): Promise<Clip | null> {
+  for (const source of [pexels, pixabay]) {
+    let cands: Candidate[] = [];
+    try {
+      cands = await source(query);
+    } catch (e) {
+      console.log(`Footage search "${query}" failed:`, e instanceof Error ? e.message : e);
+      continue;
+    }
+    // One size per video: the best fitting one.
+    const seen = new Set<string>();
+    for (const c of best(cands, used)) {
+      if (seen.has(c.key)) continue;
+      seen.add(c.key);
+      const dl = await fetch(c.link, { signal: AbortSignal.timeout(90_000) }).catch(() => null);
+      if (!dl?.ok) continue;
+      await writeFile(outPath, Buffer.from(await dl.arrayBuffer()));
+      used.add(c.key);
+      return { path: outPath, by: c.by, url: c.url, site: c.site };
+    }
   }
   return null;
 }

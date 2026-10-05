@@ -12,7 +12,7 @@ const EXAMPLE: Video = {
   lines: ['Look up tonight, because the moon is turning red.', 'Reports say a rare blood moon will be visible across the US.', 'It happens when Earth sits right between the sun and the moon.', 'Are you going outside to watch it?'],
   caption: 'A rare blood moon is visible tonight across the US', hashtags: ['bloodmoon', 'space', 'nightsky'],
   sources: [{ title: 'Rare blood moon visible tonight', url: 'https://example.com/moon', site: 'Example News' }],
-  durationSec: 38, sizeBytes: 1, voice: 'en_US-amy-medium', footage: [{ by: 'Jane Doe', url: 'https://www.pexels.com' }], model: 'claude-opus-5-5',
+  durationSec: 38, sizeBytes: 1, voice: 'en_US-amy-medium', footage: [{ by: 'Jane Doe', url: 'https://pixabay.com', site: 'Pixabay' }], model: 'claude-opus-5-5',
 };
 
 function Section({ title, children, open: start = false }: { title: string; children: ReactNode; open?: boolean }) {
@@ -54,7 +54,7 @@ export function Guide() {
         <ol className="list-decimal space-y-2 pl-5">
           <li><b>Find a topic.</b> Once a day the app looks at what people are searching for (Google Trends) and today's news on your topics (Google News).</li>
           <li><b>Write the script.</b> Claude picks one good topic and writes a 30 to 60 second script using only facts from the headlines. It skips sad or risky subjects (deaths, disasters, crimes, elections, medical or money advice).</li>
-          <li><b>Make the video.</b> An AI voice reads the script, free stock clips from Pexels play behind it, and big captions show the words. Vertical 9:16, ready for TikTok.</li>
+          <li><b>Make the video.</b> An AI voice reads the script, free stock clips from Pixabay play behind it (cropped to vertical), and big captions show the words. Vertical 9:16, ready for TikTok.</li>
           <li><b>Email you.</b> You get an email with a link. Watch it, then tap <b>Approve</b> or <b>Reject</b>.</li>
           <li><b>To TikTok.</b> Approved videos go to your TikTok drafts. You get a TikTok notification, add a sound if you like, and tap Post. Until TikTok is connected, you download it and post it yourself.</li>
         </ol>
@@ -97,7 +97,7 @@ export function Guide() {
       <Section title="What it costs">
         <ul className="list-disc space-y-1 pl-5">
           <li>AI script: about 1 to 4 cents per video from your Anthropic API credit. Capped by "Most AI scripts per day" in Settings.</li>
-          <li>Voice (Piper), stock clips (Pexels), video building (GitHub Actions), email (EmailJS), hosting (Netlify): free at this size.</li>
+          <li>Voice (Piper), stock clips (Pixabay), video building (GitHub Actions), email (EmailJS), hosting (Netlify): free at this size.</li>
         </ul>
       </Section>
 
@@ -112,7 +112,7 @@ export function Guide() {
         <p><b>In GitHub</b> (repository → Settings → Secrets and variables → Actions → New repository secret):</p>
         <ul className="space-y-1.5 text-sm">
           <Key name="ANTHROPIC_API_KEY">your Anthropic API key (a new one just for this app is best).</Key>
-          <Key name="PEXELS_API_KEY">free at pexels.com/api. Without it, videos use plain colour backgrounds.</Key>
+          <Key name="PIXABAY_API_KEY">free at pixabay.com (log in, then open the API documentation page: your key is shown there). Without it, videos use plain colour backgrounds. (A Pexels key, PEXELS_API_KEY, also works if you have one; new Pexels keys are paused.)</Key>
           <Key name="NETLIFY_SITE_ID">Netlify → Site configuration → Site ID.</Key>
           <Key name="NETLIFY_AUTH_TOKEN">Netlify → User settings → Applications → Personal access tokens.</Key>
           <Key name="APP_SECRET">the same value as in Netlify.</Key>

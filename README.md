@@ -6,7 +6,7 @@ Makes short vertical videos about what's trending, emails you a preview, and aft
 
 1. **GitHub Actions** (`.github/workflows/generate.yml`, daily or "Make a video now"):
    Google Trends + Google News → Claude writes a script from the headlines (structured output, daily cap) →
-   Piper AI voice → Pexels stock clips → ffmpeg (720×1280, captions) → saved in Netlify Blobs → review email (EmailJS).
+   Piper AI voice → Pixabay stock clips (or Pexels) → ffmpeg (720×1280, captions) → saved in Netlify Blobs → review email (EmailJS).
 2. **Netlify** hosts the app (`src/`) and small functions (`netlify/functions/`): list videos, stream them,
    approve/reject (signed email links work without logging in), settings, TikTok login.
 3. **Approve** → `publish.yml` uploads the video to your TikTok inbox/drafts (Content Posting API). You add a sound,
@@ -29,4 +29,4 @@ TTS_FAKE=1 MANUAL=1 npm run generate   # pipeline test with a test tone instead 
 
 ## Costs
 
-Claude script: about 1–4 cents per video. Everything else uses free tiers (Piper, Pexels, GitHub Actions, EmailJS, Netlify).
+Claude script: about 1–4 cents per video. Everything else uses free tiers (Piper, Pixabay, GitHub Actions, EmailJS, Netlify).
