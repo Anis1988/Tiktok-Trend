@@ -1,0 +1,68 @@
+import { z } from 'zod';
+import { guard, json, linkGuard } from '../lib/guard';
+import { getTikTok, getVideo, listVideos, patchVideo } from '../lib/store';
+import { sign, verify } from '../lib/sign';
+import { dispatch, dispatchReady } from '../lib/github';
+import type { VideoRecord } from '../../src/lib/types';
+
+export const config = { path: '/api/videos' };
+
+const withSig = (v: VideoRecord) => ({ ...v, sig: sign(v.id) });
+
+const Post = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('make-now') }),
+  z.object({ action: z.enum(['approve', 'reject', 'posted', 'retry']), id: z.string().max(40), sig: z.string().max(64).optional() }),
+]);
+
+/**
+ * GET  /api/videos              -> all videos (access code)
+ * GET  /api/videos?id=..&sig=.. -> one video (access code OR the signed email link)
+ * POST {action:'make-now'}      -> start a new video now (access code)
+ * POST {action, id, sig?}       -> approve / reject / posted / retry (access code OR signed link)
+ */
+export default async (req: Request): Promise<Response> => {
+  const url = new URL(req.url);
+  const id = url.searchParams.get('id');
+  let body: z.infer<typeof Post> | null = null;
+  if (req.method === 'POST') {
+    try {
+      body = Post.parse(await req.json());
+    } catch {
+      return json({ error: 'Invalid request.' }, 400);
+    }
+  }
+  const linkId = id ?? (body && 'id' in body ? body.id : null);
+  const linkSig = url.searchParams.get('sig') ?? (body && 'sig' in body ? body.sig : null);
+  const byLink = !!linkId && verify(linkId, linkSig);
+  const blocked = byLink ? linkGuard(req, 'videos-link', 30) : guard(req, 'videos', 60);
+  if (blocked) return blocked;
+
+  if (req.method === 'GET') {
+    if (id) {
+      const v = await getVideo(id);
+      return v ? json(withSig(v)) : json({ error: 'Video not found.' }, 404);
+    }
+    return json((await listVideos()).map(withSig));
+  }
+  if (!body) return json({ error: 'GET or POST only' }, 405);
+
+  try {
+    if (body.action === 'make-now') {
+      await dispatch('generate.yml', { manual: 'true' });
+      return json({ ok: true, message: 'Started. A new video takes 2 to 5 minutes; you will get an email.' });
+    }
+    const v = await getVideo(body.id);
+    if (!v) return json({ error: 'Video not found.' }, 404);
+    if (body.action === 'reject') return json(withSig((await patchVideo(v.id, { status: 'rejected' }))!));
+    if (body.action === 'posted') return json(withSig((await patchVideo(v.id, { status: 'posted' }))!));
+    // approve / retry: send to TikTok drafts when connected, otherwise it is yours to download and post.
+    if (!['pending', 'approved', 'failed'].includes(v.status)) return json({ error: `Already ${v.status}.` }, 409);
+    if (v.status === 'failed' && !v.sizeBytes) return json({ error: 'This video was never made, so there is nothing to send.' }, 409);
+    const tt = await getTikTok();
+    if (!tt || !dispatchReady()) return json(withSig((await patchVideo(v.id, { status: 'approved', error: undefined }))!));
+    await dispatch('publish.yml', { id: v.id });
+    return json(withSig((await patchVideo(v.id, { status: 'publishing', error: undefined }))!));
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : String(e) }, 502);
+  }
+};

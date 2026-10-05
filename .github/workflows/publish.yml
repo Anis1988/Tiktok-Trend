@@ -1,0 +1,35 @@
+name: Send to TikTok drafts
+
+on:
+  workflow_dispatch:
+    inputs:
+      id:
+        description: 'Video id (started by the Approve button)'
+        required: true
+
+concurrency:
+  group: publish-${{ inputs.id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Upload to TikTok
+        run: npm run publish-video
+        env:
+          VIDEO_ID: ${{ inputs.id }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}

@@ -1,0 +1,34 @@
+import { z } from 'zod';
+import { guard, json } from '../lib/guard';
+import { getSettings, writeJson } from '../lib/store';
+
+export const config = { path: '/api/settings' };
+
+const Patch = z.object({
+  enabled: z.boolean(),
+  topics: z.array(z.string().trim().min(1).max(40)).max(8),
+  country: z.enum(['US', 'GB', 'CA', 'AU', 'IE', 'NZ']),
+  voice: z.enum(['female', 'male']),
+  tone: z.enum(['punchy', 'explainer', 'anchor']),
+  perDay: z.number().int().min(1).max(3),
+  maxSeconds: z.union([z.literal(30), z.literal(45), z.literal(60)]),
+  aiDailyLimit: z.number().int().min(1).max(30),
+  notifyEmail: z.union([z.literal(''), z.string().email().max(200)]),
+}).partial();
+
+// GET /api/settings, POST /api/settings {partial settings}
+export default async (req: Request): Promise<Response> => {
+  const blocked = guard(req, 'settings', 30);
+  if (blocked) return blocked;
+  if (req.method === 'GET') return json(await getSettings());
+  if (req.method !== 'POST') return json({ error: 'GET or POST only' }, 405);
+  let patch: z.infer<typeof Patch>;
+  try {
+    patch = Patch.parse(await req.json());
+  } catch (e) {
+    return json({ error: `Invalid settings: ${e instanceof Error ? e.message.slice(0, 200) : e}` }, 400);
+  }
+  const next = { ...(await getSettings()), ...patch };
+  await writeJson('settings', next);
+  return json(next);
+};

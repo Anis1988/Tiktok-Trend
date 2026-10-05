@@ -1,0 +1,8 @@
+node_modules
+build
+.env
+.netlify
+out
+*.mp4
+*.wav
+.piper
