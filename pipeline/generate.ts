@@ -19,6 +19,7 @@ const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 
 
 async function main() {
   const manual = process.env.MANUAL === '1';
+  if (!process.env.ANTHROPIC_API_KEY?.trim()) throw new Error('ANTHROPIC_API_KEY is missing. Add it in GitHub: Settings → Secrets and variables → Actions → New repository secret.');
   const s = await getSettings();
   const videos = await listVideos();
   if (!manual) {
