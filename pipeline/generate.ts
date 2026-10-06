@@ -4,20 +4,52 @@
  */
 import { copyFile, mkdir, readFile, rm } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
-import type { VideoRecord } from '../src/lib/types';
+import type { AppSettings, VideoRecord } from '../src/lib/types';
 import { getSettings, listVideos, readJson, saveVideo, store, writeJson } from '../netlify/lib/store';
 import { sign } from '../netlify/lib/sign';
 import { emailReady, sendEmail } from '../netlify/lib/mailer';
 import { findCandidates, subjectNews, type Candidate } from './lib/trends';
 import { MODEL, writeScript } from './lib/script';
-import { speak, voiceName } from './lib/tts';
+import { speak, voiceUsed } from './lib/tts';
 import { findClip, footageReady, type Clip } from './lib/footage';
 import { renderVideo, type Scene } from './lib/render';
 
 const day = () => new Date().toISOString().slice(0, 10);
 const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
+/**
+ * Test only (SAMPLE=1, "Sample video" on GitHub's Run workflow form): a fixed made-up script, no AI, nothing saved
+ * in the app, no email. The video is attached to the GitHub run, to check the voice, captions and music.
+ */
+async function sample() {
+  const voice = (process.env.SAMPLE_VOICE || 'af_heart') as AppSettings['voice'];
+  const lines = [
+    { text: 'Your coffee order just got a promotion.', footage: 'coffee cup morning' },
+    { text: 'This is a made-up example, so nothing here is real news.', footage: 'city street people walking' },
+    { text: 'Imagine a cafe where the barista remembers your name, your order, and your mood.', footage: 'barista coffee shop' },
+    { text: 'It is basically a friend who charges five dollars.', footage: 'friends laughing cafe' },
+    { text: 'Would you let a robot pick your coffee for a week?', footage: 'robot arm technology' },
+  ];
+  const dir = 'out/sample';
+  await mkdir(dir, { recursive: true });
+  const used = new Set<string>();
+  const scenes: Scene[] = [];
+  for (const [i, l] of lines.entries()) {
+    const wav = `${dir}/l${i}.wav`;
+    await speak(l.text, voice, wav, true);
+    const clip = await findClip(l.footage, used, `${dir}/clip${i}.mp4`);
+    scenes.push({ text: l.text, wav, clip: clip?.path ?? null });
+  }
+  const dur = await renderVideo(scenes, dir, `${dir}/video.mp4`, `${dir}/thumb.jpg`, { music: process.env.SAMPLE_MUSIC !== '0' });
+  log(`Sample rendered: ${dur.toFixed(1)} s, voice ${voiceUsed()}`);
+  if (process.env.SAVE_COPY_DIR) {
+    await mkdir(process.env.SAVE_COPY_DIR, { recursive: true });
+    await copyFile(`${dir}/video.mp4`, `${process.env.SAVE_COPY_DIR}/sample.mp4`);
+  }
+}
+
 async function main() {
+  if (process.env.SAMPLE === '1') return sample();
   const manual = process.env.MANUAL === '1';
   if (!process.env.ANTHROPIC_API_KEY?.trim()) throw new Error('ANTHROPIC_API_KEY is missing. Add it in GitHub: Settings → Secrets and variables → Actions → New repository secret.');
   const s = await getSettings();
@@ -68,9 +100,9 @@ async function main() {
   const base: VideoRecord = {
     id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status: 'failed',
     topic: cand.topic, title: sc.title.slice(0, 80), hook: sc.hook, lines: sc.lines.map((l) => l.text),
-    caption: sc.caption.slice(0, 150), hashtags: sc.hashtags.map((h) => h.replace(/^#/, '').replace(/\s+/g, '')).filter(Boolean).slice(0, 5),
+    caption: sc.caption.slice(0, 150), firstComment: sc.firstComment.slice(0, 150) || undefined, hashtags: sc.hashtags.map((h) => h.replace(/^#/, '').replace(/\s+/g, '')).filter(Boolean).slice(0, 5),
     sources: sc.sources.map((i) => cand.headlines[i]).filter(Boolean), durationSec: 0, sizeBytes: 0,
-    voice: voiceName(s.voice), footage: [], model: MODEL,
+    voice: s.voice, footage: [], model: MODEL,
   };
   if (!base.sources.length) base.sources = cand.headlines;
 
@@ -80,7 +112,7 @@ async function main() {
     const credits: Clip[] = [];
     for (const [i, l] of sc.lines.entries()) {
       const wav = `${dir}/l${i}.wav`;
-      await speak(l.text, s.voice, wav, s.tone === 'punchy');
+      await speak(l.text, s.voice, wav, s.tone === 'punchy' || s.tone === 'witty');
       let clip: Clip | null = null;
       clip = await findClip(l.footage, used, `${dir}/clip${i}.mp4`);
       if (clip) credits.push(clip);
@@ -88,14 +120,14 @@ async function main() {
     }
     const mp4 = `${dir}/video.mp4`;
     const jpg = `${dir}/thumb.jpg`;
-    const dur = await renderVideo(scenes, dir, mp4, jpg);
+    const dur = await renderVideo(scenes, dir, mp4, jpg, { music: s.music });
     const bytes = await readFile(mp4);
     log(`Rendered ${dur.toFixed(1)} s, ${(bytes.length / 1e6).toFixed(1)} MB`);
 
     const files = store('tt-files');
     await files.set(`${id}.mp4`, new Uint8Array(bytes).buffer);
     await files.set(`${id}.jpg`, new Uint8Array(await readFile(jpg)).buffer);
-    const rec: VideoRecord = { ...base, status: 'pending', durationSec: Math.round(dur), sizeBytes: bytes.length, footage: [...new Map(credits.map((c) => [c.url, { by: c.by, url: c.url, site: c.site }])).values()] };
+    const rec: VideoRecord = { ...base, voice: voiceUsed() || base.voice, status: 'pending', durationSec: Math.round(dur), sizeBytes: bytes.length, footage: [...new Map(credits.map((c) => [c.url, { by: c.by, url: c.url, site: c.site }])).values()] };
     await saveVideo(rec);
     log(`Saved ${id}`);
     if (process.env.SAVE_COPY_DIR) {
@@ -133,6 +165,7 @@ async function notify(rec: VideoRecord, to: string) {
           ...rec.lines.map((l) => `  ${l}`),
           '',
           `Caption: ${rec.caption} ${rec.hashtags.map((h) => `#${h}`).join(' ')}`,
+          ...(rec.firstComment ? [`Comment to pin: ${rec.firstComment}`] : []),
           `Sources: ${rec.sources.map((x) => x.url).join('  ')}`,
           '',
           'Nothing is posted until you approve it.',

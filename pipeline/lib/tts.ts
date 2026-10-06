@@ -1,25 +1,60 @@
 import { existsSync } from 'node:fs';
 import { run } from './sh';
+import type { VoiceId } from '../../src/lib/types';
 
 /**
- * AI voice with Piper (free, open source, runs inside the GitHub Action, no account needed).
- * The workflow downloads the program and two voices into PIPER_DIR.
+ * AI voice, free and run inside the GitHub Action:
+ * - Kokoro (natural-sounding, open source). The workflow installs `kokoro-js`; the voice model downloads on first use.
+ * - Piper (older, more robotic) as a fallback if Kokoro fails. The workflow downloads it into PIPER_DIR.
  */
-const VOICES = { female: 'en_US-amy-medium', male: 'en_US-ryan-medium' } as const;
+type Kokoro = { generate: (text: string, o: { voice: string; speed?: number }) => Promise<{ save: (path: string) => void | Promise<void> }> };
 
-export function voiceName(v: 'female' | 'male'): string {
-  return VOICES[v];
+const KOKORO_MODEL = 'onnx-community/Kokoro-82M-v1.0-ONNX';
+const PIPER = { female: 'en_US-amy-medium', male: 'en_US-ryan-medium' } as const;
+const OLD: Record<'female' | 'male', VoiceId> = { female: 'af_heart', male: 'am_michael' };
+
+/** Saved settings may still say 'female' / 'male' (Piper days): use the matching Kokoro voice. */
+export const kokoroVoice = (v: VoiceId): Exclude<VoiceId, 'female' | 'male'> => (v === 'female' || v === 'male' ? OLD[v] : v) as Exclude<VoiceId, 'female' | 'male'>;
+const piperFor = (v: VoiceId) => PIPER[/^(am|bm)_|^male$/.test(v) ? 'male' : 'female'];
+
+let kokoro: Promise<Kokoro> | null = null;
+let kokoroBroken = '';
+let used = '';
+
+async function loadKokoro(): Promise<Kokoro> {
+  const name = 'kokoro-js'; // installed by the workflow only (big), so the website build stays small
+  const mod = (await import(name)) as { KokoroTTS: { from_pretrained: (id: string, o: object) => Promise<Kokoro> } };
+  return mod.KokoroTTS.from_pretrained(KOKORO_MODEL, { dtype: 'q8', device: 'cpu' });
 }
 
-export async function speak(text: string, voice: 'female' | 'male', outWav: string, fast: boolean): Promise<void> {
-  const dir = process.env.PIPER_DIR ?? '.piper';
-  const bin = `${dir}/piper/piper`;
-  if (process.env.TTS_FAKE === '1' || !existsSync(bin)) {
-    if (process.env.TTS_FAKE !== '1') throw new Error(`Piper not found at ${bin}.`);
+/** The voice actually used for this video (shown in the app). */
+export const voiceUsed = () => used;
+
+export async function speak(text: string, voice: VoiceId, outWav: string, fast: boolean): Promise<void> {
+  if (process.env.TTS_FAKE === '1') {
     // Local test only: a quiet tone as long as the line would take to read.
     const secs = Math.max(1.2, text.split(/\s+/).length / 2.6);
-    await run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', `sine=frequency=220:duration=${secs.toFixed(2)}`, '-af', 'volume=0.05', '-ar', '22050', '-ac', '1', outWav]);
+    await run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', `sine=frequency=220:duration=${secs.toFixed(2)}`, '-af', 'volume=1.5', '-ar', '24000', '-ac', '1', outWav]);
+    used = 'test tone';
     return;
   }
-  await run(bin, ['-m', `${dir}/${VOICES[voice]}.onnx`, '-f', outWav, '--length_scale', fast ? '0.88' : '0.97', '--sentence_silence', '0.1'], text);
+  if (!kokoroBroken) {
+    try {
+      kokoro ??= loadKokoro();
+      const v = kokoroVoice(voice);
+      const audio = await (await kokoro).generate(text, { voice: v, speed: fast ? 1.08 : 1 });
+      await audio.save(outWav);
+      used = `Kokoro ${v}`;
+      return;
+    } catch (e) {
+      kokoroBroken = e instanceof Error ? e.message : String(e);
+      console.log(`Kokoro voice failed, using Piper instead: ${kokoroBroken}`);
+    }
+  }
+  const dir = process.env.PIPER_DIR ?? '.piper';
+  const bin = `${dir}/piper/piper`;
+  if (!existsSync(bin)) throw new Error(`No voice available (Kokoro: ${kokoroBroken}; Piper not found at ${bin}).`);
+  const model = piperFor(voice);
+  await run(bin, ['-m', `${dir}/${model}.onnx`, '-f', outWav, '--length_scale', fast ? '0.88' : '0.97', '--sentence_silence', '0.1'], text);
+  used = `Piper ${model}`;
 }

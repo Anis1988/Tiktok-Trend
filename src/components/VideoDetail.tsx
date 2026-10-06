@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { api, fileUrl, type Video } from '../lib/api';
 import { StatusChip, toast, when } from './ui';
+import { VOICE_LABEL } from '../lib/types';
+
+/** "Kokoro af_heart" -> "Heart · warm female (US)". Older videos show the Piper voice name as saved. */
+const voiceText = (v: string) => VOICE_LABEL[v.replace(/^Kokoro /, '') as keyof typeof VOICE_LABEL] ?? v;
 
 /** Everything about one video, with the buttons that fit its status. Used in the app and on the email review page. */
 export function VideoDetail({ v, onChange, tiktokConnected, example = false }: { v: Video; onChange?: (v: Video) => void; tiktokConnected?: boolean; example?: boolean }) {
@@ -21,10 +25,10 @@ export function VideoDetail({ v, onChange, tiktokConnected, example = false }: {
       setBusy('');
     }
   };
-  const copy = async () => {
+  const copy = async (text = fullCaption, what = 'Caption') => {
     try {
-      await navigator.clipboard.writeText(fullCaption);
-      toast('success', 'Caption copied.');
+      await navigator.clipboard.writeText(text);
+      toast('success', `${what} copied.`);
     } catch {
       toast('error', 'Could not copy. Select the text instead.');
     }
@@ -70,6 +74,16 @@ export function VideoDetail({ v, onChange, tiktokConnected, example = false }: {
           <p className="label">Caption</p>
           <p className="text-sm text-slate-200">{fullCaption}</p>
         </div>
+        {v.firstComment && (
+          <div className="panel space-y-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="label">Comment to post and pin</p>
+              <button className="btn !min-h-0 !py-1 text-xs" onClick={() => void copy(v.firstComment, 'Comment')}>Copy comment</button>
+            </div>
+            <p className="text-sm text-slate-200">💬 {v.firstComment}</p>
+            <p className="text-xs text-slate-500">After posting, add this as the first comment and pin it (long-press it → Pin). It gets people replying.</p>
+          </div>
+        )}
         <div className="panel space-y-1">
           <p className="label">What the voice says</p>
           <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-300">{v.lines.map((l, i) => <li key={i}>{l}</li>)}</ol>
@@ -82,7 +96,7 @@ export function VideoDetail({ v, onChange, tiktokConnected, example = false }: {
           {v.footage.length > 0 && (
             <p><span className="label !text-[10px]">Footage</span> {v.footage.map((f, i) => <a key={i} className="mr-1 underline" href={f.url} target="_blank" rel="noopener noreferrer">{f.by} ({f.site ?? 'Pexels'})</a>)}</p>
           )}
-          <p>Voice: {v.voice} (AI) · script: {v.model}</p>
+          <p>Voice: {voiceText(v.voice)} (AI) · script: {v.model}</p>
         </div>
       </div>
     </div>

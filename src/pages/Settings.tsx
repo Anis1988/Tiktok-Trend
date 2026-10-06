@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, setCode, type Status } from '../lib/api';
 import type { AppSettings } from '../lib/types';
-import { TONE_LABEL } from '../lib/types';
+import { TONE_LABEL, VOICE_LABEL } from '../lib/types';
 import { Card, Field, Toggle, toast } from '../components/ui';
 
 export function Settings() {
@@ -83,9 +83,8 @@ export function Settings() {
 
       <Card title="How it sounds" subtitle="Voice and style">
         <Field label="Voice">
-          <select className="input w-36" value={s.voice} onChange={(e) => void save({ voice: e.target.value as AppSettings['voice'] })}>
-            <option value="female">Female</option>
-            <option value="male">Male</option>
+          <select className="input w-full max-w-[16rem]" value={s.voice === 'female' ? 'af_heart' : s.voice === 'male' ? 'am_michael' : s.voice} onChange={(e) => void save({ voice: e.target.value as AppSettings['voice'] })}>
+            {Object.entries(VOICE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </Field>
         <Field label="Style">
@@ -97,6 +96,9 @@ export function Settings() {
           <select className="input w-36" value={s.maxSeconds} onChange={(e) => void save({ maxSeconds: Number(e.target.value) })}>
             {[30, 45, 60].map((n) => <option key={n} value={n}>about {n}s</option>)}
           </select>
+        </Field>
+        <Field label="Soft background music" hint="Off is best if you add a trending TikTok sound when posting (TikTok shows those videos to more people). On: a quiet original tune plays under the voice and gets softer while it speaks.">
+          <Toggle on={s.music} onChange={(v) => void save({ music: v })} label="Soft background music" />
         </Field>
       </Card>
 

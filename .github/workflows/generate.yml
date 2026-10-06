@@ -17,6 +17,11 @@ on:
         description: 'Subject (optional), e.g. "iPhone 18". Leave empty for the top trend.'
         required: false
         default: ''
+      sample:
+        description: 'Test only: a made-up sample video (no AI cost, not added to the app) to check voice and music'
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: make-video
@@ -36,6 +41,8 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - name: Install the natural voice (Kokoro)
+        run: npm install --no-save --no-audit --no-fund kokoro-js@1.2.1
       - name: Install ffmpeg and caption font
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
       - name: Cache the voice program
@@ -65,11 +72,13 @@ jobs:
           path: .piper
           key: piper-2023.11.14-2-amy-ryan-medium
       - name: Make the video
+        timeout-minutes: 15
         run: npm run generate
         env:
           MANUAL: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
           PIPER_DIR: .piper
           SUBJECT: ${{ inputs.subject }}
+          SAMPLE: ${{ inputs.sample && '1' || '0' }}
           SAVE_COPY_DIR: done
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}

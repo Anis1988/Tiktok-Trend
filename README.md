@@ -6,7 +6,8 @@ Makes short vertical videos about what's trending, emails you a preview, and aft
 
 1. **GitHub Actions** (`.github/workflows/generate.yml`, daily or "Make a video now"):
    Google Trends + Google News → Claude writes a script from the headlines (structured output, daily cap) →
-   Piper AI voice → Pixabay stock clips (or Pexels) → ffmpeg (720×1280, captions) → saved in Netlify Blobs → review email (EmailJS).
+   Kokoro AI voice (Piper as backup) → Pixabay stock clips (or Pexels) → ffmpeg (1080×1920, zooms, crossfades, word-by-word
+   captions, -14 LUFS sound, optional soft music) → saved in Netlify Blobs → review email (EmailJS).
 2. **Netlify** hosts the app (`src/`) and small functions (`netlify/functions/`): list videos, stream them,
    approve/reject (signed email links work without logging in), settings, TikTok login.
    "Make a video now" takes an optional subject (also on GitHub's Run workflow form); each run attaches the MP4 under "Artifacts" for 7 days.

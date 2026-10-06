@@ -10,10 +10,11 @@ import { STATUS_LABEL } from '../lib/types';
 const EXAMPLE: Video = {
   id: 'example', sig: '', createdAt: '2026-10-05T14:05:00Z', updatedAt: '2026-10-05T14:05:00Z', status: 'pending',
   topic: 'blood moon', title: 'Blood moon tonight', hook: 'Look up tonight!',
-  lines: ['Look up tonight, because the moon is turning red.', 'Reports say a rare blood moon will be visible across the US.', 'It happens when Earth sits right between the sun and the moon.', 'Are you going outside to watch it?'],
-  caption: 'A rare blood moon is visible tonight across the US', hashtags: ['bloodmoon', 'space', 'nightsky'],
+  lines: ['The moon is doing its villain era tonight.', 'Reports say a rare blood moon will be visible across the US.', 'It happens when Earth photobombs the sun, right between it and the moon.', 'Free show, no tickets, terrible seats if it is cloudy.', 'Are you staying up, or setting an alarm you will snooze?'],
+  caption: 'The moon is turning red tonight and it is not even sorry', hashtags: ['bloodmoon', 'space', 'nightsky'],
+  firstComment: 'Team "stays up" or team "watches it on TikTok tomorrow"? 🌕',
   sources: [{ title: 'Rare blood moon visible tonight', url: 'https://example.com/moon', site: 'Example News' }],
-  durationSec: 38, sizeBytes: 1, voice: 'en_US-amy-medium', footage: [{ by: 'Jane Doe', url: 'https://pixabay.com', site: 'Pixabay' }], model: 'claude-opus-5-5',
+  durationSec: 38, sizeBytes: 1, voice: 'Kokoro af_heart', footage: [{ by: 'Jane Doe', url: 'https://pixabay.com', site: 'Pixabay' }], model: 'claude-opus-5-5',
 };
 
 function Section({ title, children, open: start = false }: { title: string; children: ReactNode; open?: boolean }) {
@@ -54,8 +55,8 @@ export function Guide() {
       <Section title="How it works" open>
         <ol className="list-decimal space-y-2 pl-5">
           <li><b>Find a topic.</b> Once a day the app looks at what people are searching for (Google Trends) and today's news on your topics (Google News). You can also pick the subject yourself (see "Choosing the subject").</li>
-          <li><b>Write the script.</b> Claude picks one good topic and writes a 30 to 60 second script using only facts from the headlines. It skips sad or risky subjects (deaths, disasters, crimes, elections, medical or money advice).</li>
-          <li><b>Make the video.</b> An AI voice reads the script, free stock clips from Pixabay play behind it (cropped to vertical), and big captions show the words. Vertical 9:16, ready for TikTok.</li>
+          <li><b>Write the script.</b> Claude picks one good topic and writes a 30 to 60 second script using only facts from the headlines. It tries 3 opening lines and keeps the one most likely to stop someone scrolling, adds a clever line or comparison, and ends with a punchline or a fun question. It also writes the caption and a witty comment for you to pin. It skips sad or risky subjects (deaths, disasters, crimes, elections, medical or money advice), and jokes are never about real people.</li>
+          <li><b>Make the video.</b> A natural-sounding AI voice (Kokoro) reads the script. Sharp stock clips from Pixabay play behind it with a slow zoom and soft fades between them. Captions show 1 to 3 words at a time, with the word being spoken in yellow. The sound is cleaned up and set to TikTok's standard loudness. Full HD vertical video (1080×1920), ready for TikTok.</li>
           <li><b>Email you.</b> You get an email with a link. Watch it, then tap <b>Approve</b> or <b>Reject</b>.</li>
           <li><b>To TikTok.</b> Approved videos go to your TikTok drafts. You get a TikTok notification, add a sound if you like, and tap Post. Until TikTok is connected, you download it and post it yourself.</li>
         </ol>
@@ -89,6 +90,7 @@ export function Guide() {
           <li>Scroll to <b>Artifacts</b> at the bottom and tap <b>video</b>.</li>
           <li>It downloads as a .zip: open it to get the .mp4, then watch it or post it from your phone.</li>
         </ol>
+        <p>Want to hear a voice or the music before using real topics? In <b>Run workflow</b>, tick <b>"Test only: a made-up sample video"</b>. It makes a short sample with the voice from Settings (no AI cost, not added to your videos) and attaches it to the run the same way.</p>
       </Section>
 
       <Section title="What the labels mean">
@@ -113,15 +115,16 @@ export function Guide() {
         <ul className="list-disc space-y-2 pl-5">
           <li><b>Turn on "AI-generated content"</b> in TikTok when you post. TikTok requires it for videos with an AI voice.</li>
           <li><b>Check the facts.</b> The script only uses the headlines, but headlines can be wrong. The sources are listed under each video.</li>
-          <li><b>Music:</b> the video has no music on purpose (copyright). Add a TikTok sound when you post from drafts.</li>
+          <li><b>Music:</b> by default there is no music, so you can add a trending TikTok sound when you post (TikTok shows those to more people). Prefer music built in? Turn on "Soft background music" in Settings: a quiet original tune that gets softer while the voice speaks.</li>
+          <li><b>Pin the comment:</b> after posting, paste the suggested comment as the first comment and pin it (long-press it → Pin). Replies help the video spread.</li>
           <li><b>Quality over quantity:</b> TikTok shows repetitive AI videos to fewer people. One good video a day beats three weak ones.</li>
         </ul>
       </Section>
 
       <Section title="What it costs">
         <ul className="list-disc space-y-1 pl-5">
-          <li>AI script: about 1 to 4 cents per video from your Anthropic API credit. Capped by "Most AI scripts per day" in Settings.</li>
-          <li>Voice (Piper), stock clips (Pixabay), video building (GitHub Actions), email (EmailJS), hosting (Netlify): free at this size.</li>
+          <li>AI script: about 2 to 5 cents per video from your Anthropic API credit. Capped by "Most AI scripts per day" in Settings.</li>
+          <li>Voice (Kokoro, with Piper as a backup), stock clips (Pixabay), video building (GitHub Actions), email (EmailJS), hosting (Netlify): free at this size.</li>
         </ul>
       </Section>
 

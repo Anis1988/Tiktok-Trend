@@ -12,31 +12,39 @@ interface Candidate {
   link: string;
   width: number;
   height: number;
+  duration?: number; // seconds, when the site says
   by: string;
   url: string;
   site: Clip['site'];
 }
 
-/** Portrait clips first (closest to 1280 tall); landscape ones are cropped to vertical, so prefer the largest. */
+/**
+ * Sharpest fit for a 1080x1920 video. Portrait clips first (closest to 1920 tall, at least 1280). Landscape clips are
+ * cropped to vertical, which throws away most of the picture, so only big ones (1080 to 2160 tall), largest first.
+ * Very short clips (under 5 s) would visibly loop, so they go last.
+ */
 function best(cands: Candidate[], used: Set<string>): Candidate[] {
   const free = cands.filter((c) => c.link && !used.has(c.key));
-  const portrait = free.filter((c) => c.height > c.width && c.height >= 960).sort((a, b) => Math.abs(a.height - 1280) - Math.abs(b.height - 1280));
-  const landscape = free.filter((c) => c.height <= c.width && c.height >= 720 && c.height <= 2160).sort((a, b) => b.height - a.height);
-  return [...portrait, ...landscape];
+  const short = (c: Candidate) => (c.duration !== undefined && c.duration < 5 ? 1 : 0);
+  const portrait = free.filter((c) => c.height > c.width && c.height >= 1280).sort((a, b) => short(a) - short(b) || Math.abs(a.height - 1920) - Math.abs(b.height - 1920));
+  const landscape = free.filter((c) => c.height <= c.width && c.height >= 1080 && c.height <= 2160).sort((a, b) => short(a) - short(b) || b.height - a.height);
+  // Smaller clips only if nothing sharper exists: still better than a plain background.
+  const rest = free.filter((c) => !portrait.includes(c) && !landscape.includes(c) && Math.min(c.width, c.height) >= 720 && c.height <= 2160).sort((a, b) => b.height - a.height);
+  return [...portrait, ...landscape, ...rest];
 }
 
 /** Pexels (free key; new keys are paused, so it is only used if you already have one). */
 async function pexels(query: string): Promise<Candidate[]> {
   const key = process.env.PEXELS_API_KEY;
   if (!key) return [];
-  const res = await fetch(`https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&orientation=portrait&size=medium&per_page=15`, {
+  const res = await fetch(`https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&orientation=portrait&size=large&per_page=15`, {
     headers: { Authorization: key },
     signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) throw new Error(`Pexels HTTP ${res.status}`);
-  const j = (await res.json()) as { videos?: { id: number; url: string; user: { name: string }; video_files: { link: string; width: number; height: number; file_type: string }[] }[] };
+  const j = (await res.json()) as { videos?: { id: number; url: string; duration?: number; user: { name: string }; video_files: { link: string; width: number; height: number; file_type: string }[] }[] };
   return (j.videos ?? []).flatMap((v) =>
-    v.video_files.filter((f) => f.file_type === 'video/mp4').map((f) => ({ key: `pexels:${v.id}`, link: f.link, width: f.width, height: f.height, by: v.user.name, url: v.url, site: 'Pexels' as const })),
+    v.video_files.filter((f) => f.file_type === 'video/mp4').map((f) => ({ key: `pexels:${v.id}`, link: f.link, width: f.width, height: f.height, duration: v.duration, by: v.user.name, url: v.url, site: 'Pexels' as const })),
   );
 }
 
@@ -49,9 +57,9 @@ async function pixabay(query: string): Promise<Candidate[]> {
   });
   if (!res.ok) throw new Error(`Pixabay HTTP ${res.status}`);
   type Size = { url: string; width: number; height: number };
-  const j = (await res.json()) as { hits?: { id: number; pageURL: string; user: string; videos: Record<string, Size> }[] };
+  const j = (await res.json()) as { hits?: { id: number; pageURL: string; user: string; duration?: number; videos: Record<string, Size> }[] };
   return (j.hits ?? []).flatMap((h) =>
-    Object.values(h.videos ?? {}).map((s) => ({ key: `pixabay:${h.id}`, link: s.url, width: s.width, height: s.height, by: h.user, url: h.pageURL, site: 'Pixabay' as const })),
+    Object.values(h.videos ?? {}).map((s) => ({ key: `pixabay:${h.id}`, link: s.url, width: s.width, height: s.height, duration: h.duration, by: h.user, url: h.pageURL, site: 'Pixabay' as const })),
   );
 }
 
