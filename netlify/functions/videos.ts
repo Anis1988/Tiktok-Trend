@@ -21,7 +21,10 @@ const Post = z.discriminatedUnion('action', [
     action: z.literal('save-script'), id: z.string().max(40), sig: z.string().max(64).optional(),
     title: z.string().trim().min(1).max(80), hook: z.string().trim().min(1).max(120),
     caption: z.string().trim().max(150), firstComment: z.string().trim().max(150),
-    lines: z.array(z.object({ text: z.string().trim().min(1).max(220), footage: z.string().trim().min(1).max(60), keywords: z.array(z.string().trim().max(30)).max(3) })).min(2).max(12),
+    lines: z.array(z.object({
+      text: z.string().trim().min(1).max(220), footage: z.string().trim().min(1).max(60), keywords: z.array(z.string().trim().max(30)).max(3),
+      real: z.string().trim().max(80).optional(), media: z.string().max(30).optional(),
+    })).min(2).max(12),
   }),
 ]);
 

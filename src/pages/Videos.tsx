@@ -6,6 +6,7 @@ import { CATEGORIES, findCategory, type Niche } from '../lib/niches';
 import type { AppSettings } from '../lib/types';
 import { NichePicker } from '../components/NichePicker';
 import { Fold, VideoStyle } from '../components/VideoStyle';
+import { MyClips } from '../components/MyClips';
 
 export function SetupChecklist({ st }: { st: Status }) {
   const items = [
@@ -113,6 +114,9 @@ export function Videos() {
           </Fold>
           <Fold id="style" title="Video style & effects" subtitle={`${settings.reviewScript ? 'Check the script first · ' : ''}voice, captions, effects, music`}>
             <VideoStyle s={settings} save={(p) => void saveSettings(p)} />
+          </Fold>
+          <Fold id="clips" title="My clips" subtitle="Your own videos and pictures, used when a scene mentions their tags">
+            <MyClips />
           </Fold>
         </>
       )}

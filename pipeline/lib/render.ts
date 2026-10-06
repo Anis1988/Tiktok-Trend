@@ -17,7 +17,10 @@ export interface Scene {
   text: string;
   wav: string; // the spoken line
   clip: string | null; // stock video, or null for a moving colour background
+  clipStart?: number; // start this many seconds into the clip
   keywords?: string[]; // words of this line that pop in colour
+  image?: string | null; // a still photo (real photo or your picture), shown as a framed card over a blurred copy
+  credit?: string; // small credit line during this scene (free-licence photos and clips)
 }
 
 export interface RenderOptions {
@@ -80,7 +83,7 @@ const assTime = (t: number) => {
 };
 const assText = (s: string) => s.toUpperCase().replace(/[{}\\]/g, '');
 
-export interface CaptionLine { text: string; start: number; dur: number; keywords?: string[] }
+export interface CaptionLine { text: string; start: number; dur: number; keywords?: string[]; credit?: string }
 
 /**
  * ASS subtitle file: 1 to 3 words at a time, white bold with a thick outline; the spoken word in the caption colour,
@@ -98,6 +101,7 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
     `Style: Cap,DejaVu Sans,${size},&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,-1,0,0,0,100,100,1,0,1,9,4,5,110,150,0,1`,
     // Hook card: white words on a dark box near the top.
     'Style: Hook,DejaVu Sans,96,&H00FFFFFF,&H00FFFFFF,&H30000000,&H00000000,-1,0,0,0,100,100,0,0,3,26,0,5,90,90,0,1',
+    'Style: Credit,DejaVu Sans,28,&H30FFFFFF,&H30FFFFFF,&H80000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,5,60,60,0,1',
     'Style: End,DejaVu Sans,84,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,-1,0,0,0,100,100,1,0,1,8,3,5,90,90,0,1', '',
     '[Events]', 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
   ];
@@ -120,6 +124,10 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
         events.push(`Dialogue: 0,${assTime(w.from)},${assTime(end)},Cap,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.6)})${pop}}${body}`);
       });
     });
+  }
+  for (const l of lines) {
+    if (!l.credit) continue;
+    events.push(`Dialogue: 1,${assTime(l.start)},${assTime(l.start + l.dur + GAP)},Credit,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.7)})}${l.credit.replace(/[{}\\]/g, '').slice(0, 90)}`);
   }
   if (o.hook) {
     const until = Math.min(2.4, lines[1]?.start ?? 2.4, o.total ?? 2.4);
@@ -173,10 +181,21 @@ async function renderScene(s: Scene, i: number, dur: number, dir: string, tail: 
     `scale=${W}:${H}:force_original_aspect_ratio=increase`, `crop=${W}:${H}`, `fps=${FPS}`,
     `scale=w='trunc(${W}*${z}/2)*2':h=-2:eval=frame:flags=bicubic`, `crop=${W}:${H}`, 'setsar=1', grade,
   ].join(',');
-  const [c0, c1] = BACKGROUNDS[i % BACKGROUNDS.length];
-  const input = s.clip ? ['-stream_loop', '-1', '-i', s.clip] : ['-f', 'lavfi', '-i', `gradients=s=${W}x${H}:c0=${c0}:c1=${c1}:speed=0.008:r=${FPS}`];
   const video = `${dir}/v${i}.mp4`;
-  await run('ffmpeg', ['-y', '-v', 'error', ...input, '-t', len.toFixed(3), '-vf', vf, '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '16', '-pix_fmt', 'yuv420p', video]);
+  const enc = ['-t', len.toFixed(3), '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '16', '-pix_fmt', 'yuv420p', video];
+  if (s.image) {
+    // Photo card: the whole photo, sharp, with a thin white frame, over a blurred and darkened copy filling the screen.
+    const card = [
+      `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},boxblur=28:4,eq=brightness=-0.22[bg]`,
+      `[1:v]scale=w=${W - 120}:h=${Math.round(H * 0.58)}:force_original_aspect_ratio=decrease,pad=iw+14:ih+14:7:7:color=white@0.92[fg]`,
+      `[bg][fg]overlay=(W-w)/2:(H-h)/2-${Math.round(H * 0.07)},${vf.replace(`scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},`, '')}[out]`,
+    ].join(';');
+    await run('ffmpeg', ['-y', '-v', 'error', '-loop', '1', '-framerate', String(FPS), '-i', s.image, '-loop', '1', '-framerate', String(FPS), '-i', s.image, '-filter_complex', card, '-map', '[out]', ...enc]);
+    return video;
+  }
+  const [c0, c1] = BACKGROUNDS[i % BACKGROUNDS.length];
+  const input = s.clip ? ['-stream_loop', '-1', ...(s.clipStart ? ['-ss', s.clipStart.toFixed(2)] : []), '-i', s.clip] : ['-f', 'lavfi', '-i', `gradients=s=${W}x${H}:c0=${c0}:c1=${c1}:speed=0.008:r=${FPS}`];
+  await run('ffmpeg', ['-y', '-v', 'error', ...input, '-vf', vf, ...enc]);
   return video;
 }
 
@@ -218,7 +237,7 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
 
   await writeFile(`${dir}/a.txt`, scenes.map((_, i) => `file '${resolve(`${dir}/a${i}.wav`)}'`).join('\n'));
   await run('ffmpeg', ['-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', `${dir}/a.txt`, '-af', `apad=pad_dur=${tail + 1}`, '-c:a', 'pcm_s16le', `${dir}/voice.wav`]);
-  const lines = scenes.map((s, i) => ({ text: s.text, start: starts[i], dur: durs[i] - GAP, keywords: s.keywords }));
+  const lines = scenes.map((s, i) => ({ text: s.text, start: starts[i], dur: durs[i] - GAP, keywords: s.keywords, credit: s.credit }));
   await writeFile(`${dir}/captions.ass`, captionsAss(lines, { ...o, look, voiceEnd, total }));
   if (o.music) await makeMusic(total + 1, `${dir}/music.wav`);
   const sfx = o.sfx ? await makeSfx(starts.slice(1), !!o.hook, total + 1, dir) : null;

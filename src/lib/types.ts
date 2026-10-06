@@ -18,6 +18,29 @@ export interface Source {
   site?: string;
 }
 
+/** One scene of a script: what is said, and what to show. */
+export interface DraftLine {
+  text: string;
+  footage: string; // stock-footage search words
+  keywords: string[]; // words that pop
+  real?: string; // a real person / place / event to show (free photos and clips), e.g. "LeBron James"
+  media?: string; // a clip from "My clips" chosen for this scene (its id), or "stock" to never use one
+}
+
+/** A clip or picture you uploaded ("My clips"), used when a scene mentions one of its tags. */
+export interface MediaItem {
+  id: string;
+  name: string;
+  tags: string[];
+  kind: 'video' | 'image';
+  type: string; // mime type
+  size: number;
+  parts: number; // stored in pieces of up to 4 MB
+  thumb?: string; // small preview (data URL)
+  createdAt: string;
+  ready: boolean; // all pieces uploaded
+}
+
 export interface VideoRecord {
   id: string;
   createdAt: string;
@@ -38,7 +61,7 @@ export interface VideoRecord {
   model: string;
   error?: string;
   /** The script as data, so it can be edited and built later ("Check the script first"). */
-  draft?: { lines: { text: string; footage: string; keywords: string[] }[] };
+  draft?: { lines: DraftLine[] };
   pick?: string; // category picked for this one video, e.g. "gaming:nintendo"
   fileRemovedAt?: string; // the video file was deleted by the auto clean-up (the text is kept)
   tiktok?: { publishId?: string; sentAt?: string; status?: string };
@@ -51,6 +74,8 @@ export interface VideoEffects {
   progress: boolean; // thin progress bar at the top
   nicheLook: boolean; // colours and picture tone of your category
   endCard: boolean; // "Follow for more ..." at the end
+  realMedia: boolean; // real photos and clips (Wikimedia, NASA) with a credit line
+  myClips: boolean; // use your own clips when a scene mentions their tags
 }
 
 export type CaptionColor = 'yellow' | 'cyan' | 'green' | 'pink' | 'white';
@@ -62,6 +87,8 @@ export const EFFECT_LABEL: Record<keyof VideoEffects, [string, string]> = {
   progress: ['Progress bar', 'A thin bar at the top shows how much is left, so people watch to the end.'],
   nicheLook: ['Niche look', 'Colours and picture tone that fit your category (neon for gaming, bold for sports…).'],
   endCard: ['End card', '"Follow for more …" for the last 2 seconds, with your name.'],
+  realMedia: ['Real photos & clips', 'Free-to-use real photos and clips (Wikimedia, NASA) of the people, places and events mentioned, with a small credit.'],
+  myClips: ['Use my clips', 'When a scene mentions a tag of one of your clips (My clips), that clip is shown.'],
 };
 
 export type Tone = 'witty' | 'punchy' | 'explainer' | 'anchor';
@@ -106,7 +133,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   tone: 'witty',
   music: false,
   cleanup: { enabled: true, days: 30 },
-  effects: { hookCard: true, keywords: true, sfx: true, progress: true, nicheLook: true, endCard: true },
+  effects: { hookCard: true, keywords: true, sfx: true, progress: true, nicheLook: true, endCard: true, realMedia: true, myClips: true },
   captionStyle: { color: 'yellow', size: 'big' },
   endCardName: '',
   reviewScript: false,

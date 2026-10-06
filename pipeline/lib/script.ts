@@ -16,6 +16,7 @@ const Script = z.object({
   lines: z.array(z.object({
     text: z.string().describe('one spoken sentence, 6 to 20 words'),
     footage: z.string().describe('2 to 4 plain English words to search stock video for this line, e.g. "city traffic night"; never brand names or people'),
+    real: z.string().describe('if this line is about a specific real, well-known person, place, object or event (e.g. "LeBron James", "Eiffel Tower", "Artemis I launch", "Saturn"), its exact name to look up a real photo; otherwise an empty string'),
     keywords: z.array(z.string()).describe('the 1 or 2 most important words of this line, copied exactly as written in it (shown bigger and in colour)'),
   })).describe('the whole voice-over in order, starting with the hook line'),
   caption: z.string().describe('TikTok description, max 150 characters, no hashtags; witty, not a summary'),
@@ -43,7 +44,8 @@ Rules:
 - End with a punchline or a playful question people will want to answer in the comments (not "What do you think?").
 - Caption: witty, a tease rather than a summary. First comment: a short, funny comment the creator pins to start replies (a hot take, a playful poll, or a joke). Both stay truthful.
 - Plain everyday English. No emojis in the spoken lines.
-- Footage search words describe generic scenes (no real people, logos or brands), because the footage is generic stock video.`;
+- Footage search words describe generic scenes (no real people, logos or brands), because the footage is generic stock video.
+- The "real" field names a specific well-known person, place, object or event when a line is about one, so a free real photo can be shown (leave it empty otherwise; never a private person).`;
 
 /** The creator's channel niche, so topic choice, jokes, footage and hashtags all fit it. */
 function channel(s: AppSettings): string {

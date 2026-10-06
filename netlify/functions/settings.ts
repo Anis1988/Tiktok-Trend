@@ -17,7 +17,7 @@ const Patch = z.object({
   voice: z.enum(['af_heart', 'af_bella', 'am_michael', 'am_fenrir', 'bf_emma', 'bm_george', 'female', 'male']),
   tone: z.enum(['witty', 'punchy', 'explainer', 'anchor']),
   music: z.boolean(),
-  effects: z.object({ hookCard: z.boolean(), keywords: z.boolean(), sfx: z.boolean(), progress: z.boolean(), nicheLook: z.boolean(), endCard: z.boolean() }),
+  effects: z.object({ hookCard: z.boolean(), keywords: z.boolean(), sfx: z.boolean(), progress: z.boolean(), nicheLook: z.boolean(), endCard: z.boolean(), realMedia: z.boolean(), myClips: z.boolean() }),
   captionStyle: z.object({ color: z.enum(['yellow', 'cyan', 'green', 'pink', 'white']), size: z.enum(['medium', 'big']) }),
   endCardName: z.string().trim().max(30),
   reviewScript: z.boolean(),

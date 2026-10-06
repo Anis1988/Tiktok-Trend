@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, type Video } from '../lib/api';
+import type { DraftLine, MediaItem } from '../lib/types';
 import { toast } from './ui';
 
-type Line = { text: string; footage: string; keywords: string[] };
+type Line = DraftLine;
 
 /** "Check the script first": edit the words before the video is built, then Build (no extra AI cost). */
 export function ScriptEditor({ v, onChange, example = false }: { v: Video; onChange?: (v: Video) => void; example?: boolean }) {
@@ -13,6 +14,11 @@ export function ScriptEditor({ v, onChange, example = false }: { v: Video; onCha
   const [lines, setLines] = useState<Line[]>(v.draft?.lines ?? v.lines.map((text) => ({ text, footage: v.topic.slice(0, 60), keywords: [] })));
   const [busy, setBusy] = useState('');
   const building = v.status === 'building';
+  const [clips, setClips] = useState<MediaItem[]>([]);
+  useEffect(() => {
+    // Your clips, to pick one per line (not available from an email link without the access code).
+    if (!example) api.media().then((l) => setClips(l.filter((m) => m.ready)), () => undefined);
+  }, [example]);
 
   const setLine = (i: number, patch: Partial<Line>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const save = async (quiet = false) => {
@@ -64,6 +70,12 @@ export function ScriptEditor({ v, onChange, example = false }: { v: Video; onCha
             <div className="grid grid-cols-1 gap-1 pl-7 sm:grid-cols-2">
               <input className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.footage} maxLength={60} disabled={building} onChange={(e) => setLine(i, { footage: e.target.value })} placeholder="Footage search, e.g. city night" aria-label={`Footage for line ${i + 1}`} />
               <input className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.keywords.join(', ')} disabled={building} onChange={(e) => setLine(i, { keywords: e.target.value.split(',').map((k) => k.trim()).filter(Boolean).slice(0, 3) })} placeholder="Words that pop, e.g. Zelda, record" aria-label={`Key words for line ${i + 1}`} />
+              <input className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.real ?? ''} maxLength={80} disabled={building} onChange={(e) => setLine(i, { real: e.target.value })} placeholder="Real photo of… e.g. LeBron James" aria-label={`Real photo for line ${i + 1}`} />
+              <select className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.media ?? ''} disabled={building} onChange={(e) => setLine(i, { media: e.target.value || undefined })} aria-label={`Picture for line ${i + 1}`}>
+                <option value="">Picture: automatic</option>
+                <option value="stock">Picture: no clip of mine</option>
+                {clips.map((m) => <option key={m.id} value={m.id}>My clip: {m.name}</option>)}
+              </select>
             </div>
           </div>
         ))}

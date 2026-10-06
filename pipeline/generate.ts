@@ -4,7 +4,7 @@
  */
 import { copyFile, mkdir, readFile, rm } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
-import type { AppSettings, VideoRecord } from '../src/lib/types';
+import type { AppSettings, DraftLine, VideoRecord } from '../src/lib/types';
 import { DEFAULT_SETTINGS } from '../src/lib/types';
 import { getSettings, listVideos, readJson, saveVideo, store, writeJson } from '../netlify/lib/store';
 import { sign } from '../netlify/lib/sign';
@@ -14,8 +14,10 @@ import { CATEGORIES, DEFAULT_LOOK, findCategory, subsOf, type Niche } from '../s
 import { cleanUp } from '../netlify/lib/cleanup';
 import { MODEL, writeScript } from './lib/script';
 import { speak, voiceUsed } from './lib/tts';
-import { findClip, footageReady, type Clip } from './lib/footage';
+import { footageReady } from './lib/footage';
 import { renderVideo, type RenderOptions, type Scene } from './lib/render';
+import { visualFor, type Credit } from './lib/visuals';
+import { chooseMedia, listMedia } from '../netlify/lib/media';
 
 const CAPTION_HEX: Record<AppSettings['captionStyle']['color'], string> = { yellow: '#FFE600', cyan: '#22E3FF', green: '#7CFF4F', pink: '#FF4FD8', white: '#FFFFFF' };
 const day = () => new Date().toISOString().slice(0, 10);
@@ -32,11 +34,11 @@ async function sample() {
     log(`Feed ${c.label}: ${u} -> ${r}`);
   }
   const voice = (process.env.SAMPLE_VOICE || 'af_heart') as AppSettings['voice'];
-  const lines: { text: string; footage: string; keywords?: string[] }[] = [
+  const lines: { text: string; footage: string; keywords?: string[]; real?: string }[] = [
     { text: 'Your coffee order just got a promotion.', footage: 'coffee cup morning', keywords: ['promotion'] },
     { text: 'This is a made-up example, so nothing here is real news.', footage: 'city street people walking' },
-    { text: 'Imagine a cafe where the barista remembers your name, your order, and your mood.', footage: 'barista coffee shop' },
-    { text: 'It is basically a friend who charges five dollars.', footage: 'friends laughing cafe', keywords: ['five dollars'] },
+    { text: 'Picture sipping it right under the Eiffel Tower.', footage: 'paris cafe', real: 'Eiffel Tower', keywords: ['Eiffel Tower'] },
+    { text: 'Or floating past Saturn, if space stations had a barista.', footage: 'space stars', real: 'Saturn', keywords: ['Saturn'] },
     { text: 'Would you let a robot pick your coffee for a week?', footage: 'robot arm technology' },
   ];
   const dir = 'out/sample';
@@ -46,8 +48,9 @@ async function sample() {
   for (const [i, l] of lines.entries()) {
     const wav = `${dir}/l${i}.wav`;
     await speak(l.text, voice, wav, true);
-    const clip = await findClip(l.footage, used, `${dir}/clip${i}.mp4`);
-    scenes.push({ text: l.text, wav, clip: clip?.path ?? null, keywords: l.keywords ?? [] });
+    const v = await visualFor({ ...l, keywords: l.keywords ?? [] }, i, dir, { mine: null, real: true, used, credits: [] });
+    if (v.credit) log(`Sample scene ${i + 1}: ${v.credit}`);
+    scenes.push({ text: l.text, wav, keywords: l.keywords ?? [], ...v });
   }
   const dur = await renderVideo(scenes, dir, `${dir}/video.mp4`, `${dir}/thumb.jpg`, {
     ...renderOptions({ ...DEFAULT_SETTINGS, niche: { category: 'food', subs: ['drinks'], focus: [], mix: 'niche' }, endCardName: '@yourname' }, lines[0].text),
@@ -132,7 +135,7 @@ async function main() {
     caption: sc.caption.slice(0, 150), firstComment: sc.firstComment.slice(0, 150) || undefined, hashtags: sc.hashtags.map((h) => h.replace(/^#/, '').replace(/\s+/g, '')).filter(Boolean).slice(0, 5),
     sources: sc.sources.map((i) => cand.headlines[i]).filter(Boolean), durationSec: 0, sizeBytes: 0,
     voice: s.voice, footage: [], model: MODEL,
-    draft: { lines: sc.lines.map((l) => ({ text: l.text, footage: l.footage, keywords: (l.keywords ?? []).slice(0, 3) })) },
+    draft: { lines: sc.lines.map((l) => ({ text: l.text, footage: l.footage, keywords: (l.keywords ?? []).slice(0, 3), real: l.real?.trim().slice(0, 80) || undefined })) },
     pick: process.env.PICK?.trim() || undefined,
   };
   if (!base.sources.length) base.sources = cand.headlines;
@@ -170,20 +173,22 @@ function renderOptions(s: AppSettings, hook: string): RenderOptions {
 /** Voice, footage and the final MP4 for a script, then saved for review and emailed. */
 async function build(base: VideoRecord, s: AppSettings) {
   if (!footageReady()) log('No PIXABAY_API_KEY or PEXELS_API_KEY: scenes will use plain backgrounds.');
-  const lines = base.draft?.lines ?? base.lines.map((text) => ({ text, footage: base.topic, keywords: [] }));
+  const lines: DraftLine[] = base.draft?.lines ?? base.lines.map((text) => ({ text, footage: base.topic, keywords: [] }));
   const id = base.id;
   const dir = `out/${id}`;
   await mkdir(dir, { recursive: true });
   try {
     const used = new Set<string>();
     const scenes: Scene[] = [];
-    const credits: Clip[] = [];
+    const credits: Credit[] = [];
+    const mine = chooseMedia(lines, s.effects.myClips || lines.some((l) => l.media) ? await listMedia() : [], s.effects.myClips);
     for (const [i, l] of lines.entries()) {
       const wav = `${dir}/l${i}.wav`;
       await speak(l.text, s.voice, wav, s.tone === 'punchy' || s.tone === 'witty');
-      const clip = await findClip(l.footage, used, `${dir}/clip${i}.mp4`);
-      if (clip) credits.push(clip);
-      scenes.push({ text: l.text, wav, clip: clip?.path ?? null, keywords: l.keywords });
+      const v = await visualFor(l, i, dir, { mine: mine[i], real: s.effects.realMedia, used, credits });
+      if (mine[i]) log(`Scene ${i + 1}: your clip "${mine[i]!.name}"`);
+      else if (v.credit) log(`Scene ${i + 1}: ${v.credit}`);
+      scenes.push({ text: l.text, wav, keywords: l.keywords, ...v });
     }
     const mp4 = `${dir}/video.mp4`;
     const jpg = `${dir}/thumb.jpg`;
@@ -196,7 +201,7 @@ async function build(base: VideoRecord, s: AppSettings) {
     await files.set(`${id}.jpg`, new Uint8Array(await readFile(jpg)).buffer);
     const rec: VideoRecord = {
       ...base, lines: lines.map((l) => l.text), voice: voiceUsed() || base.voice, status: 'pending', error: undefined,
-      durationSec: Math.round(dur), sizeBytes: bytes.length, footage: [...new Map(credits.map((c) => [c.url, { by: c.by, url: c.url, site: c.site }])).values()],
+      durationSec: Math.round(dur), sizeBytes: bytes.length, footage: [...new Map(credits.map((c) => [c.url, c])).values()],
     };
     await saveVideo(rec);
     log(`Saved ${id}`);

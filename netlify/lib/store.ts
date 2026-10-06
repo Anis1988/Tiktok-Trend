@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS } from '../../src/lib/types';
  * Netlify Blobs. Inside Netlify functions it just works; from GitHub Actions it needs
  * NETLIFY_SITE_ID + NETLIFY_AUTH_TOKEN (a personal access token).
  */
-export function store(name: 'tt' | 'tt-files') {
+export function store(name: 'tt' | 'tt-files' | 'tt-media') {
   const siteID = process.env.NETLIFY_SITE_ID;
   const token = process.env.NETLIFY_AUTH_TOKEN;
   return siteID && token ? getStore({ name, siteID, token }) : getStore(name);
@@ -21,7 +21,14 @@ export async function writeJson(key: string, value: unknown): Promise<void> {
 }
 
 export async function getSettings(): Promise<AppSettings> {
-  return { ...DEFAULT_SETTINGS, ...(await readJson<Partial<AppSettings>>('settings', {})) };
+  const saved = await readJson<Partial<AppSettings>>('settings', {});
+  // Nested groups are merged too, so options added later get their default instead of "off".
+  return {
+    ...DEFAULT_SETTINGS, ...saved,
+    effects: { ...DEFAULT_SETTINGS.effects, ...saved.effects },
+    captionStyle: { ...DEFAULT_SETTINGS.captionStyle, ...saved.captionStyle },
+    cleanup: { ...DEFAULT_SETTINGS.cleanup, ...saved.cleanup },
+  };
 }
 
 export const listVideos = () => readJson<VideoRecord[]>('videos', []);

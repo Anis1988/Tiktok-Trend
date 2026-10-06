@@ -4,6 +4,7 @@ import { MakeNow } from './Videos';
 import { NichePicker } from '../components/NichePicker';
 import { VideoStyle } from '../components/VideoStyle';
 import { ScriptEditor } from '../components/ScriptEditor';
+import { ClipCard } from '../components/MyClips';
 import { DEFAULT_SETTINGS } from '../lib/types';
 import type { Niche } from '../lib/niches';
 
@@ -101,13 +102,42 @@ export function Guide() {
         </ul>
       </Section>
 
+      <Section title="Real photos & clips">
+        <p>When a sentence is about a real, well-known person, place or event (a player, a stadium, a rocket launch, a planet), the AI notes its name and the app looks for a <b>real photo or clip that is free to use</b>:</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>Wikimedia Commons</b> (the photo library behind Wikipedia): people, places, buildings, cars, food, events. Only free licences; the photo shows with a small credit like "Photo: Jane Doe · CC BY-SA 4.0 · Wikimedia Commons".</li>
+          <li><b>NASA</b>: real space and science photos and videos (launches, planets, eclipses, Earth from space). Free for everyone.</li>
+          <li>Photos appear as a framed picture over a blurred copy, with a slow zoom. If nothing free is found, the scene uses stock footage as before.</li>
+          <li>Never used: news-agency photos, TV, film, anime, music or game footage. Those are copyrighted and TikTok mutes or removes them.</li>
+          <li>Wikimedia photos are often a little older (a past season or event), not from last night.</li>
+          <li>Turn it off in <b>Video style &amp; effects → Real photos &amp; clips</b>. The credits are also listed under each video (Footage).</li>
+        </ul>
+      </Section>
+
+      <Section title="My clips">
+        <p>For the anime, manga or gaming look without copyright problems, add <b>your own</b> clips and pictures in <b>Videos → My clips</b>, with tags:</p>
+        <Example caption="Made-up example; nothing here does anything.">
+          <ul className="space-y-2">
+            <ClipCard m={{ id: 'a', name: 'Zelda gameplay (my recording)', tags: ['Zelda', 'Nintendo', 'Link'], kind: 'video', type: 'video/mp4', size: 18_400_000, parts: 5, createdAt: '', ready: true }} />
+            <ClipCard m={{ id: 'b', name: 'My manga shelf', tags: ['manga', 'One Piece'], kind: 'image', type: 'image/jpeg', size: 420_000, parts: 1, createdAt: '', ready: true }} />
+          </ul>
+        </Example>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li>When a sentence mentions a tag (for example "Zelda"), that clip is shown for that scene. Each clip is used once per video; long clips start at a random point so they look different each time.</li>
+          <li>Good ideas: gameplay you recorded yourself (most game companies allow it for commentary), photos or videos of your own manga, figures or setup, your face-cam.</li>
+          <li>Only upload things you have the right to use: no clips copied from anime, films, TV or YouTube.</li>
+          <li>Up to 60 MB per clip (5 to 20 seconds is ideal), 40 clips. Pictures are shrunk on your phone before upload.</li>
+          <li>With "Check the script first" on, you can also pick a clip (or "no clip of mine") for any line.</li>
+        </ul>
+      </Section>
+
       <Section title="Check the script first">
         <p>Turn on <b>Check the script first</b> (in Video style &amp; effects) if you want to read the words before a video is made. Each run then only writes the script; you get an email, and the video shows as "Script ready · check it".</p>
         <Example caption="Made-up example; the buttons do nothing here.">
           <ScriptEditor example v={{ ...EXAMPLE, status: 'script', draft: { lines: EXAMPLE.lines.map((text, i) => ({ text, footage: ['night sky moon', 'telescope stars', 'earth from space', 'cloudy night', 'alarm clock'][i] ?? 'night sky', keywords: i === 0 ? ['villain era'] : [] })) } }} />
         </Example>
         <ul className="list-disc space-y-1.5 pl-5">
-          <li>Change any sentence, the hook, the caption or the comment. You can also change the footage search words and the words that pop.</li>
+          <li>Change any sentence, the hook, the caption or the comment. You can also change the footage search words, the words that pop, the real photo to look for, and pick one of your clips for a line.</li>
           <li>Tap <b>Build video</b>: the video is made in 3 to 5 minutes and you get the usual email to approve it. Building uses no extra AI.</li>
           <li><b>Discard</b> if you don't like it: no video is made.</li>
         </ul>
