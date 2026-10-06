@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="bg" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0" stop-color="#1b2550"/>
+      <stop offset="1" stop-color="#070b1a"/>
+    </radialGradient>
+    <linearGradient id="g" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="28" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <!-- play button with rounded corners -->
+  <path d="M392 282 Q352 258 352 305 L352 719 Q352 766 392 742 L736 535 Q776 512 736 489 Z" fill="url(#g)" filter="url(#glow)"/>
+  <!-- rising trend line -->
+  <polyline points="214,820 370,690 470,750 640,590 810,450" fill="none" stroke="#ffffff" stroke-opacity="0.92" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M810 450 L716 462 M810 450 L800 544" stroke="#ffffff" stroke-opacity="0.92" stroke-width="34" stroke-linecap="round"/>
+</svg>
