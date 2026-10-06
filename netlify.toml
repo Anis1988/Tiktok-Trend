@@ -6,6 +6,8 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # GH_REPO is only the repository name (also the default in netlify/lib/github.ts), not a secret.
+  SECRETS_SCAN_OMIT_KEYS = "GH_REPO"
 
 [dev]
   command = "npm run dev"
