@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, setCode, type Status } from '../lib/api';
 import type { AppSettings } from '../lib/types';
-import { TONE_LABEL, VOICE_LABEL } from '../lib/types';
 import { Card, Field, Toggle, toast } from '../components/ui';
-import { NichePicker } from '../components/NichePicker';
 
 export function Settings() {
   const [s, setS] = useState<AppSettings | null>(null);
@@ -41,12 +39,8 @@ export function Settings() {
 
   return (
     <div className="mx-auto grid max-w-5xl grid-cols-1 gap-3 lg:grid-cols-2 lg:items-start">
-      <div className="lg:col-span-2">
-        <Card title="My channel" subtitle="What your videos are about. Sticking to one niche helps TikTok find the right viewers.">
-          <NichePicker value={s.niche} onChange={(n) => void save({ niche: n })} />
-        </Card>
-      </div>
-      <Card title="What to make" subtitle="Saved right away">
+      <p className="text-sm text-slate-400 lg:col-span-2">Your niche, voice, captions and effects are in the <b>Videos</b> tab (My channel, Video style &amp; effects). This page is for how the app runs.</p>
+      <Card title="Schedule" subtitle="Saved right away">
         <Field label="Make videos every day" hint="Off = only when you tap 'Make a video now'.">
           <Toggle on={s.enabled} onChange={(v) => void save({ enabled: v })} label="Make videos every day" />
         </Field>
@@ -54,32 +48,6 @@ export function Settings() {
           <select className="input w-28" value={s.perDay} onChange={(e) => void save({ perDay: Number(e.target.value) })}>
             {[1, 2, 3].map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
-        </Field>
-        <Field label="Country" hint="Which country's trends and news.">
-          <select className="input w-28" value={s.country} onChange={(e) => void save({ country: e.target.value })}>
-            {['US', 'GB', 'CA', 'AU', 'IE', 'NZ'].map((c) => <option key={c}>{c}</option>)}
-          </select>
-        </Field>
-      </Card>
-
-      <Card title="How it sounds" subtitle="Voice and style">
-        <Field label="Voice">
-          <select className="input w-full max-w-[16rem]" value={s.voice === 'female' ? 'af_heart' : s.voice === 'male' ? 'am_michael' : s.voice} onChange={(e) => void save({ voice: e.target.value as AppSettings['voice'] })}>
-            {Object.entries(VOICE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
-        </Field>
-        <Field label="Style">
-          <select className="input w-44" value={s.tone} onChange={(e) => void save({ tone: e.target.value as AppSettings['tone'] })}>
-            {Object.entries(TONE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
-        </Field>
-        <Field label="Length">
-          <select className="input w-36" value={s.maxSeconds} onChange={(e) => void save({ maxSeconds: Number(e.target.value) })}>
-            {[30, 45, 60].map((n) => <option key={n} value={n}>about {n}s</option>)}
-          </select>
-        </Field>
-        <Field label="Soft background music" hint="Off is best if you add a trending TikTok sound when posting (TikTok shows those videos to more people). On: a quiet original tune plays under the voice and gets softer while it speaks.">
-          <Toggle on={s.music} onChange={(v) => void save({ music: v })} label="Soft background music" />
         </Field>
       </Card>
 
@@ -119,7 +87,7 @@ export function Settings() {
       </Card>
 
       <Card title="Cost control">
-        <Field label="Most AI scripts per day" hint={`Each video uses 1 AI call (about 1 to 4 cents). Used today: ${st.ai.used}.`}>
+        <Field label="Most AI scripts per day" hint={`Each video uses 1 AI call (about 2 to 5 cents). Used today: ${st.ai.used}.`}>
           <input className="input w-24" type="number" min={1} max={30} value={s.aiDailyLimit} onChange={(e) => void save({ aiDailyLimit: Math.min(30, Math.max(1, Number(e.target.value) || 1)) })} />
         </Field>
       </Card>

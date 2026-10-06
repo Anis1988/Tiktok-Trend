@@ -8,7 +8,9 @@ Makes short vertical videos about what's trending, emails you a preview, and aft
    "My channel" niche (category → subcategories that take turns → focus words; Google News + specialist feeds,
    `src/lib/niches.ts`) or Google Trends → Claude writes a script from the headlines (structured output, daily cap) →
    Kokoro AI voice (Piper as backup) → Pixabay stock clips (or Pexels) → ffmpeg (1080×1920, zooms, crossfades, word-by-word
-   captions, -14 LUFS sound, optional soft music) → saved in Netlify Blobs → review email (EmailJS).
+   captions, -14 LUFS sound, optional soft music, hook card, keyword pop, sound effects, progress bar, niche look,
+   end card; options in Videos → Video style & effects) → saved in Netlify Blobs → review email (EmailJS).
+   "Check the script first" stops after the script (status `script`); the app's Build button re-runs the job with `render_id`.
 2. **Netlify** hosts the app (`src/`) and small functions (`netlify/functions/`): list videos, stream them,
    approve/reject (signed email links work without logging in), settings, TikTok login.
    "Make a video now" takes an optional subject (also on GitHub's Run workflow form); each run attaches the MP4 under "Artifacts" for 7 days.

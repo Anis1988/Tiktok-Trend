@@ -3,6 +3,9 @@ import { api, fileUrl, type Status, type Video } from '../lib/api';
 import { VideoDetail } from '../components/VideoDetail';
 import { StatusChip, toast, when } from '../components/ui';
 import { CATEGORIES, findCategory, type Niche } from '../lib/niches';
+import type { AppSettings } from '../lib/types';
+import { NichePicker } from '../components/NichePicker';
+import { Fold, VideoStyle } from '../components/VideoStyle';
 
 export function SetupChecklist({ st }: { st: Status }) {
   const items = [
@@ -23,7 +26,8 @@ export function SetupChecklist({ st }: { st: Status }) {
 export function Videos() {
   const [list, setList] = useState<Video[] | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
-  const [niche, setNiche] = useState<Niche | null>(null);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const niche = settings?.niche ?? null;
   const [open, setOpen] = useState<string | null>(null);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -31,7 +35,7 @@ export function Videos() {
   const load = useCallback(async () => {
     try {
       const [v, s] = await Promise.all([api.videos(), api.status()]);
-      api.settings().then((x) => setNiche(x.niche ?? null), () => undefined);
+      api.settings().then(setSettings, () => undefined);
       setList(v);
       setStatus(s);
       setErr('');
@@ -41,6 +45,15 @@ export function Videos() {
   }, []);
   useEffect(() => void load(), [load]);
 
+  const saveSettings = async (patch: Partial<AppSettings>) => {
+    if (!settings) return;
+    setSettings({ ...settings, ...patch });
+    try {
+      setSettings(await api.saveSettings(patch));
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : String(e));
+    }
+  };
   const [subject, setSubject] = useState('');
   const [pick, setPick] = useState('');
   const [idea, setIdea] = useState<Idea | null>(null);
@@ -92,6 +105,17 @@ export function Videos() {
         </div>
       </div>
       <MakeNow subject={subject} onSubject={setSubject} pick={pick} onPick={choosePick} ideaUrl={idea?.url} onIdea={chooseIdea} ideas={ideas} ideasBusy={ideasBusy} onIdeas={() => void loadIdeas()} busy={busy} onMake={() => void makeNow()} niche={niche} />
+      {settings && (
+        <>
+          <Fold id="channel" title="My channel" subtitle={niche ? `${findCategory(niche.category)?.emoji ?? ''} ${findCategory(niche.category)?.label ?? ''} · used for every video` : 'Anything trending · tap to choose your niche'}>
+            <p className="pb-2 text-xs text-slate-400">What your videos are about. Sticking to one niche helps TikTok find the right viewers.</p>
+            <NichePicker value={settings.niche} onChange={(n) => void saveSettings({ niche: n })} />
+          </Fold>
+          <Fold id="style" title="Video style & effects" subtitle={`${settings.reviewScript ? 'Check the script first · ' : ''}voice, captions, effects, music`}>
+            <VideoStyle s={settings} save={(p) => void saveSettings(p)} />
+          </Fold>
+        </>
+      )}
       {err && <p className="card text-sm text-red-200">{err}</p>}
       {status && <SetupChecklist st={status} />}
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api, fileUrl, type Video } from '../lib/api';
 import { StatusChip, toast, when } from './ui';
+import { ScriptEditor } from './ScriptEditor';
 import { VOICE_LABEL } from '../lib/types';
 
 /** "Kokoro af_heart" -> "Heart · warm female (US)". Older videos show the Piper voice name as saved. */
@@ -33,6 +34,19 @@ export function VideoDetail({ v, onChange, tiktokConnected, example = false }: {
       toast('error', 'Could not copy. Select the text instead.');
     }
   };
+
+  if (v.status === 'script' || v.status === 'building') {
+    return (
+      <div className="mx-auto max-w-2xl space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusChip s={v.status} />
+          <span className="text-xs text-slate-400">{when(v.createdAt)} · {v.topic}</span>
+        </div>
+        {v.error && <p className="rounded-lg border border-red-300/40 bg-red-500/10 px-2 py-1.5 text-sm text-red-100">Last build failed: {v.error}</p>}
+        <ScriptEditor key={`${v.id}:${v.updatedAt}`} v={v} onChange={onChange} example={example} />
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-4 md:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">

@@ -17,7 +17,12 @@ export interface Category {
   feeds: string[]; // free specialist news feeds (RSS / Atom); a feed that fails is skipped
   style: string; // extra writing direction for this niche
   footage: string; // hint for stock-footage search words
+  look: Look; // colours and picture tone ("Niche look")
 }
+
+/** Accent colour (#RRGGBB, keyword pop, progress bar, end card) and a picture tone (ffmpeg filters). */
+export interface Look { accent: string; grade: string }
+export const DEFAULT_LOOK: Look = { accent: '#22D3EE', grade: 'eq=brightness=-0.03:saturation=1.1:contrast=1.04' };
 
 export const CATEGORIES: Category[] = [
   {
@@ -35,6 +40,7 @@ export const CATEGORIES: Category[] = [
     feeds: ['https://feeds.feedburner.com/ign/all', 'https://www.polygon.com/rss/index.xml', 'https://www.gamespot.com/feeds/mashup/'],
     style: 'light gamer humour (respawns, side quests, boss fights, patch notes), but understandable by non-gamers',
     footage: 'gaming setup, controller, neon room, arcade, esports arena',
+    look: { accent: '#7CFF4F', grade: 'eq=saturation=1.3:contrast=1.08,colorbalance=bs=0.08:rh=0.04' },
   },
   {
     id: 'tech', label: 'Tech', emoji: '💻',
@@ -49,6 +55,7 @@ export const CATEGORIES: Category[] = [
     feeds: ['https://www.theverge.com/rss/index.xml', 'https://techcrunch.com/feed/'],
     style: 'curious and playful, explain why it matters for normal people, a geeky joke is welcome',
     footage: 'smartphone hands, circuit board, futuristic city, laptop typing',
+    look: { accent: '#38BDF8', grade: 'eq=saturation=1.05:contrast=1.06,colorbalance=bs=0.06:bm=0.04' },
   },
   {
     id: 'sports', label: 'Sports', emoji: '⚽',
@@ -63,6 +70,7 @@ export const CATEGORIES: Category[] = [
     feeds: ['https://www.cbssports.com/rss/headlines/', 'https://sports.yahoo.com/rss/'],
     style: 'hype and energy like a fan at the stadium, playful banter, never insulting players or teams',
     footage: 'stadium crowd, ball on field, athlete training, scoreboard lights',
+    look: { accent: '#FF5A1F', grade: 'eq=saturation=1.2:contrast=1.15' },
   },
   {
     id: 'movies', label: 'Movies & TV', emoji: '🎬',
@@ -76,6 +84,7 @@ export const CATEGORIES: Category[] = [
     feeds: ['https://variety.com/feed/', 'https://deadline.com/feed/'],
     style: 'pop-culture savvy, movie-trailer drama for laughs, no spoilers beyond the headlines',
     footage: 'cinema seats, popcorn, film reel, remote control tv',
+    look: { accent: '#FFC53D', grade: 'eq=contrast=1.1:saturation=1.05,colorbalance=rs=-0.05:bs=0.06:rh=0.06:bh=-0.04' },
   },
   {
     id: 'music', label: 'Music', emoji: '🎵',
@@ -89,6 +98,7 @@ export const CATEGORIES: Category[] = [
     feeds: ['https://www.billboard.com/feed/', 'https://pitchfork.com/rss/news/'],
     style: 'fun fan energy, playful references to lyrics or charts (never quote lyrics)',
     footage: 'concert lights, headphones, crowd hands, vinyl record',
+    look: { accent: '#FF4FD8', grade: 'eq=saturation=1.25:contrast=1.06,colorbalance=rs=0.06:bs=0.06' },
   },
   {
     id: 'science', label: 'Science & Space', emoji: '🔬',
@@ -102,6 +112,7 @@ export const CATEGORIES: Category[] = [
     feeds: ['https://www.sciencedaily.com/rss/top/science.xml', 'https://www.nasa.gov/feed/'],
     style: '"mind-blown" moments and surprising scale comparisons, simple words, never exaggerate the findings',
     footage: 'galaxy stars, microscope lab, ocean waves, forest aerial',
+    look: { accent: '#60A5FA', grade: 'eq=contrast=1.05:saturation=1.0,colorbalance=bs=0.07:bm=0.03' },
   },
   {
     id: 'cars', label: 'Cars', emoji: '🚗',
@@ -114,6 +125,7 @@ export const CATEGORIES: Category[] = [
     feeds: ['https://www.motor1.com/rss/news/all/', 'https://www.caranddriver.com/rss/all.xml/'],
     style: 'petrolhead enthusiasm with car puns, clear for non-car people',
     footage: 'sports car road, car interior dashboard, highway night, engine',
+    look: { accent: '#F43F5E', grade: 'eq=contrast=1.15:saturation=1.1' },
   },
   {
     id: 'food', label: 'Food', emoji: '🍔',
@@ -126,6 +138,7 @@ export const CATEGORIES: Category[] = [
     feeds: ['https://www.eater.com/rss/index.xml'],
     style: 'mouth-watering descriptions and food puns, never health or diet advice',
     footage: 'burger close up, cooking kitchen, coffee pour, street food',
+    look: { accent: '#FFB020', grade: 'eq=saturation=1.25:contrast=1.04,colorbalance=rm=0.05:gm=0.02:bm=-0.04' },
   },
   {
     id: 'travel', label: 'Travel', emoji: '✈️',
@@ -138,6 +151,7 @@ export const CATEGORIES: Category[] = [
     feeds: ['https://www.cntraveler.com/feed/rss'],
     style: 'wanderlust and playful "pack your bags" energy, no safety or legal advice',
     footage: 'airplane window, beach aerial, city skyline sunset, suitcase airport',
+    look: { accent: '#2DD4BF', grade: 'eq=saturation=1.2:contrast=1.04,colorbalance=rh=0.04:bs=0.04' },
   },
   {
     id: 'viral', label: 'Viral & Internet culture', emoji: '😂',
@@ -150,6 +164,7 @@ export const CATEGORIES: Category[] = [
     feeds: [],
     style: 'internet-native humour and meme references that a wide audience gets, never mocking private people',
     footage: 'phone scrolling, people laughing, city crowd, colorful abstract',
+    look: { accent: '#FACC15', grade: 'eq=saturation=1.3:contrast=1.08' },
   },
 ];
 

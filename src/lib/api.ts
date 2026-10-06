@@ -59,7 +59,9 @@ export const api = {
   status: () => call<Status>('/api/status'),
   videos: () => call<Video[]>('/api/videos'),
   video: (id: string, sig?: string) => call<Video>(`/api/videos?id=${encodeURIComponent(id)}${sig ? `&sig=${encodeURIComponent(sig)}` : ''}`),
-  act: (action: 'approve' | 'reject' | 'posted' | 'retry', id: string, sig?: string) => post<Video>('/api/videos', { action, id, sig }),
+  act: (action: 'approve' | 'reject' | 'posted' | 'retry' | 'build', id: string, sig?: string) => post<Video>('/api/videos', { action, id, sig }),
+  saveScript: (id: string, sig: string | undefined, s: { title: string; hook: string; caption: string; firstComment: string; lines: { text: string; footage: string; keywords: string[] }[] }) =>
+    post<Video>('/api/videos', { action: 'save-script', id, sig, ...s }),
   makeNow: (o: { subject?: string; pick?: string; ideaUrl?: string } = {}) =>
     post<{ ok: boolean; message: string }>('/api/videos', { action: 'make-now', subject: o.subject?.trim() || undefined, pick: o.pick || undefined, ideaUrl: o.ideaUrl || undefined }),
   ideas: (pick?: string) => call<{ ideas: { title: string; url: string; site?: string; tag: string }[] }>(`/api/ideas${pick ? `?pick=${encodeURIComponent(pick)}` : ''}`),

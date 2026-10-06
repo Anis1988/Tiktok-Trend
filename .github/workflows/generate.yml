@@ -25,6 +25,10 @@ on:
         description: 'Link of the idea picked in the app (optional, filled in by the app)'
         required: false
         default: ''
+      render_id:
+        description: 'Build the video for a checked script (filled in by the app)'
+        required: false
+        default: ''
       sample:
         description: 'Test only: a made-up sample video (no AI cost, not added to the app) to check voice and music'
         type: boolean
@@ -88,6 +92,7 @@ jobs:
           SUBJECT: ${{ inputs.subject }}
           PICK: ${{ inputs.pick }}
           IDEA_URL: ${{ inputs.idea_url }}
+          RENDER_ID: ${{ inputs.render_id }}
           SAMPLE: ${{ inputs.sample && '1' || '0' }}
           SAVE_COPY_DIR: done
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

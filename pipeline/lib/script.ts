@@ -16,6 +16,7 @@ const Script = z.object({
   lines: z.array(z.object({
     text: z.string().describe('one spoken sentence, 6 to 20 words'),
     footage: z.string().describe('2 to 4 plain English words to search stock video for this line, e.g. "city traffic night"; never brand names or people'),
+    keywords: z.array(z.string()).describe('the 1 or 2 most important words of this line, copied exactly as written in it (shown bigger and in colour)'),
   })).describe('the whole voice-over in order, starting with the hook line'),
   caption: z.string().describe('TikTok description, max 150 characters, no hashtags; witty, not a summary'),
   firstComment: z.string().describe('a short witty comment (max 120 characters) the creator posts and pins under the video to get replies'),

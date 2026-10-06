@@ -16,13 +16,20 @@ const Post = z.discriminatedUnion('action', [
     pick: z.string().regex(/^[a-z-]{2,30}(:[a-z0-9-]{2,30})?$/).optional(),
     ideaUrl: z.string().url().startsWith('https://').max(1000).optional(),
   }),
-  z.object({ action: z.enum(['approve', 'reject', 'posted', 'retry']), id: z.string().max(40), sig: z.string().max(64).optional() }),
+  z.object({ action: z.enum(['approve', 'reject', 'posted', 'retry', 'build']), id: z.string().max(40), sig: z.string().max(64).optional() }),
+  z.object({
+    action: z.literal('save-script'), id: z.string().max(40), sig: z.string().max(64).optional(),
+    title: z.string().trim().min(1).max(80), hook: z.string().trim().min(1).max(120),
+    caption: z.string().trim().max(150), firstComment: z.string().trim().max(150),
+    lines: z.array(z.object({ text: z.string().trim().min(1).max(220), footage: z.string().trim().min(1).max(60), keywords: z.array(z.string().trim().max(30)).max(3) })).min(2).max(12),
+  }),
 ]);
 
 /**
  * GET  /api/videos              -> all videos (access code)
  * GET  /api/videos?id=..&sig=.. -> one video (access code OR the signed email link)
  * POST {action:'make-now', subject?} -> start a new video now, optionally about one subject (access code)
+ * POST {action:'save-script'|'build', id, sig?} -> edit a script waiting to be checked / build its video
  * POST {action, id, sig?}       -> approve / reject / posted / retry (access code OR signed link)
  */
 export default async (req: Request): Promise<Response> => {
@@ -59,6 +66,20 @@ export default async (req: Request): Promise<Response> => {
     }
     const v = await getVideo(body.id);
     if (!v) return json({ error: 'Video not found.' }, 404);
+    if (body.action === 'save-script') {
+      if (v.status !== 'script') return json({ error: 'Only a script waiting to be checked can be edited.' }, 409);
+      // The first line is the hook the voice says first; keep them together.
+      const lines = body.lines;
+      return json(withSig((await patchVideo(v.id, {
+        title: body.title, hook: body.hook, caption: body.caption, firstComment: body.firstComment || undefined,
+        lines: lines.map((l) => l.text), draft: { lines },
+      }))!));
+    }
+    if (body.action === 'build') {
+      if (v.status !== 'script') return json({ error: `Already ${v.status}.` }, 409);
+      await dispatch('generate.yml', { manual: 'true', render_id: v.id });
+      return json(withSig((await patchVideo(v.id, { status: 'building', error: undefined }))!));
+    }
     if (body.action === 'reject') return json(withSig((await patchVideo(v.id, { status: 'rejected' }))!));
     if (body.action === 'posted') return json(withSig((await patchVideo(v.id, { status: 'posted' }))!));
     // approve / retry: send to TikTok drafts when connected, otherwise it is yours to download and post.

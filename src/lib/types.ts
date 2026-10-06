@@ -2,6 +2,8 @@
 import type { Niche } from './niches';
 
 export type VideoStatus =
+  | 'script' // script written, waiting for you to check it before the video is built
+  | 'building' // you tapped Build: the video is being made
   | 'pending' // made, waiting for your review
   | 'approved' // you approved; TikTok not connected yet, so download and post it yourself
   | 'publishing' // being sent to your TikTok drafts
@@ -35,9 +37,32 @@ export interface VideoRecord {
   footage: { by: string; url: string; site?: string }[]; // stock video credits (Pixabay / Pexels)
   model: string;
   error?: string;
+  /** The script as data, so it can be edited and built later ("Check the script first"). */
+  draft?: { lines: { text: string; footage: string; keywords: string[] }[] };
+  pick?: string; // category picked for this one video, e.g. "gaming:nintendo"
   fileRemovedAt?: string; // the video file was deleted by the auto clean-up (the text is kept)
   tiktok?: { publishId?: string; sentAt?: string; status?: string };
 }
+
+export interface VideoEffects {
+  hookCard: boolean; // the hook in big letters for the first 2 seconds
+  keywords: boolean; // key words pop in colour
+  sfx: boolean; // whoosh between scenes, pop on the hook
+  progress: boolean; // thin progress bar at the top
+  nicheLook: boolean; // colours and picture tone of your category
+  endCard: boolean; // "Follow for more ..." at the end
+}
+
+export type CaptionColor = 'yellow' | 'cyan' | 'green' | 'pink' | 'white';
+
+export const EFFECT_LABEL: Record<keyof VideoEffects, [string, string]> = {
+  hookCard: ['Hook title card', 'The first line in big letters for the first 2 seconds, to stop people scrolling.'],
+  keywords: ['Keyword pop', 'The 1 or 2 most important words of each sentence pop in colour.'],
+  sfx: ['Sound effects', 'A soft whoosh between scenes and a pop on the hook.'],
+  progress: ['Progress bar', 'A thin bar at the top shows how much is left, so people watch to the end.'],
+  nicheLook: ['Niche look', 'Colours and picture tone that fit your category (neon for gaming, bold for sports…).'],
+  endCard: ['End card', '"Follow for more …" for the last 2 seconds, with your name.'],
+};
 
 export type Tone = 'witty' | 'punchy' | 'explainer' | 'anchor';
 
@@ -62,6 +87,10 @@ export interface AppSettings {
   tone: Tone;
   music: boolean; // soft background music under the voice (off: add a TikTok sound when posting)
   cleanup: { enabled: boolean; days: number }; // delete video files of finished videos after this many days
+  effects: VideoEffects;
+  captionStyle: { color: CaptionColor; size: 'medium' | 'big' };
+  endCardName: string; // shown on the end card, e.g. "@yourname" (optional)
+  reviewScript: boolean; // write the script first; build the video only after you check it
   perDay: number; // videos per day (scheduled runs)
   maxSeconds: number;
   aiDailyLimit: number; // paid AI calls per day
@@ -77,6 +106,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   tone: 'witty',
   music: false,
   cleanup: { enabled: true, days: 30 },
+  effects: { hookCard: true, keywords: true, sfx: true, progress: true, nicheLook: true, endCard: true },
+  captionStyle: { color: 'yellow', size: 'big' },
+  endCardName: '',
+  reviewScript: false,
   perDay: 1,
   maxSeconds: 45,
   aiDailyLimit: 6,
@@ -91,6 +124,8 @@ export const TONE_LABEL: Record<Tone, string> = {
 };
 
 export const STATUS_LABEL: Record<VideoStatus, string> = {
+  script: 'Script ready · check it',
+  building: 'Building video…',
   pending: 'Waiting for you',
   approved: 'Approved · post it yourself',
   publishing: 'Sending to TikTok…',

@@ -3,6 +3,8 @@ import type { VideoStatus } from '../lib/types';
 import { STATUS_LABEL } from '../lib/types';
 
 const STATUS_STYLE: Record<VideoStatus, string> = {
+  script: 'border-cyan-300/50 bg-cyan-400/15 text-cyan-100',
+  building: 'border-violet-300/50 bg-violet-400/15 text-violet-100',
   pending: 'border-amber-300/50 bg-amber-400/15 text-amber-100',
   approved: 'border-sky-300/50 bg-sky-400/15 text-sky-100',
   publishing: 'border-violet-300/50 bg-violet-400/15 text-violet-100',
@@ -11,7 +13,7 @@ const STATUS_STYLE: Record<VideoStatus, string> = {
   rejected: 'border-white/15 bg-white/5 text-slate-300',
   failed: 'border-red-300/50 bg-red-400/15 text-red-100',
 };
-const STATUS_ICON: Record<VideoStatus, string> = { pending: '◷', approved: '✓', publishing: '↑', sent: '✓', posted: '★', rejected: '✕', failed: '!' };
+const STATUS_ICON: Record<VideoStatus, string> = { script: '✎', building: '⚙', pending: '◷', approved: '✓', publishing: '↑', sent: '✓', posted: '★', rejected: '✕', failed: '!' };
 
 export function StatusChip({ s }: { s: VideoStatus }) {
   return (

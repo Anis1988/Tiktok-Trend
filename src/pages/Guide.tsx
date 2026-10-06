@@ -2,6 +2,9 @@ import { useState, type ReactNode } from 'react';
 import { VideoDetail } from '../components/VideoDetail';
 import { MakeNow } from './Videos';
 import { NichePicker } from '../components/NichePicker';
+import { VideoStyle } from '../components/VideoStyle';
+import { ScriptEditor } from '../components/ScriptEditor';
+import { DEFAULT_SETTINGS } from '../lib/types';
 import type { Niche } from '../lib/niches';
 
 const EXAMPLE_NICHE: Niche = { category: 'gaming', subs: ['nintendo', 'pc'], focus: ['Zelda', 'GTA 6'], mix: 'niche' };
@@ -68,7 +71,7 @@ export function Guide() {
       </Section>
 
       <Section title="My channel (your niche)">
-        <p>TikTok grows channels that stick to one niche: it learns who likes your videos and shows them to more people like that. In <b>Settings → My channel</b>:</p>
+        <p>TikTok grows channels that stick to one niche: it learns who likes your videos and shows them to more people like that. On the <b>Videos</b> page, open <b>My channel</b>:</p>
         <Example caption="Made-up example; tapping does nothing here.">
           <NichePicker value={EXAMPLE_NICHE} onChange={() => {}} />
         </Example>
@@ -79,6 +82,35 @@ export function Guide() {
           <li><b>Big trends:</b> "Only my niche" (best for growth) or "Niche + huge trends", which lets in a giant story only if it fits your niche.</li>
         </ol>
         <p>The news comes from Google News plus a few specialist sites for the category (for example IGN and Polygon for gaming). The script, jokes, footage and hashtags are tuned to the niche too.</p>
+      </Section>
+
+      <Section title="Video style & effects">
+        <p>On the <b>Videos</b> page, open <b>Video style &amp; effects</b> to choose how every video looks and sounds:</p>
+        <Example caption="Made-up example; nothing here changes your settings.">
+          <VideoStyle s={{ ...DEFAULT_SETTINGS, endCardName: '@yourname' }} save={() => {}} />
+        </Example>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>Voice, writing style, length, news country, music:</b> as before, now all in one place.</li>
+          <li><b>Caption colour and size:</b> the colour of the word being spoken, and how big the words are.</li>
+          <li><b>Hook title card:</b> the first line shows in big letters for 2 seconds. This is what stops people scrolling.</li>
+          <li><b>Keyword pop:</b> the AI marks the 1 or 2 most important words of each sentence; they show bigger and in your category's colour.</li>
+          <li><b>Sound effects:</b> a soft whoosh when the picture changes and a pop on the hook. Made by the app, so no copyright problems.</li>
+          <li><b>Progress bar:</b> a thin line at the top fills up as the video plays, so people watch to the end.</li>
+          <li><b>Niche look:</b> colours and picture tone that fit your category (for example neon green for Gaming, orange for Sports, warm for Food).</li>
+          <li><b>End card:</b> for the last 2 seconds, "Follow for more Gaming" (your category) and your name.</li>
+        </ul>
+      </Section>
+
+      <Section title="Check the script first">
+        <p>Turn on <b>Check the script first</b> (in Video style &amp; effects) if you want to read the words before a video is made. Each run then only writes the script; you get an email, and the video shows as "Script ready · check it".</p>
+        <Example caption="Made-up example; the buttons do nothing here.">
+          <ScriptEditor example v={{ ...EXAMPLE, status: 'script', draft: { lines: EXAMPLE.lines.map((text, i) => ({ text, footage: ['night sky moon', 'telescope stars', 'earth from space', 'cloudy night', 'alarm clock'][i] ?? 'night sky', keywords: i === 0 ? ['villain era'] : [] })) } }} />
+        </Example>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li>Change any sentence, the hook, the caption or the comment. You can also change the footage search words and the words that pop.</li>
+          <li>Tap <b>Build video</b>: the video is made in 3 to 5 minutes and you get the usual email to approve it. Building uses no extra AI.</li>
+          <li><b>Discard</b> if you don't like it: no video is made.</li>
+        </ul>
       </Section>
 
       <Section title="Choosing the subject">
@@ -96,7 +128,7 @@ export function Guide() {
           <li><b>Type a subject</b> (like "iPhone 18" or "Champions League"): the app reads the latest news about it (last 2 days, or last week if that's quiet) and makes the video from those facts.</li>
           <li><b>Leave it empty</b>: the app picks the best story from your pick, your channel, or the top trending topic.</li>
           <li>If no news is found, or the subject is sad or risky (deaths, crimes, elections…), no video is made and you see why. It still counts as one AI script.</li>
-          <li>Topics in <b>Settings</b> are different: they guide every daily video. The subject box is for one video only.</li>
+          <li>"My channel" guides every daily video. The picks in this box are for one video only.</li>
           <li>Without the website: on GitHub, open <b>Actions → Make a video → Run workflow</b>, type the subject in the "Subject" box, and tap the green button.</li>
         </ul>
       </Section>
@@ -114,7 +146,7 @@ export function Guide() {
           <li>Scroll to <b>Artifacts</b> at the bottom and tap <b>video</b>.</li>
           <li>It downloads as a .zip: open it to get the .mp4, then watch it or post it from your phone.</li>
         </ol>
-        <p>Want to hear a voice or the music before using real topics? In <b>Run workflow</b>, tick <b>"Test only: a made-up sample video"</b>. It makes a short sample with the voice from Settings (no AI cost, not added to your videos) and attaches it to the run the same way.</p>
+        <p>Want to hear a voice or the music before using real topics? In <b>Run workflow</b>, tick <b>"Test only: a made-up sample video"</b>. It makes a short sample with the voice and effects from the Videos tab (no AI cost, not added to your videos) and attaches it to the run the same way.</p>
       </Section>
 
       <Section title="Auto clean-up (saving space)">
@@ -131,6 +163,8 @@ export function Guide() {
           {(Object.keys(STATUS_LABEL) as VideoStatus[]).map((s) => (
             <li key={s} className="flex flex-wrap items-center gap-2"><StatusChip s={s} />
               <span className="text-sm">{{
+                script: 'The script is written and waiting for you to read it ("Check the script first" is on). Edit it, then tap Build video.',
+                building: 'You tapped Build: the video is being made (3 to 5 minutes).',
                 pending: 'Made and waiting for you to approve or reject.',
                 approved: 'You approved it before TikTok was connected: download it and post it yourself, or tap "Send to TikTok drafts" once TikTok is connected.',
                 publishing: 'Being sent to your TikTok drafts (about a minute).',
@@ -148,7 +182,7 @@ export function Guide() {
         <ul className="list-disc space-y-2 pl-5">
           <li><b>Turn on "AI-generated content"</b> in TikTok when you post. TikTok requires it for videos with an AI voice.</li>
           <li><b>Check the facts.</b> The script only uses the headlines, but headlines can be wrong. The sources are listed under each video.</li>
-          <li><b>Music:</b> by default there is no music, so you can add a trending TikTok sound when you post (TikTok shows those to more people). Prefer music built in? Turn on "Soft background music" in Settings: a quiet original tune that gets softer while the voice speaks.</li>
+          <li><b>Music:</b> by default there is no music, so you can add a trending TikTok sound when you post (TikTok shows those to more people). Prefer music built in? Turn on "Soft background music" in Videos → Video style &amp; effects: a quiet original tune that gets softer while the voice speaks.</li>
           <li><b>Pin the comment:</b> after posting, paste the suggested comment as the first comment and pin it (long-press it → Pin). Replies help the video spread.</li>
           <li><b>Quality over quantity:</b> TikTok shows repetitive AI videos to fewer people. One good video a day beats three weak ones.</li>
         </ul>
