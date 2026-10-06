@@ -60,13 +60,16 @@ export function VideoDetail({ v, onChange, tiktokConnected, example = false }: {
               {v.status === 'pending' && <button className="btn" disabled={!!busy} onClick={() => void act('reject')}>✕ Reject</button>}
             </>
           )}
+          {v.status === 'approved' && tiktokConnected && (
+            <button className="btn-primary" disabled={!!busy} onClick={() => void act('approve')}>{busy === 'approve' ? <><span className="spinner" /> Sending…</> : '↑ Send to TikTok drafts'}</button>
+          )}
           {(v.status === 'approved' || v.status === 'sent') && (
             <button className="btn-primary" disabled={!!busy} onClick={() => void act('posted')}>★ I posted it</button>
           )}
           {hasFile && <a className="btn" href={example ? undefined : fileUrl(v, 'mp4', true)} download>↓ Download</a>}
           <button className="btn" onClick={() => void copy()}>Copy caption</button>
         </div>
-        {v.status === 'approved' && <p className="text-sm text-sky-100">Download it, then post it in the TikTok app. Paste the caption, add a sound if you like, and turn on <b>"AI-generated content"</b>.</p>}
+        {v.status === 'approved' && <p className="text-sm text-sky-100">{tiktokConnected ? 'Tap "Send to TikTok drafts", or ' : ''}Download it, then post it in the TikTok app. Paste the caption, add a sound if you like, and turn on <b>"AI-generated content"</b>.</p>}
         {v.status === 'sent' && <p className="text-sm text-emerald-100">It's in TikTok: open the TikTok app, check your notifications or inbox, then edit and post. Turn on <b>"AI-generated content"</b> before posting.</p>}
         {v.status === 'publishing' && <p className="text-sm text-violet-100">Sending to TikTok. This takes about a minute; refresh to see the result.</p>}
 

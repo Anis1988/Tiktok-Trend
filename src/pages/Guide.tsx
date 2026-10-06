@@ -118,7 +118,7 @@ export function Guide() {
             <li key={s} className="flex flex-wrap items-center gap-2"><StatusChip s={s} />
               <span className="text-sm">{{
                 pending: 'Made and waiting for you to approve or reject.',
-                approved: 'You approved it, but TikTok isn\'t connected: download it and post it in the TikTok app.',
+                approved: 'You approved it before TikTok was connected: download it and post it yourself, or tap "Send to TikTok drafts" once TikTok is connected.',
                 publishing: 'Being sent to your TikTok drafts (about a minute).',
                 sent: 'In TikTok. Open the TikTok app to finish and post it.',
                 posted: 'You marked it as posted.',
