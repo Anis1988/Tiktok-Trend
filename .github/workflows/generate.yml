@@ -17,6 +17,14 @@ on:
         description: 'Subject (optional), e.g. "iPhone 18". Leave empty for the top trend.'
         required: false
         default: ''
+      pick:
+        description: 'Category for this video (optional), e.g. "gaming" or "gaming:nintendo"'
+        required: false
+        default: ''
+      idea_url:
+        description: 'Link of the idea picked in the app (optional, filled in by the app)'
+        required: false
+        default: ''
       sample:
         description: 'Test only: a made-up sample video (no AI cost, not added to the app) to check voice and music'
         type: boolean
@@ -78,6 +86,8 @@ jobs:
           MANUAL: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
           PIPER_DIR: .piper
           SUBJECT: ${{ inputs.subject }}
+          PICK: ${{ inputs.pick }}
+          IDEA_URL: ${{ inputs.idea_url }}
           SAMPLE: ${{ inputs.sample && '1' || '0' }}
           SAVE_COPY_DIR: done
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

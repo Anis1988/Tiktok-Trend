@@ -10,7 +10,12 @@ export const config = { path: '/api/videos' };
 const withSig = (v: VideoRecord) => ({ ...v, sig: sign(v.id) });
 
 const Post = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('make-now'), subject: z.string().trim().max(80).optional() }),
+  z.object({
+    action: z.literal('make-now'),
+    subject: z.string().trim().max(200).optional(),
+    pick: z.string().regex(/^[a-z-]{2,30}(:[a-z0-9-]{2,30})?$/).optional(),
+    ideaUrl: z.string().url().startsWith('https://').max(1000).optional(),
+  }),
   z.object({ action: z.enum(['approve', 'reject', 'posted', 'retry']), id: z.string().max(40), sig: z.string().max(64).optional() }),
 ]);
 
@@ -49,7 +54,7 @@ export default async (req: Request): Promise<Response> => {
   try {
     if (body.action === 'make-now') {
       const subject = body.subject?.replace(/[\r\n]+/g, ' ') ?? '';
-      await dispatch('generate.yml', { manual: 'true', subject });
+      await dispatch('generate.yml', { manual: 'true', subject, pick: body.pick ?? '', idea_url: body.ideaUrl ?? '' });
       return json({ ok: true, message: `Started${subject ? ` (about "${subject}")` : ''}. A new video takes 2 to 5 minutes; you will get an email.` });
     }
     const v = await getVideo(body.id);

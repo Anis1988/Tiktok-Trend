@@ -83,13 +83,18 @@ export function Guide() {
 
       <Section title="Choosing the subject">
         <p>On the <b>Videos</b> page, the "Make a video now" box lets you choose what the next video is about.</p>
-        <Example caption="Made-up example; the button does nothing here.">
-          <MakeNow subject="Zelda" onSubject={() => {}} onMake={() => {}} niche={EXAMPLE_NICHE} />
+        <Example caption="Made-up example; nothing here does anything.">
+          <MakeNow subject="Nintendo reveals a new Zelda trailer" onSubject={() => {}} pick="gaming:nintendo" onPick={() => {}} ideaUrl="https://example.com/1" onIdea={() => {}} onIdeas={() => {}} onMake={() => {}} niche={EXAMPLE_NICHE}
+            ideas={[
+              { title: 'Nintendo reveals a new Zelda trailer', url: 'https://example.com/1', site: 'Example News', tag: 'Nintendo' },
+              { title: 'Switch 2 sales pass a big milestone', url: 'https://example.com/2', site: 'Example Games', tag: 'Nintendo' },
+            ]} />
         </Example>
         <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>Category for this video:</b> tap a category (like Gaming), then a subcategory (like Nintendo) or "All". The video then uses that niche's news, style, footage and hashtags. "My channel" (or "Trending") uses your normal settings.</li>
+          <li><b>💡 Ideas right now:</b> tap "Show ideas" for a plain list of fresh headlines from your pick (or today's top trends). Tap one to use it as the subject. It's free (no AI) and refreshes every 30 minutes.</li>
           <li><b>Type a subject</b> (like "iPhone 18" or "Champions League"): the app reads the latest news about it (last 2 days, or last week if that's quiet) and makes the video from those facts.</li>
-          <li><b>Tap a shortcut</b> under the box (your channel's subcategories and focus words) to fill it in.</li>
-          <li><b>Leave it empty</b>: the app picks the best story from your channel, or the top trending topic if you have no channel set.</li>
+          <li><b>Leave it empty</b>: the app picks the best story from your pick, your channel, or the top trending topic.</li>
           <li>If no news is found, or the subject is sad or risky (deaths, crimes, elections…), no video is made and you see why. It still counts as one AI script.</li>
           <li>Topics in <b>Settings</b> are different: they guide every daily video. The subject box is for one video only.</li>
           <li>Without the website: on GitHub, open <b>Actions → Make a video → Run workflow</b>, type the subject in the "Subject" box, and tap the green button.</li>
@@ -110,6 +115,15 @@ export function Guide() {
           <li>It downloads as a .zip: open it to get the .mp4, then watch it or post it from your phone.</li>
         </ol>
         <p>Want to hear a voice or the music before using real topics? In <b>Run workflow</b>, tick <b>"Test only: a made-up sample video"</b>. It makes a short sample with the voice from Settings (no AI cost, not added to your videos) and attaches it to the run the same way.</p>
+      </Section>
+
+      <Section title="Auto clean-up (saving space)">
+        <p>Each video file is about 20 to 50 MB. To keep storage and Netlify use low, the app can delete the <b>video file</b> of finished videos (posted, rejected, failed or already in your TikTok drafts) after a number of days. The text stays: title, script, caption, comment and sources.</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li>Change it in <b>Settings → Auto clean-up</b>: on or off, and after 7, 14, 30 (default), 60 or 90 days.</li>
+          <li>Videos waiting for you or approved (not yet posted) are never deleted.</li>
+          <li>It runs during the daily video job on GitHub, so it costs nothing.</li>
+        </ul>
       </Section>
 
       <Section title="What the labels mean">

@@ -17,6 +17,7 @@ const Patch = z.object({
   voice: z.enum(['af_heart', 'af_bella', 'am_michael', 'am_fenrir', 'bf_emma', 'bm_george', 'female', 'male']),
   tone: z.enum(['witty', 'punchy', 'explainer', 'anchor']),
   music: z.boolean(),
+  cleanup: z.object({ enabled: z.boolean(), days: z.union([z.literal(7), z.literal(14), z.literal(30), z.literal(60), z.literal(90)]) }),
   perDay: z.number().int().min(1).max(3),
   maxSeconds: z.union([z.literal(30), z.literal(45), z.literal(60)]),
   aiDailyLimit: z.number().int().min(1).max(30),

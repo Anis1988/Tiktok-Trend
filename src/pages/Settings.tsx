@@ -83,6 +83,19 @@ export function Settings() {
         </Field>
       </Card>
 
+      <Card title="Auto clean-up" subtitle="Saves storage: deletes old video files, keeps their text">
+        <Field label="Delete old video files" hint="Only finished videos (posted, rejected, failed or sent to TikTok). Waiting and approved videos are never deleted.">
+          <Toggle on={s.cleanup.enabled} onChange={(v) => void save({ cleanup: { ...s.cleanup, enabled: v } })} label="Delete old video files" />
+        </Field>
+        {s.cleanup.enabled && (
+          <Field label="After">
+            <select className="input w-32" value={s.cleanup.days} onChange={(e) => void save({ cleanup: { ...s.cleanup, days: Number(e.target.value) } })}>
+              {[7, 14, 30, 60, 90].map((n) => <option key={n} value={n}>{n} days</option>)}
+            </select>
+          </Field>
+        )}
+      </Card>
+
       <Card title="Review email" subtitle="Each new video is emailed to you with a link to approve or reject it">
         <Field label="Send to">
           <input className="input w-full sm:w-64" type="email" placeholder="you@example.com" defaultValue={s.notifyEmail} onBlur={(e) => e.target.value !== s.notifyEmail && void save({ notifyEmail: e.target.value.trim() })} />

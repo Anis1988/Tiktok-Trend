@@ -51,6 +51,7 @@ export function VideoDetail({ v, onChange, tiktokConnected, example = false }: {
           <span className="text-xs text-slate-400">{when(v.createdAt)} · {v.durationSec}s</span>
         </div>
         <h3 className="text-xl font-semibold leading-snug">{v.title}</h3>
+        {v.fileRemovedAt && <p className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-slate-400">The video file was removed by the auto clean-up on {when(v.fileRemovedAt)}. The text below is kept.</p>}
         {v.error && <p className="rounded-lg border border-red-300/40 bg-red-500/10 px-2 py-1.5 text-sm text-red-100">{v.error}</p>}
 
         <div className="flex flex-wrap gap-2">

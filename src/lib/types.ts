@@ -35,6 +35,7 @@ export interface VideoRecord {
   footage: { by: string; url: string; site?: string }[]; // stock video credits (Pixabay / Pexels)
   model: string;
   error?: string;
+  fileRemovedAt?: string; // the video file was deleted by the auto clean-up (the text is kept)
   tiktok?: { publishId?: string; sentAt?: string; status?: string };
 }
 
@@ -60,6 +61,7 @@ export interface AppSettings {
   voice: VoiceId;
   tone: Tone;
   music: boolean; // soft background music under the voice (off: add a TikTok sound when posting)
+  cleanup: { enabled: boolean; days: number }; // delete video files of finished videos after this many days
   perDay: number; // videos per day (scheduled runs)
   maxSeconds: number;
   aiDailyLimit: number; // paid AI calls per day
@@ -74,6 +76,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   voice: 'af_heart',
   tone: 'witty',
   music: false,
+  cleanup: { enabled: true, days: 30 },
   perDay: 1,
   maxSeconds: 45,
   aiDailyLimit: 6,

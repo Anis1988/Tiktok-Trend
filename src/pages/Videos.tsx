@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, fileUrl, type Status, type Video } from '../lib/api';
 import { VideoDetail } from '../components/VideoDetail';
 import { StatusChip, toast, when } from '../components/ui';
-import { subsOf, type Niche } from '../lib/niches';
+import { CATEGORIES, findCategory, type Niche } from '../lib/niches';
 
 export function SetupChecklist({ st }: { st: Status }) {
   const items = [
@@ -42,11 +42,34 @@ export function Videos() {
   useEffect(() => void load(), [load]);
 
   const [subject, setSubject] = useState('');
+  const [pick, setPick] = useState('');
+  const [idea, setIdea] = useState<Idea | null>(null);
+  const [ideas, setIdeas] = useState<Idea[] | null>(null);
+  const [ideasBusy, setIdeasBusy] = useState(false);
+  const loadIdeas = async () => {
+    setIdeasBusy(true);
+    try {
+      setIdeas((await api.ideas(pick)).ideas);
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : String(e));
+    } finally {
+      setIdeasBusy(false);
+    }
+  };
+  const chooseIdea = (i: Idea | null) => {
+    setIdea(i);
+    if (i) setSubject(i.title);
+  };
+  const choosePick = (x: string) => {
+    setPick(x);
+    setIdeas(null); // ideas belong to the old category
+  };
   const makeNow = async () => {
     setBusy(true);
     try {
-      toast('info', (await api.makeNow(subject)).message);
+      toast('info', (await api.makeNow({ subject, pick, ideaUrl: idea?.url })).message);
       setSubject('');
+      setIdea(null);
     } catch (e) {
       toast('error', e instanceof Error ? e.message : String(e));
     } finally {
@@ -68,7 +91,7 @@ export function Videos() {
           <button className="btn" onClick={() => void load()}>↻ Refresh</button>
         </div>
       </div>
-      <MakeNow subject={subject} onSubject={setSubject} busy={busy} onMake={() => void makeNow()} niche={niche} />
+      <MakeNow subject={subject} onSubject={setSubject} pick={pick} onPick={choosePick} ideaUrl={idea?.url} onIdea={chooseIdea} ideas={ideas} ideasBusy={ideasBusy} onIdeas={() => void loadIdeas()} busy={busy} onMake={() => void makeNow()} niche={niche} />
       {err && <p className="card text-sm text-red-200">{err}</p>}
       {status && <SetupChecklist st={status} />}
 
@@ -107,26 +130,78 @@ export function Videos() {
   );
 }
 
-/** "Make a video now", with an optional subject for this one video. */
-export function MakeNow({ subject, onSubject, busy, onMake, niche }: { subject: string; onSubject: (s: string) => void; busy?: boolean; onMake: () => void; niche?: Niche | null }) {
-  // Shortcuts from "My channel": your subcategories and focus words.
-  const picks = niche ? [...subsOf(niche).map((s) => ({ label: s.label, value: s.query })), ...niche.focus.map((f) => ({ label: f, value: f }))] : [];
+export interface Idea { title: string; url: string; site?: string; tag: string }
+
+const chip = (on: boolean) =>
+  `shrink-0 rounded-lg border px-2.5 py-1.5 text-xs transition active:scale-95 ${on ? 'border-cyan-300/60 bg-cyan-400/15 text-cyan-50' : 'border-white/10 bg-white/5 text-slate-300'}`;
+
+/**
+ * "Make a video now": pick a category and subcategory for this one video (default: My channel), optionally a subject,
+ * and "Ideas right now" (fresh headlines, free) to tap instead of typing.
+ */
+export function MakeNow(p: {
+  subject: string; onSubject: (s: string) => void;
+  pick: string; onPick: (p: string) => void;
+  ideaUrl?: string; onIdea: (i: Idea | null) => void;
+  ideas: Idea[] | null; ideasBusy?: boolean; onIdeas: () => void;
+  busy?: boolean; onMake: () => void; niche?: Niche | null;
+}) {
+  const [catId, subId] = p.pick.split(':');
+  const cat = findCategory(catId);
+  const where = cat ? `${cat.label}${subId ? ` · ${cat.subs.find((x) => x.id === subId)?.label ?? ''}` : ''}` : p.niche ? 'your channel' : 'today\'s top trends';
   return (
-    <form className="card space-y-2" onSubmit={(e) => (e.preventDefault(), onMake())}>
-      <label className="label block" htmlFor="subject">Make a video now</label>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input id="subject" className="input w-full sm:flex-1" maxLength={80} placeholder="Subject (optional), e.g. iPhone 18, Champions League" value={subject} onChange={(e) => onSubject(e.target.value)} />
-        <button type="submit" className="btn-primary shrink-0" disabled={busy}>{busy ? <><span className="spinner" /> Starting…</> : subject.trim() ? '+ Make it about this' : '+ Make a video now'}</button>
-      </div>
-      {picks.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {picks.map((p) => (
-            <button key={p.label} type="button" onClick={() => onSubject(subject === p.value ? '' : p.value)} aria-pressed={subject === p.value}
-              className={`rounded-lg border px-2.5 py-1 text-xs transition ${subject === p.value ? 'border-cyan-300/60 bg-cyan-400/15 text-cyan-50' : 'border-white/10 bg-white/5 text-slate-300'}`}>{p.label}</button>
+    <form className="card space-y-3" onSubmit={(e) => (e.preventDefault(), p.onMake())}>
+      <p className="label">Make a video now</p>
+
+      <div className="space-y-1.5">
+        <p className="text-xs text-slate-400">Category for this video</p>
+        <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+          <button type="button" className={chip(!cat)} onClick={() => (p.onPick(''), p.onIdea(null))} aria-pressed={!cat}>{p.niche ? '⭐ My channel' : '🌍 Trending'}</button>
+          {CATEGORIES.map((c) => (
+            <button key={c.id} type="button" className={chip(cat?.id === c.id)} onClick={() => (p.onPick(cat?.id === c.id ? '' : c.id), p.onIdea(null))} aria-pressed={cat?.id === c.id}>{c.emoji} {c.label}</button>
           ))}
         </div>
-      )}
-      <p className="text-xs text-slate-500">{subject.trim() ? `Uses the latest news about "${subject.trim()}".` : niche ? 'Empty: the app picks the best story from your channel (next subcategory in turn).' : 'Empty: the app picks the top trending topic right now.'}</p>
+        {cat && (
+          <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+            <button type="button" className={chip(!subId)} onClick={() => (p.onPick(cat.id), p.onIdea(null))} aria-pressed={!subId}>All {cat.label}</button>
+            {cat.subs.map((x) => (
+              <button key={x.id} type="button" className={chip(subId === x.id)} onClick={() => (p.onPick(`${cat.id}:${x.id}`), p.onIdea(null))} aria-pressed={subId === x.id}>{x.label}</button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <input id="subject" className="input w-full sm:flex-1" maxLength={200} placeholder="Subject (optional), e.g. Zelda, Champions League" value={p.subject} onChange={(e) => (p.onSubject(e.target.value), p.ideaUrl && p.onIdea(null))} aria-label="Subject" />
+        <button type="submit" className="btn-primary shrink-0" disabled={p.busy}>{p.busy ? <><span className="spinner" /> Starting…</> : p.subject.trim() ? '+ Make it about this' : '+ Make a video now'}</button>
+      </div>
+      <p className="text-xs text-slate-500">{p.subject.trim() ? `Uses the latest news about "${p.subject.trim().slice(0, 60)}${p.subject.trim().length > 60 ? '…' : ''}", in the style of ${where}.` : `Empty: the app picks the best story from ${where}.`}</p>
+
+      <div className="space-y-2 border-t border-white/10 pt-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-slate-200">💡 Ideas right now <span className="text-xs text-slate-500">· {where}</span></p>
+          <button type="button" className="btn !min-h-0 !py-1.5 text-xs" disabled={p.ideasBusy} onClick={p.onIdeas}>{p.ideasBusy ? <><span className="spinner" /> Loading…</> : p.ideas ? '↻ Refresh ideas' : 'Show ideas'}</button>
+        </div>
+        {p.ideas && !p.ideas.length && <p className="text-xs text-slate-500">No fresh headlines right now. Try another category.</p>}
+        {p.ideas && p.ideas.length > 0 && (
+          <ul className="space-y-1.5">
+            {p.ideas.map((i) => {
+              const on = p.ideaUrl === i.url;
+              return (
+                <li key={i.url}>
+                  <button type="button" onClick={() => p.onIdea(on ? null : i)} aria-pressed={on}
+                    className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition ${on ? 'border-cyan-300/60 bg-cyan-400/10 text-cyan-50' : 'border-white/10 bg-white/[0.03] text-slate-200 hover:border-white/25'}`}>
+                    <span className="mr-1.5 rounded bg-white/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">{i.tag}</span>
+                    {i.title}
+                    {i.site && <span className="text-xs text-slate-500"> · {i.site}</span>}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {p.ideas && p.ideas.length > 0 && <p className="text-xs text-slate-500">Tap an idea to use it as the subject, then tap "Make it about this".</p>}
+      </div>
     </form>
   );
 }

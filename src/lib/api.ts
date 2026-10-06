@@ -60,7 +60,9 @@ export const api = {
   videos: () => call<Video[]>('/api/videos'),
   video: (id: string, sig?: string) => call<Video>(`/api/videos?id=${encodeURIComponent(id)}${sig ? `&sig=${encodeURIComponent(sig)}` : ''}`),
   act: (action: 'approve' | 'reject' | 'posted' | 'retry', id: string, sig?: string) => post<Video>('/api/videos', { action, id, sig }),
-  makeNow: (subject?: string) => post<{ ok: boolean; message: string }>('/api/videos', { action: 'make-now', subject: subject?.trim() || undefined }),
+  makeNow: (o: { subject?: string; pick?: string; ideaUrl?: string } = {}) =>
+    post<{ ok: boolean; message: string }>('/api/videos', { action: 'make-now', subject: o.subject?.trim() || undefined, pick: o.pick || undefined, ideaUrl: o.ideaUrl || undefined }),
+  ideas: (pick?: string) => call<{ ideas: { title: string; url: string; site?: string; tag: string }[] }>(`/api/ideas${pick ? `?pick=${encodeURIComponent(pick)}` : ''}`),
   settings: () => call<AppSettings>('/api/settings'),
   saveSettings: (s: Partial<AppSettings>) => post<AppSettings>('/api/settings', s),
   tiktokStart: () => post<{ url: string; redirectUri: string }>('/api/tiktok/start', {}),

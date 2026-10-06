@@ -8,8 +8,9 @@ import type { AppSettings, VideoRecord } from '../src/lib/types';
 import { getSettings, listVideos, readJson, saveVideo, store, writeJson } from '../netlify/lib/store';
 import { sign } from '../netlify/lib/sign';
 import { emailReady, sendEmail } from '../netlify/lib/mailer';
-import { feedNews, findCandidates, nicheCandidates, subjectNews, type Candidate } from './lib/trends';
-import { CATEGORIES, findCategory } from '../src/lib/niches';
+import { feedNews, findCandidates, nicheCandidates, subjectNews, type Candidate } from '../netlify/lib/trends';
+import { CATEGORIES, findCategory, subsOf, type Niche } from '../src/lib/niches';
+import { cleanUp } from '../netlify/lib/cleanup';
 import { MODEL, writeScript } from './lib/script';
 import { speak, voiceUsed } from './lib/tts';
 import { findClip, footageReady, type Clip } from './lib/footage';
@@ -54,11 +55,26 @@ async function sample() {
   }
 }
 
+/** PICK = "gaming" (all its subcategories) or "gaming:nintendo". Unknown values are ignored. */
+function pickedNiche(raw: string | undefined, mine: Niche | null): Niche | null {
+  const [catId, subId] = (raw ?? '').trim().split(':');
+  const cat = findCategory(catId);
+  if (!cat) return null;
+  const subs = subId && cat.subs.some((x) => x.id === subId) ? [subId] : cat.subs.map((x) => x.id);
+  return { category: cat.id, subs, focus: mine?.category === cat.id ? mine.focus : [], mix: 'niche' };
+}
+
 async function main() {
   if (process.env.SAMPLE === '1') return sample();
   const manual = process.env.MANUAL === '1';
   if (!process.env.ANTHROPIC_API_KEY?.trim()) throw new Error('ANTHROPIC_API_KEY is missing. Add it in GitHub: Settings → Secrets and variables → Actions → New repository secret.');
-  const s = await getSettings();
+  const saved = await getSettings();
+  // Auto clean-up first (free, quick), so it also runs when no video is due today.
+  await cleanUp(saved, log).catch((e) => log('Clean-up failed:', e instanceof Error ? e.message : e));
+  // A category / subcategory picked for this one video ("Make a video now") replaces "My channel" for this run.
+  const pick = pickedNiche(process.env.PICK, saved.niche);
+  const s = pick ? { ...saved, niche: pick } : saved;
+  if (pick) log(`Picked for this video: ${findCategory(pick.category)?.label} · ${subsOf(pick).map((x) => x.label).join(', ')}`);
   const videos = await listVideos();
   if (!manual) {
     if (!s.enabled) return log('Scheduled videos are turned off in Settings. Nothing to do.');
@@ -72,11 +88,13 @@ async function main() {
   if (budget.n >= s.aiDailyLimit) throw new Error(`Daily AI limit reached (${s.aiDailyLimit}). Raise it in Settings or wait until tomorrow.`);
 
   // A subject typed for this one video (app box or GitHub "Run workflow") replaces the trend search.
-  const subject = (process.env.SUBJECT ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  const subject = (process.env.SUBJECT ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
   let candidates: Candidate[];
   if (subject) {
     log(`Subject: ${subject}`);
-    const c = await subjectNews(subject, s.country);
+    const ideaUrl = /^https:\/\/\S+$/.test(process.env.IDEA_URL ?? '') ? process.env.IDEA_URL! : '';
+    // An idea from the app's "Ideas" list is a headline: use it as is if a fresh search finds nothing more.
+    const c = (await subjectNews(subject, s.country)) ?? (ideaUrl ? { topic: subject, headlines: [{ title: subject, url: ideaUrl }] } : null);
     if (!c) throw new Error(`No recent news found about "${subject}". Try other words, or leave the subject empty for the top trend.`);
     candidates = [c];
   } else {
@@ -139,7 +157,7 @@ async function main() {
     await saveVideo(rec);
     log(`Saved ${id}`);
     // Next video starts with the next subcategory of your channel.
-    if (s.niche && !subject) await writeJson('nicheTurn', (await readJson<number>('nicheTurn', 0)) + 1);
+    if (s.niche && !subject && !pick) await writeJson('nicheTurn', (await readJson<number>('nicheTurn', 0)) + 1);
     if (process.env.SAVE_COPY_DIR) {
       // GitHub attaches this copy to the run, so the video can be downloaded even without the website.
       await mkdir(process.env.SAVE_COPY_DIR, { recursive: true });

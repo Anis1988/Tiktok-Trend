@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
 import type { AppSettings } from '../../src/lib/types';
-import type { Candidate } from './trends';
+import type { Candidate } from '../../netlify/lib/trends';
 import { findCategory, subsOf } from '../../src/lib/niches';
 
 export const MODEL = process.env.AI_MODEL || 'claude-opus-5-5';
