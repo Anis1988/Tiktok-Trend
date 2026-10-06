@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { api, setCode, type Status } from '../lib/api';
-import type { AppSettings } from '../lib/types';
 import { Card, Field, Toggle, toast } from '../components/ui';
+import { useSettings } from '../lib/useSettings';
 
 export function Settings() {
-  const [s, setS] = useState<AppSettings | null>(null);
+  const { settings: s, setSettings: setS, save } = useSettings();
   const [st, setSt] = useState<Status | null>(null);
   const [err, setErr] = useState('');
 
@@ -12,15 +12,6 @@ export function Settings() {
     Promise.all([api.settings(), api.status()]).then(([a, b]) => (setS(a), setSt(b))).catch((e) => setErr(e instanceof Error ? e.message : String(e)));
   }, []);
 
-  const save = async (patch: Partial<AppSettings>) => {
-    if (!s) return;
-    setS({ ...s, ...patch });
-    try {
-      setS(await api.saveSettings(patch));
-    } catch (e) {
-      toast('error', e instanceof Error ? e.message : String(e));
-    }
-  };
   const connect = async () => {
     try {
       window.location.href = (await api.tiktokStart()).url;

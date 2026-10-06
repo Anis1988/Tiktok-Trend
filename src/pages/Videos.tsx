@@ -3,7 +3,7 @@ import { api, fileUrl, type Status, type Video } from '../lib/api';
 import { VideoDetail } from '../components/VideoDetail';
 import { StatusChip, toast, when } from '../components/ui';
 import { CATEGORIES, findCategory, type Niche } from '../lib/niches';
-import type { AppSettings } from '../lib/types';
+import { useSettings } from '../lib/useSettings';
 import { NichePicker } from '../components/NichePicker';
 import { Fold, VideoStyle } from '../components/VideoStyle';
 import { MyClips } from '../components/MyClips';
@@ -27,7 +27,7 @@ export function SetupChecklist({ st }: { st: Status }) {
 export function Videos() {
   const [list, setList] = useState<Video[] | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
-  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const { settings, setSettings, save: saveSettings } = useSettings();
   const niche = settings?.niche ?? null;
   const [open, setOpen] = useState<string | null>(null);
   const [err, setErr] = useState('');
@@ -46,15 +46,6 @@ export function Videos() {
   }, []);
   useEffect(() => void load(), [load]);
 
-  const saveSettings = async (patch: Partial<AppSettings>) => {
-    if (!settings) return;
-    setSettings({ ...settings, ...patch });
-    try {
-      setSettings(await api.saveSettings(patch));
-    } catch (e) {
-      toast('error', e instanceof Error ? e.message : String(e));
-    }
-  };
   const [subject, setSubject] = useState('');
   const [pick, setPick] = useState('');
   const [idea, setIdea] = useState<Idea | null>(null);
