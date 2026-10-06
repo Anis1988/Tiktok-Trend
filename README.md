@@ -5,7 +5,8 @@ Makes short vertical videos about what's trending, emails you a preview, and aft
 ## How it works
 
 1. **GitHub Actions** (`.github/workflows/generate.yml`, daily or "Make a video now"):
-   Google Trends + Google News → Claude writes a script from the headlines (structured output, daily cap) →
+   "My channel" niche (category → subcategories that take turns → focus words; Google News + specialist feeds,
+   `src/lib/niches.ts`) or Google Trends → Claude writes a script from the headlines (structured output, daily cap) →
    Kokoro AI voice (Piper as backup) → Pixabay stock clips (or Pexels) → ffmpeg (1080×1920, zooms, crossfades, word-by-word
    captions, -14 LUFS sound, optional soft music) → saved in Netlify Blobs → review email (EmailJS).
 2. **Netlify** hosts the app (`src/`) and small functions (`netlify/functions/`): list videos, stream them,

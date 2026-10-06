@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, fileUrl, type Status, type Video } from '../lib/api';
 import { VideoDetail } from '../components/VideoDetail';
 import { StatusChip, toast, when } from '../components/ui';
+import { subsOf, type Niche } from '../lib/niches';
 
 export function SetupChecklist({ st }: { st: Status }) {
   const items = [
@@ -22,6 +23,7 @@ export function SetupChecklist({ st }: { st: Status }) {
 export function Videos() {
   const [list, setList] = useState<Video[] | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
+  const [niche, setNiche] = useState<Niche | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -29,6 +31,7 @@ export function Videos() {
   const load = useCallback(async () => {
     try {
       const [v, s] = await Promise.all([api.videos(), api.status()]);
+      api.settings().then((x) => setNiche(x.niche ?? null), () => undefined);
       setList(v);
       setStatus(s);
       setErr('');
@@ -65,7 +68,7 @@ export function Videos() {
           <button className="btn" onClick={() => void load()}>↻ Refresh</button>
         </div>
       </div>
-      <MakeNow subject={subject} onSubject={setSubject} busy={busy} onMake={() => void makeNow()} />
+      <MakeNow subject={subject} onSubject={setSubject} busy={busy} onMake={() => void makeNow()} niche={niche} />
       {err && <p className="card text-sm text-red-200">{err}</p>}
       {status && <SetupChecklist st={status} />}
 
@@ -105,7 +108,9 @@ export function Videos() {
 }
 
 /** "Make a video now", with an optional subject for this one video. */
-export function MakeNow({ subject, onSubject, busy, onMake }: { subject: string; onSubject: (s: string) => void; busy?: boolean; onMake: () => void }) {
+export function MakeNow({ subject, onSubject, busy, onMake, niche }: { subject: string; onSubject: (s: string) => void; busy?: boolean; onMake: () => void; niche?: Niche | null }) {
+  // Shortcuts from "My channel": your subcategories and focus words.
+  const picks = niche ? [...subsOf(niche).map((s) => ({ label: s.label, value: s.query })), ...niche.focus.map((f) => ({ label: f, value: f }))] : [];
   return (
     <form className="card space-y-2" onSubmit={(e) => (e.preventDefault(), onMake())}>
       <label className="label block" htmlFor="subject">Make a video now</label>
@@ -113,7 +118,15 @@ export function MakeNow({ subject, onSubject, busy, onMake }: { subject: string;
         <input id="subject" className="input w-full sm:flex-1" maxLength={80} placeholder="Subject (optional), e.g. iPhone 18, Champions League" value={subject} onChange={(e) => onSubject(e.target.value)} />
         <button type="submit" className="btn-primary shrink-0" disabled={busy}>{busy ? <><span className="spinner" /> Starting…</> : subject.trim() ? '+ Make it about this' : '+ Make a video now'}</button>
       </div>
-      <p className="text-xs text-slate-500">{subject.trim() ? `Uses the latest news about "${subject.trim()}".` : 'Empty: the app picks the top trending topic right now.'}</p>
+      {picks.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {picks.map((p) => (
+            <button key={p.label} type="button" onClick={() => onSubject(subject === p.value ? '' : p.value)} aria-pressed={subject === p.value}
+              className={`rounded-lg border px-2.5 py-1 text-xs transition ${subject === p.value ? 'border-cyan-300/60 bg-cyan-400/15 text-cyan-50' : 'border-white/10 bg-white/5 text-slate-300'}`}>{p.label}</button>
+          ))}
+        </div>
+      )}
+      <p className="text-xs text-slate-500">{subject.trim() ? `Uses the latest news about "${subject.trim()}".` : niche ? 'Empty: the app picks the best story from your channel (next subcategory in turn).' : 'Empty: the app picks the top trending topic right now.'}</p>
     </form>
   );
 }

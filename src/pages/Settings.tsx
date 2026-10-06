@@ -3,11 +3,11 @@ import { api, setCode, type Status } from '../lib/api';
 import type { AppSettings } from '../lib/types';
 import { TONE_LABEL, VOICE_LABEL } from '../lib/types';
 import { Card, Field, Toggle, toast } from '../components/ui';
+import { NichePicker } from '../components/NichePicker';
 
 export function Settings() {
   const [s, setS] = useState<AppSettings | null>(null);
   const [st, setSt] = useState<Status | null>(null);
-  const [topic, setTopic] = useState('');
   const [err, setErr] = useState('');
 
   useEffect(() => {
@@ -22,13 +22,6 @@ export function Settings() {
     } catch (e) {
       toast('error', e instanceof Error ? e.message : String(e));
     }
-  };
-  const addTopic = () => {
-    const t = topic.trim();
-    if (!s || !t || s.topics.includes(t)) return setTopic('');
-    if (s.topics.length >= 8) return toast('error', 'Up to 8 topics.');
-    void save({ topics: [...s.topics, t] });
-    setTopic('');
   };
   const connect = async () => {
     try {
@@ -48,6 +41,11 @@ export function Settings() {
 
   return (
     <div className="mx-auto grid max-w-5xl grid-cols-1 gap-3 lg:grid-cols-2 lg:items-start">
+      <div className="lg:col-span-2">
+        <Card title="My channel" subtitle="What your videos are about. Sticking to one niche helps TikTok find the right viewers.">
+          <NichePicker value={s.niche} onChange={(n) => void save({ niche: n })} />
+        </Card>
+      </div>
       <Card title="What to make" subtitle="Saved right away">
         <Field label="Make videos every day" hint="Off = only when you tap 'Make a video now'.">
           <Toggle on={s.enabled} onChange={(v) => void save({ enabled: v })} label="Make videos every day" />
@@ -57,23 +55,6 @@ export function Settings() {
             {[1, 2, 3].map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         </Field>
-        <div className="space-y-2 py-1.5">
-          <p className="text-sm text-slate-200">Topics</p>
-          <p className="text-xs text-slate-500">Leave empty for whatever is trending today. Add topics (like "tech", "stocks", "soccer") to focus on today's news about them first.</p>
-          <div className="flex gap-2">
-            <input className="input w-full" placeholder="Add a topic" value={topic} onChange={(e) => setTopic(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTopic()} aria-label="Topic" />
-            <button className="btn" onClick={addTopic}>Add</button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {s.topics.map((t) => (
-              <span key={t} className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm">
-                {t}
-                <button className="px-1 text-slate-400 hover:text-red-300" aria-label={`Remove ${t}`} onClick={() => void save({ topics: s.topics.filter((x) => x !== t) })}>✕</button>
-              </span>
-            ))}
-            {!s.topics.length && <span className="text-xs text-slate-500">General trends</span>}
-          </div>
-        </div>
         <Field label="Country" hint="Which country's trends and news.">
           <select className="input w-28" value={s.country} onChange={(e) => void save({ country: e.target.value })}>
             {['US', 'GB', 'CA', 'AU', 'IE', 'NZ'].map((c) => <option key={c}>{c}</option>)}

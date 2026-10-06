@@ -3,6 +3,7 @@ import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { z } from 'zod';
 import type { AppSettings } from '../../src/lib/types';
 import type { Candidate } from './trends';
+import { findCategory, subsOf } from '../../src/lib/niches';
 
 export const MODEL = process.env.AI_MODEL || 'claude-opus-5-5';
 
@@ -43,6 +44,24 @@ Rules:
 - Plain everyday English. No emojis in the spoken lines.
 - Footage search words describe generic scenes (no real people, logos or brands), because the footage is generic stock video.`;
 
+/** The creator's channel niche, so topic choice, jokes, footage and hashtags all fit it. */
+function channel(s: AppSettings): string {
+  const c = s.niche && findCategory(s.niche.category);
+  if (!s.niche || !c) return '';
+  const subs = subsOf(s.niche).map((x) => x.label).join(', ');
+  return [
+    `Channel niche: ${c.label} (${subs})${s.niche.focus.length ? `, focus on: ${s.niche.focus.join(', ')}` : ''}.`,
+    'Candidates are listed in priority order (focus words first, then the subcategory whose turn it is): prefer the earliest good one.',
+    s.niche.mix === 'mix'
+      ? 'General trends at the end of the list may be picked only if they clearly fit this niche.'
+      : 'Only pick a candidate that fits this niche.',
+    `Niche style: ${c.style}.`,
+    `Footage ideas for this niche: ${c.footage}.`,
+    'Hashtags: 1 or 2 broad niche tags plus specific ones for the story.',
+    '',
+  ].join('\n');
+}
+
 export async function writeScript(cands: Candidate[], s: AppSettings): Promise<ScriptOut> {
   const words = Math.round(s.maxSeconds * 2.5); // a voice reads about 150 words a minute
   const list = cands
@@ -57,7 +76,7 @@ export async function writeScript(cands: Candidate[], s: AppSettings): Promise<S
     system: SYSTEM,
     messages: [{
       role: 'user',
-      content: `Tone: ${TONE[s.tone]}.\nLength: about ${words} spoken words in total (${s.maxSeconds} seconds), 5 to 9 lines.\nToday's candidates:\n${list}`,
+      content: `${channel(s)}Tone: ${TONE[s.tone]}.\nLength: about ${words} spoken words in total (${s.maxSeconds} seconds), 5 to 9 lines.\nToday's candidates:\n${list}`,
     }],
     output_config: { effort: 'high', format: betaZodOutputFormat(Script) },
   });

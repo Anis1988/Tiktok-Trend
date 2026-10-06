@@ -1,6 +1,10 @@
 import { useState, type ReactNode } from 'react';
 import { VideoDetail } from '../components/VideoDetail';
 import { MakeNow } from './Videos';
+import { NichePicker } from '../components/NichePicker';
+import type { Niche } from '../lib/niches';
+
+const EXAMPLE_NICHE: Niche = { category: 'gaming', subs: ['nintendo', 'pc'], focus: ['Zelda', 'GTA 6'], mix: 'niche' };
 import { StatusChip } from '../components/ui';
 import type { Video } from '../lib/api';
 import type { VideoStatus } from '../lib/types';
@@ -54,7 +58,7 @@ export function Guide() {
 
       <Section title="How it works" open>
         <ol className="list-decimal space-y-2 pl-5">
-          <li><b>Find a topic.</b> Once a day the app looks at what people are searching for (Google Trends) and today's news on your topics (Google News). You can also pick the subject yourself (see "Choosing the subject").</li>
+          <li><b>Find a topic.</b> If you set up "My channel" (see below), the app reads today's news for your niche. Otherwise it looks at what people are searching for (Google Trends). You can also pick the subject for one video yourself (see "Choosing the subject").</li>
           <li><b>Write the script.</b> Claude picks one good topic and writes a 30 to 60 second script using only facts from the headlines. It tries 3 opening lines and keeps the one most likely to stop someone scrolling, adds a clever line or comparison, and ends with a punchline or a fun question. It also writes the caption and a witty comment for you to pin. It skips sad or risky subjects (deaths, disasters, crimes, elections, medical or money advice), and jokes are never about real people.</li>
           <li><b>Make the video.</b> A natural-sounding AI voice (Kokoro) reads the script. Sharp stock clips from Pixabay play behind it with a slow zoom and soft fades between them. Captions show 1 to 3 words at a time, with the word being spoken in yellow. The sound is cleaned up and set to TikTok's standard loudness. Full HD vertical video (1080×1920), ready for TikTok.</li>
           <li><b>Email you.</b> You get an email with a link. Watch it, then tap <b>Approve</b> or <b>Reject</b>.</li>
@@ -63,14 +67,29 @@ export function Guide() {
         <p>Nothing is ever posted without your OK.</p>
       </Section>
 
+      <Section title="My channel (your niche)">
+        <p>TikTok grows channels that stick to one niche: it learns who likes your videos and shows them to more people like that. In <b>Settings → My channel</b>:</p>
+        <Example caption="Made-up example; tapping does nothing here.">
+          <NichePicker value={EXAMPLE_NICHE} onChange={() => {}} />
+        </Example>
+        <ol className="list-decimal space-y-1.5 pl-5">
+          <li><b>Category:</b> the big theme, like Gaming. "Anything trending" means no niche (what's hot today).</li>
+          <li><b>Subcategories:</b> 1 to 3, like Nintendo and PC gaming. They take turns, so you don't get the same one twice in a row.</li>
+          <li><b>Focus words:</b> optional, your own finer choice, like a game, a team or a product. When there's news about them, it comes first.</li>
+          <li><b>Big trends:</b> "Only my niche" (best for growth) or "Niche + huge trends", which lets in a giant story only if it fits your niche.</li>
+        </ol>
+        <p>The news comes from Google News plus a few specialist sites for the category (for example IGN and Polygon for gaming). The script, jokes, footage and hashtags are tuned to the niche too.</p>
+      </Section>
+
       <Section title="Choosing the subject">
         <p>On the <b>Videos</b> page, the "Make a video now" box lets you choose what the next video is about.</p>
         <Example caption="Made-up example; the button does nothing here.">
-          <MakeNow subject="iPhone 18" onSubject={() => {}} onMake={() => {}} />
+          <MakeNow subject="Zelda" onSubject={() => {}} onMake={() => {}} niche={EXAMPLE_NICHE} />
         </Example>
         <ul className="list-disc space-y-1.5 pl-5">
           <li><b>Type a subject</b> (like "iPhone 18" or "Champions League"): the app reads the latest news about it (last 2 days, or last week if that's quiet) and makes the video from those facts.</li>
-          <li><b>Leave it empty</b>: the app picks the top trending topic right now.</li>
+          <li><b>Tap a shortcut</b> under the box (your channel's subcategories and focus words) to fill it in.</li>
+          <li><b>Leave it empty</b>: the app picks the best story from your channel, or the top trending topic if you have no channel set.</li>
           <li>If no news is found, or the subject is sad or risky (deaths, crimes, elections…), no video is made and you see why. It still counts as one AI script.</li>
           <li>Topics in <b>Settings</b> are different: they guide every daily video. The subject box is for one video only.</li>
           <li>Without the website: on GitHub, open <b>Actions → Make a video → Run workflow</b>, type the subject in the "Subject" box, and tap the green button.</li>

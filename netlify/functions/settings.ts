@@ -7,6 +7,12 @@ export const config = { path: '/api/settings' };
 const Patch = z.object({
   enabled: z.boolean(),
   topics: z.array(z.string().trim().min(1).max(40)).max(8),
+  niche: z.object({
+    category: z.string().max(30),
+    subs: z.array(z.string().max(30)).min(1).max(3),
+    focus: z.array(z.string().trim().min(1).max(40)).max(8),
+    mix: z.enum(['niche', 'mix']),
+  }).nullable(),
   country: z.enum(['US', 'GB', 'CA', 'AU', 'IE', 'NZ']),
   voice: z.enum(['af_heart', 'af_bella', 'am_michael', 'am_fenrir', 'bf_emma', 'bm_george', 'female', 'male']),
   tone: z.enum(['witty', 'punchy', 'explainer', 'anchor']),

@@ -8,7 +8,8 @@ import type { AppSettings, VideoRecord } from '../src/lib/types';
 import { getSettings, listVideos, readJson, saveVideo, store, writeJson } from '../netlify/lib/store';
 import { sign } from '../netlify/lib/sign';
 import { emailReady, sendEmail } from '../netlify/lib/mailer';
-import { findCandidates, subjectNews, type Candidate } from './lib/trends';
+import { feedNews, findCandidates, nicheCandidates, subjectNews, type Candidate } from './lib/trends';
+import { CATEGORIES, findCategory } from '../src/lib/niches';
 import { MODEL, writeScript } from './lib/script';
 import { speak, voiceUsed } from './lib/tts';
 import { findClip, footageReady, type Clip } from './lib/footage';
@@ -22,6 +23,11 @@ const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 
  * in the app, no email. The video is attached to the GitHub run, to check the voice, captions and music.
  */
 async function sample() {
+  // Check every channel news feed (free, quick), so broken ones can be spotted in the log.
+  for (const c of CATEGORIES) for (const u of c.feeds) {
+    const r = await feedNews(u, c.label).then((x) => `${x.length} recent headlines`, (e) => `FAILED ${e instanceof Error ? e.message : e}`);
+    log(`Feed ${c.label}: ${u} -> ${r}`);
+  }
   const voice = (process.env.SAMPLE_VOICE || 'af_heart') as AppSettings['voice'];
   const lines = [
     { text: 'Your coffee order just got a promotion.', footage: 'coffee cup morning' },
@@ -76,8 +82,10 @@ async function main() {
   } else {
     const since = new Date(Date.now() - 14 * 86400_000).toISOString();
     const recent = videos.filter((v) => v.createdAt >= since).map((v) => v.topic);
-    const found = await findCandidates(s.topics, s.country, recent);
-    if (found.errors.length) log('Some trend sources failed:', found.errors.join(' | '));
+    const turn = await readJson<number>('nicheTurn', 0);
+    const found = s.niche ? await nicheCandidates(s.niche, s.country, recent, turn) : await findCandidates(s.topics, s.country, recent);
+    if (s.niche && 'sub' in found && found.sub) log(`Channel: ${findCategory(s.niche.category)?.label} · this turn: ${found.sub}`);
+    if (found.errors.length) log('Some news sources failed:', found.errors.join(' | '));
     if (!found.candidates.length) throw new Error('No trends or news found right now.');
     candidates = found.candidates;
   }
@@ -130,6 +138,8 @@ async function main() {
     const rec: VideoRecord = { ...base, voice: voiceUsed() || base.voice, status: 'pending', durationSec: Math.round(dur), sizeBytes: bytes.length, footage: [...new Map(credits.map((c) => [c.url, { by: c.by, url: c.url, site: c.site }])).values()] };
     await saveVideo(rec);
     log(`Saved ${id}`);
+    // Next video starts with the next subcategory of your channel.
+    if (s.niche && !subject) await writeJson('nicheTurn', (await readJson<number>('nicheTurn', 0)) + 1);
     if (process.env.SAVE_COPY_DIR) {
       // GitHub attaches this copy to the run, so the video can be downloaded even without the website.
       await mkdir(process.env.SAVE_COPY_DIR, { recursive: true });

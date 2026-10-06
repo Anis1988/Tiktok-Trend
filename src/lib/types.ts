@@ -1,4 +1,5 @@
 /** Shared between the app, the Netlify functions and the video pipeline (GitHub Actions). */
+import type { Niche } from './niches';
 
 export type VideoStatus =
   | 'pending' // made, waiting for your review
@@ -53,7 +54,8 @@ export const VOICE_LABEL: Record<Exclude<VoiceId, 'female' | 'male'>, string> = 
 
 export interface AppSettings {
   enabled: boolean; // make videos on the daily schedule
-  topics: string[]; // e.g. ["tech", "stocks"]; empty = general trends
+  topics: string[]; // older setting, used only when no channel niche is set
+  niche: Niche | null; // "My channel": category, subcategories, focus words; null = general trends
   country: string; // Google Trends country code
   voice: VoiceId;
   tone: Tone;
@@ -67,6 +69,7 @@ export interface AppSettings {
 export const DEFAULT_SETTINGS: AppSettings = {
   enabled: true,
   topics: [],
+  niche: null,
   country: 'US',
   voice: 'af_heart',
   tone: 'witty',

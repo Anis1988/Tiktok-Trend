@@ -1,4 +1,5 @@
 import type { Source } from '../../src/lib/types';
+import { findCategory, subsOf, type Niche } from '../../src/lib/niches';
 
 /** One possible video topic with the headlines behind it. */
 export interface Candidate {
@@ -20,6 +21,7 @@ const tag = (block: string, name: string) => {
   return m ? decode(m[1]) : '';
 };
 const items = (xml: string) => xml.match(/<item[\s>][\s\S]*?<\/item>/gi) ?? [];
+const entries = (xml: string) => xml.match(/<entry[\s>][\s\S]*?<\/entry>/gi) ?? [];
 
 async function get(url: string): Promise<string> {
   const res = await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(10_000) });
@@ -60,6 +62,49 @@ export async function subjectNews(subject: string, country: string): Promise<Can
     if (headlines.length) return { topic: subject, headlines };
   }
   return null;
+}
+
+/** A specialist news site's feed (RSS or Atom), last 2 days. Each headline is its own candidate. */
+export async function feedNews(url: string, label: string): Promise<Candidate[]> {
+  const xml = await get(url);
+  const site = new URL(url).hostname.replace(/^(www|feeds)\./, '');
+  const cutoff = Date.now() - 2 * 86400_000;
+  const rss = items(xml).map((it) => ({ title: tag(it, 'title'), url: tag(it, 'link'), at: tag(it, 'pubDate') }));
+  const atom = entries(xml).map((e) => ({ title: tag(e, 'title'), url: e.match(/<link[^>]*href="([^"]+)"/i)?.[1] ?? '', at: tag(e, 'updated') || tag(e, 'published') }));
+  return [...rss, ...atom]
+    .filter((x) => x.title && x.url && (!x.at || isNaN(Date.parse(x.at)) || Date.parse(x.at) >= cutoff))
+    .slice(0, 10)
+    .map((x) => ({ topic: `${label}: ${x.title}`, headlines: [{ title: x.title, url: x.url, site }] }));
+}
+
+/**
+ * Today's candidates for your channel: your focus words first, then this turn's subcategory (they take turns, so
+ * videos don't repeat one subcategory), the other subcategories, then the niche's specialist sites. With "mix",
+ * general trends come last (the AI only picks one if it fits the niche).
+ */
+export async function nicheCandidates(n: Niche, country: string, recent: string[], turn: number): Promise<{ candidates: Candidate[]; errors: string[]; sub?: string }> {
+  const cat = findCategory(n.category);
+  const subs = subsOf(n);
+  if (!cat || !subs.length) return findCandidates([], country, recent);
+  const first = turn % subs.length;
+  const order = [...subs.slice(first), ...subs.slice(0, first)];
+  const jobs: Promise<Candidate[]>[] = [
+    ...n.focus.map((f) => topicNews(f, country).then((cs) => cs.slice(0, 3))),
+    ...order.map((s) => topicNews(s.query, country).then((cs) => cs.slice(0, 6).map((c) => ({ ...c, topic: c.topic.replace(s.query, s.label) })))),
+    ...cat.feeds.map((u) => feedNews(u, cat.label)),
+    ...(n.mix === 'mix' ? [googleTrends(country)] : []),
+  ];
+  const settled = await Promise.allSettled(jobs);
+  const errors = settled.flatMap((r) => (r.status === 'rejected' ? [String(r.reason instanceof Error ? r.reason.message : r.reason)] : []));
+  const seen = new Set(recent.map((t) => t.toLowerCase()));
+  const out: Candidate[] = [];
+  for (const c of settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))) {
+    const k = c.headlines[0]?.title.toLowerCase() ?? c.topic.toLowerCase();
+    if (seen.has(k) || seen.has(c.topic.toLowerCase())) continue;
+    seen.add(k);
+    out.push(c);
+  }
+  return { candidates: out.slice(0, 30), errors, sub: order[0].label };
 }
 
 /** Everything worth considering today, minus topics used recently. */
