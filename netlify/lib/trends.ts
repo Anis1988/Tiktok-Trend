@@ -23,10 +23,16 @@ const tag = (block: string, name: string) => {
 const items = (xml: string) => xml.match(/<item[\s>][\s\S]*?<\/item>/gi) ?? [];
 const entries = (xml: string) => xml.match(/<entry[\s>][\s\S]*?<\/entry>/gi) ?? [];
 
-async function get(url: string): Promise<string> {
-  const res = await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(10_000) });
-  if (!res.ok) throw new Error(`${new URL(url).hostname}: HTTP ${res.status}`);
-  return res.text();
+/** Fetches a page. `tries` > 1 retries a busy site (HTTP 429 / 5xx or no answer) after a short wait. */
+async function get(url: string, tries = 1): Promise<string> {
+  for (let i = 1; ; i++) {
+    const res = await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(10_000) }).catch((e: unknown) => e as Error);
+    if (res instanceof Response && res.ok) return res.text();
+    const err = res instanceof Response ? new Error(`${new URL(url).hostname}: HTTP ${res.status}`) : new Error(`${new URL(url).hostname}: ${res.message}`);
+    const busy = !(res instanceof Response) || res.status === 429 || res.status >= 500;
+    if (!busy || i >= tries) throw err;
+    await new Promise((r) => setTimeout(r, 3000 * i));
+  }
 }
 
 /** What people are searching for today (Google Trends daily RSS, free). */
@@ -55,13 +61,38 @@ export async function topicNews(topic: string, country: string): Promise<Candida
 
 /** News about one subject you typed (last 2 days, then last week): one candidate with all its headlines. */
 export async function subjectNews(subject: string, country: string): Promise<Candidate | null> {
-  for (const when of ['2d', '7d']) {
-    const q = encodeURIComponent(`${subject} when:${when}`);
-    const xml = await get(`https://news.google.com/rss/search?q=${q}&hl=en-${country}&gl=${country}&ceid=${country}:en`);
-    const headlines = items(xml).slice(0, 8).map((it) => ({ title: tag(it, 'title'), url: tag(it, 'link'), site: tag(it, 'source') || undefined })).filter((h) => h.title);
-    if (headlines.length) return { topic: subject, headlines };
+  // Google News first (retried if busy), then Bing News if Google is down or finds nothing.
+  let failed: Error | null = null;
+  try {
+    for (const when of ['2d', '7d']) {
+      const q = encodeURIComponent(`${subject} when:${when}`);
+      const xml = await get(`https://news.google.com/rss/search?q=${q}&hl=en-${country}&gl=${country}&ceid=${country}:en`, 3);
+      const headlines = items(xml).slice(0, 8).map((it) => ({ title: tag(it, 'title'), url: tag(it, 'link'), site: tag(it, 'source') || undefined })).filter((h) => h.title);
+      if (headlines.length) return { topic: subject, headlines };
+    }
+  } catch (e) {
+    failed = e instanceof Error ? e : new Error(String(e));
   }
+  try {
+    const headlines = await bingNews(subject);
+    if (headlines.length) return { topic: subject, headlines };
+  } catch (e) {
+    const both = `${failed ? `${failed.message}; ` : ''}${e instanceof Error ? e.message : e}`;
+    if (failed) throw new Error(`The news search sites are busy (${both}). Try again in a few minutes.`);
+  }
+  if (failed) throw new Error(`The news search sites are busy (${failed.message}). Try again in a few minutes.`);
   return null;
+}
+
+/** Bing News RSS (free, no key): backup when Google News is busy. Links are Bing redirects; the real link is in "url=". */
+export async function bingNews(subject: string): Promise<Source[]> {
+  const xml = await get(`https://www.bing.com/news/search?q=${encodeURIComponent(subject)}&format=rss`, 2);
+  return items(xml).slice(0, 8).map((it) => {
+    const link = tag(it, 'link');
+    let url = link;
+    try { url = new URL(link).searchParams.get('url') || link; } catch { /* keep the Bing link */ }
+    return { title: tag(it, 'title'), url, site: tag(it, 'News:Source') || undefined };
+  }).filter((h) => h.title && /^https?:\/\//.test(h.url));
 }
 
 /** A specialist news site's feed (RSS or Atom), last 2 days. Each headline is its own candidate. */

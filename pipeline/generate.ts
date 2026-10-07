@@ -9,7 +9,7 @@ import { DEFAULT_SETTINGS } from '../src/lib/types';
 import { getSettings, listVideos, readJson, saveVideo, store, writeJson } from '../netlify/lib/store';
 import { sign } from '../netlify/lib/sign';
 import { emailReady, sendEmail } from '../netlify/lib/mailer';
-import { feedNews, findCandidates, nicheCandidates, subjectNews, type Candidate } from '../netlify/lib/trends';
+import { bingNews, feedNews, findCandidates, nicheCandidates, subjectNews, type Candidate } from '../netlify/lib/trends';
 import { CATEGORIES, DEFAULT_LOOK, findCategory, subsOf, type Niche } from '../src/lib/niches';
 import { cleanUp } from '../netlify/lib/cleanup';
 import { MODEL, writeScript } from './lib/script';
@@ -32,6 +32,10 @@ async function sample() {
   for (const c of CATEGORIES) for (const u of c.feeds) {
     const r = await feedNews(u, c.label).then((x) => `${x.length} recent headlines`, (e) => `FAILED ${e instanceof Error ? e.message : e}`);
     log(`Feed ${c.label}: ${u} -> ${r}`);
+  }
+  for (const [name, find] of [['Google News', (q: string) => subjectNews(q, 'US').then((c) => c?.headlines ?? [])], ['Bing News', bingNews]] as const) {
+    const r = await find('Attack on Titan').then((h) => `${h.length} headlines, e.g. ${h[0]?.title} (${h[0]?.url})`, (e) => `FAILED ${e instanceof Error ? e.message : e}`);
+    log(`Subject search ${name}: ${r}`);
   }
   const voice = (process.env.SAMPLE_VOICE || 'af_heart') as AppSettings['voice'];
   const lines: { text: string; footage: string; keywords?: string[]; real?: string }[] = [
