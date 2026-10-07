@@ -53,18 +53,30 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Timer runs only: a few seconds to check Settings (and run the auto clean-up). When no video is due
+      # (scheduled videos off, or today's videos already made), every step below is skipped.
+      - name: Is a video due?
+        id: check
+        if: github.event_name == 'schedule'
+        run: npx tsx pipeline/check.ts
+        env:
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
       - name: Install the natural voice (Kokoro)
+        if: steps.check.outputs.due != 'false'
         run: npm install --no-save --no-audit --no-fund kokoro-js@1.2.1
       - name: Install ffmpeg and caption font
+        if: steps.check.outputs.due != 'false'
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
       - name: Cache the voice program
         id: piper-cache
+        if: steps.check.outputs.due != 'false'
         uses: actions/cache/restore@v5
         with:
           path: .piper
           key: piper-2023.11.14-2-amy-ryan-medium
       - name: Download the voice program (Piper) and two voices
-        if: steps.piper-cache.outputs.cache-hit != 'true'
+        if: steps.check.outputs.due != 'false' && steps.piper-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p .piper
           get() { curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o "$1" "$2"; }
@@ -78,13 +90,14 @@ jobs:
           done
           ls -la .piper
       - name: Keep the voice program for next time
-        if: steps.piper-cache.outputs.cache-hit != 'true'
+        if: steps.check.outputs.due != 'false' && steps.piper-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
           path: .piper
           key: piper-2023.11.14-2-amy-ryan-medium
       - name: Make the video
         timeout-minutes: 15
+        if: steps.check.outputs.due != 'false'
         run: npm run generate
         env:
           MANUAL: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
@@ -108,7 +121,7 @@ jobs:
           EMAILJS_PRIVATE_KEY: ${{ secrets.EMAILJS_PRIVATE_KEY }}
           AI_MODEL: ${{ vars.AI_MODEL }}
       - name: Attach the video to this run (download it under "Artifacts")
-        if: always()
+        if: always() && steps.check.outputs.due != 'false'
         uses: actions/upload-artifact@v6
         with:
           name: video
