@@ -9,7 +9,7 @@ import { DEFAULT_SETTINGS } from '../src/lib/types';
 import { getSettings, listVideos, readJson, saveVideo, store, writeJson } from '../netlify/lib/store';
 import { sign } from '../netlify/lib/sign';
 import { emailReady, sendEmail } from '../netlify/lib/mailer';
-import { bingNews, feedNews, findCandidates, nicheCandidates, subjectNews, type Candidate } from '../netlify/lib/trends';
+import { LISTY, bingNews, feedNews, findCandidates, nicheCandidates, subjectNews, type Candidate } from '../netlify/lib/trends';
 import { CATEGORIES, DEFAULT_LOOK, findCategory, subsOf, type Niche } from '../src/lib/niches';
 import { cleanUp } from '../netlify/lib/cleanup';
 import { MODEL, writeScript } from './lib/script';
@@ -116,9 +116,14 @@ async function main() {
   let candidates: Candidate[];
   if (subject) {
     log(`Subject: ${subject}`);
-    // An idea from the app's "Ideas" list is a headline: use it as is if a fresh search finds nothing more.
-    const c = (await subjectNews(subject, s.country)) ?? (ideaUrl ? { topic: subject, headlines: [{ title: subject, url: ideaUrl }] } : null);
-    if (!c) throw new Error(`No recent news found about "${subject}". Try other words, or leave the subject empty for the top trend.`);
+    // Rankings, "top 10", fun facts…: a topic video from well-known facts (no news needed).
+    // Otherwise the latest news; an idea from the app's "Ideas" list is a headline, used as is if a fresh search finds nothing more;
+    // and a subject that is not in the news becomes a topic video too.
+    const topic: Candidate = { topic: subject, headlines: [], evergreen: true };
+    const c = !ideaUrl && LISTY.test(subject)
+      ? topic
+      : (await subjectNews(subject, s.country)) ?? (ideaUrl ? { topic: subject, headlines: [{ title: subject, url: ideaUrl }] } : topic);
+    if (c.evergreen) log('Topic video (not news): written from well-known facts.');
     candidates = [c];
   } else {
     const since = new Date(Date.now() - 14 * 86400_000).toISOString();
@@ -151,6 +156,7 @@ async function main() {
     voice: s.voice, footage: [], model: MODEL,
     draft: { lines: sc.lines.map((l) => ({ text: l.text, footage: l.footage, keywords: (l.keywords ?? []).slice(0, 3), real: l.real?.trim().slice(0, 80) || undefined })) },
     pick: pickRaw || undefined,
+    topicVideo: cand.evergreen || undefined,
   };
   if (!base.sources.length) base.sources = cand.headlines;
   // Next video starts with the next subcategory of your channel.
@@ -266,7 +272,7 @@ async function notify(rec: VideoRecord, to: string) {
           '',
           `Caption: ${rec.caption} ${rec.hashtags.map((h) => `#${h}`).join(' ')}`,
           ...(rec.firstComment ? [`Comment to pin: ${rec.firstComment}`] : []),
-          `Sources: ${rec.sources.map((x) => x.url).join('  ')}`,
+          rec.topicVideo && !rec.sources.length ? 'Topic video: written from well-known facts, not news. Check the facts before approving.' : `Sources: ${rec.sources.map((x) => x.url).join('  ')}`,
           '',
           'Nothing is posted until you approve it.',
         ].join('\n'),

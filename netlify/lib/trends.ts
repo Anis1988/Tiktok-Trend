@@ -1,12 +1,16 @@
 import type { Source } from '../../src/lib/types';
 import { findCategory, subsOf, type Niche } from '../../src/lib/niches';
+export { LISTY } from '../../src/lib/niches';
 
 /** One possible video topic with the headlines behind it. */
 export interface Candidate {
   topic: string;
   traffic?: string; // Google Trends' rough search count, e.g. "200K+"
   headlines: Source[];
+  /** A topic video (not news): rankings, "top 10", fun facts… written from well-known facts, no headlines needed. */
+  evergreen?: boolean;
 }
+
 
 const UA = 'Mozilla/5.0 (compatible; TrendVideos/1.0)';
 

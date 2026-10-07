@@ -180,3 +180,6 @@ export const subsOf = (n: Niche) => {
   const c = findCategory(n.category);
   return c ? n.subs.map((id) => c.subs.find((s) => s.id === id)).filter((s): s is Sub => !!s) : [];
 };
+
+/** Subjects that are not news but a topic: rankings, lists, explainers, fun facts. */
+export const LISTY = /\b(top ?\d+|ranked|ranking|tier ?list|strongest|weakest|of all time|fun facts?|facts? about|who would win|explained)\b/i;

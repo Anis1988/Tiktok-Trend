@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, fileUrl, type Status, type Video } from '../lib/api';
 import { VideoDetail } from '../components/VideoDetail';
 import { StatusChip, toast, when } from '../components/ui';
-import { CATEGORIES, findCategory, type Niche } from '../lib/niches';
+import { CATEGORIES, LISTY, findCategory, type Niche } from '../lib/niches';
 import { useSettings } from '../lib/useSettings';
 import { NichePicker } from '../components/NichePicker';
 import { Fold, VideoStyle } from '../components/VideoStyle';
@@ -193,11 +193,11 @@ export function MakeNow(p: {
       <div className="flex flex-col gap-2 sm:flex-row">
         <div className="relative w-full sm:flex-1">
         <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base">✏️</span>
-        <input id="subject" className="input w-full !pl-10" maxLength={200} placeholder="Subject (optional), e.g. Zelda, Champions League" value={p.subject} onChange={(e) => (p.onSubject(e.target.value), p.ideaUrl && p.onIdea(null))} aria-label="Subject" />
+        <input id="subject" className="input w-full !pl-10" maxLength={200} placeholder="Subject (optional): news or any topic, e.g. Zelda, Top 10 strongest in AOT" value={p.subject} onChange={(e) => (p.onSubject(e.target.value), p.ideaUrl && p.onIdea(null))} aria-label="Subject" />
         </div>
         <button type="submit" className="btn-primary shrink-0" disabled={p.busy}>{p.busy ? <><span className="spinner" /> Starting…</> : p.subject.trim() ? '+ Make it about this' : '+ Make a video now'}</button>
       </div>
-      <p className="text-xs text-slate-500">{p.subject.trim() ? `Uses the latest news about "${p.subject.trim().slice(0, 60)}${p.subject.trim().length > 60 ? '…' : ''}"${cat ? `, in the style of ${where}` : p.ideaUrl && p.niche ? ', in the style of your channel' : ', any topic (no need to pick a category)'}.` : `Empty: the app picks the best story from ${where}.`}</p>
+      <p className="text-xs text-slate-500">{p.subject.trim() ? `${LISTY.test(p.subject) && !p.ideaUrl ? '📚 Topic video: well-known facts about' : 'Uses the latest news about'} "${p.subject.trim().slice(0, 60)}${p.subject.trim().length > 60 ? '…' : ''}"${!LISTY.test(p.subject) && !p.ideaUrl ? ' (or well-known facts if it\'s not in the news)' : ''}${cat ? `, in the style of ${where}` : p.ideaUrl && p.niche ? ', in the style of your channel' : ', any topic (no need to pick a category)'}.` : `Empty: the app picks the best story from ${where}.`}</p>
 
       <div className="space-y-2 border-t border-white/10 pt-3">
         <div className="flex flex-wrap items-center justify-between gap-2">

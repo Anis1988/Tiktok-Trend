@@ -63,6 +63,7 @@ export interface VideoRecord {
   /** The script as data, so it can be edited and built later ("Check the script first"). */
   draft?: { lines: DraftLine[] };
   pick?: string; // category picked for this one video, e.g. "gaming:nintendo"
+  topicVideo?: boolean; // a topic video (ranking, top 10, fun facts): written from well-known facts, not news
   fileRemovedAt?: string; // the video file was deleted by the auto clean-up (the text is kept)
   tiktok?: { publishId?: string; sentAt?: string; status?: string };
 }

@@ -157,10 +157,24 @@ export function Guide() {
           <li><b>💡 Ideas right now:</b> tap "Show ideas" for a plain list of fresh headlines from your pick (or today's top trends). Tap one to use it as the subject. It's free (no AI) and refreshes every 30 minutes.</li>
           <li><b>Type a subject</b> (like "iPhone 18" or "Champions League"): the app reads the latest news about it (last 2 days, or last week if that's quiet) and makes the video from those facts. You don't need to pick a category: a typed subject can be about anything, even outside your channel (an anime video on a gaming channel is fine). Pick a category only if you want that niche's style and colours.</li>
           <li><b>Leave it empty</b>: the app picks the best story from your pick, your channel, or the top trending topic.</li>
-          <li>If no news is found, or the subject is sad or risky (deaths, crimes, elections…), no video is made and you see why. It still counts as one AI script.</li>
+          <li>If the subject is sad or risky (real deaths, crimes, elections…), no video is made and you see why. It still counts as one AI script.</li>
           <li>The news comes from Google News, with Bing News as a backup when Google is busy. If both are busy, you see "Try again in a few minutes" (this one costs no AI script).</li>
           <li>"My channel" guides every daily video. The picks in this box are for one video only.</li>
           <li>Without the website: on GitHub, open <b>Actions → Make a video → Run workflow</b>, type the subject in the "Subject" box, and tap the green button.</li>
+        </ul>
+      </Section>
+
+      <Section title="Topic videos (not news)">
+        <p>Some subjects are not news: rankings, "top 10" lists, fun facts, explainers. For those, the AI writes the video from <b>well-known facts</b> about the subject instead of the news.</p>
+        <Example caption="Made-up example; nothing here does anything.">
+          <MakeNow subject="Top 10 strongest characters in Attack on Titan" onSubject={() => {}} pick="" onPick={() => {}} onIdea={() => {}} ideas={null} onIdeas={() => {}} onMake={() => {}} niche={EXAMPLE_NICHE} />
+        </Example>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>When:</b> the subject has words like "top 10", "ranked", "tier list", "strongest", "of all time", "fun facts", "explained" or "who would win". Any other subject that isn't in the news also becomes a topic video.</li>
+          <li><b>Rankings are opinions:</b> the video says so in a fun way ("fans will fight about this one") and counts down to number 1. Long lists go quickly through the lower places, and the top 3 get more time.</li>
+          <li><b>Stories and games are fine:</b> anime, manga, games and movies, including their battles. Real-world tragedies are still skipped.</li>
+          <li><b>Pictures:</b> real photos only when a free one exists (no anime or game footage, because of copyright). Add your own clips in "My clips" for the best look.</li>
+          <li><b>Check the facts:</b> topic videos show "📚 Topic video" under the script and have no news sources. Read the script before approving. Same cost as any video: one AI script.</li>
         </ul>
       </Section>
 
@@ -212,7 +226,7 @@ export function Guide() {
       <Section title="Before you post: rules that matter">
         <ul className="list-disc space-y-2 pl-5">
           <li><b>Turn on "AI-generated content"</b> in TikTok when you post. TikTok requires it for videos with an AI voice.</li>
-          <li><b>Check the facts.</b> The script only uses the headlines, but headlines can be wrong. The sources are listed under each video.</li>
+          <li><b>Check the facts.</b> News videos only use the headlines, but headlines can be wrong; the sources are listed under each video. Topic videos use well-known facts, so read them carefully too.</li>
           <li><b>Music:</b> by default there is no music, so you can add a trending TikTok sound when you post (TikTok shows those to more people). Prefer music built in? Turn on "Soft background music" in Videos → Video style &amp; effects: a quiet original tune that gets softer while the voice speaks.</li>
           <li><b>Pin the comment:</b> after posting, paste the suggested comment as the first comment and pin it (long-press it → Pin). Replies help the video spread.</li>
           <li><b>Quality over quantity:</b> TikTok shows repetitive AI videos to fewer people. One good video a day beats three weak ones.</li>
