@@ -197,7 +197,7 @@ export function MakeNow(p: {
         </div>
         <button type="submit" className="btn-primary shrink-0" disabled={p.busy}>{p.busy ? <><span className="spinner" /> Starting…</> : p.subject.trim() ? '+ Make it about this' : '+ Make a video now'}</button>
       </div>
-      <p className="text-xs text-slate-500">{p.subject.trim() ? `Uses the latest news about "${p.subject.trim().slice(0, 60)}${p.subject.trim().length > 60 ? '…' : ''}", in the style of ${where}.` : `Empty: the app picks the best story from ${where}.`}</p>
+      <p className="text-xs text-slate-500">{p.subject.trim() ? `Uses the latest news about "${p.subject.trim().slice(0, 60)}${p.subject.trim().length > 60 ? '…' : ''}"${cat ? `, in the style of ${where}` : p.ideaUrl && p.niche ? ', in the style of your channel' : ', any topic (no need to pick a category)'}.` : `Empty: the app picks the best story from ${where}.`}</p>
 
       <div className="space-y-2 border-t border-white/10 pt-3">
         <div className="flex flex-wrap items-center justify-between gap-2">

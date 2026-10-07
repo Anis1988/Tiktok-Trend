@@ -155,7 +155,7 @@ export function Guide() {
         <ul className="list-disc space-y-1.5 pl-5">
           <li><b>Category for this video:</b> tap a category (like Gaming), then a subcategory (like Nintendo) or "All". The video then uses that niche's news, style, footage and hashtags. "My channel" (or "Trending") uses your normal settings.</li>
           <li><b>💡 Ideas right now:</b> tap "Show ideas" for a plain list of fresh headlines from your pick (or today's top trends). Tap one to use it as the subject. It's free (no AI) and refreshes every 30 minutes.</li>
-          <li><b>Type a subject</b> (like "iPhone 18" or "Champions League"): the app reads the latest news about it (last 2 days, or last week if that's quiet) and makes the video from those facts.</li>
+          <li><b>Type a subject</b> (like "iPhone 18" or "Champions League"): the app reads the latest news about it (last 2 days, or last week if that's quiet) and makes the video from those facts. You don't need to pick a category: a typed subject can be about anything, even outside your channel (an anime video on a gaming channel is fine). Pick a category only if you want that niche's style and colours.</li>
           <li><b>Leave it empty</b>: the app picks the best story from your pick, your channel, or the top trending topic.</li>
           <li>If no news is found, or the subject is sad or risky (deaths, crimes, elections…), no video is made and you see why. It still counts as one AI script.</li>
           <li>"My channel" guides every daily video. The picks in this box are for one video only.</li>

@@ -72,6 +72,13 @@ function pickedNiche(raw: string | undefined, mine: Niche | null): Niche | null 
   return { category: cat.id, subs, focus: mine?.category === cat.id ? mine.focus : [], mix: 'niche' };
 }
 
+/** Settings for one video: a picked category replaces "My channel"; "any" (a typed subject, no category) drops the niche. */
+function settingsFor(raw: string | undefined, saved: AppSettings): AppSettings {
+  if (raw?.trim() === 'any') return { ...saved, niche: null };
+  const pick = pickedNiche(raw, saved.niche);
+  return pick ? { ...saved, niche: pick } : saved;
+}
+
 async function main() {
   if (process.env.SAMPLE === '1') return sample();
   const manual = process.env.MANUAL === '1';
@@ -80,10 +87,16 @@ async function main() {
   // Auto clean-up first (free, quick), so it also runs when no video is due today.
   await cleanUp(saved, log).catch((e) => log('Clean-up failed:', e instanceof Error ? e.message : e));
   if (process.env.RENDER_ID?.trim()) return buildChecked(process.env.RENDER_ID.trim(), saved);
+  // A subject typed for this one video (app box or GitHub "Run workflow") replaces the trend search.
+  const subject = (process.env.SUBJECT ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
+  const ideaUrl = /^https:\/\/\S+$/.test(process.env.IDEA_URL ?? '') ? process.env.IDEA_URL! : '';
   // A category / subcategory picked for this one video ("Make a video now") replaces "My channel" for this run.
-  const pick = pickedNiche(process.env.PICK, saved.niche);
-  const s = pick ? { ...saved, niche: pick } : saved;
+  // A typed subject with no category is free: it does not have to fit "My channel" (ideas from the list come from it anyway).
+  const pickRaw = process.env.PICK?.trim() || (subject && !ideaUrl ? 'any' : '');
+  const pick = pickRaw === 'any' ? null : pickedNiche(pickRaw, saved.niche);
+  const s = settingsFor(pickRaw, saved);
   if (pick) log(`Picked for this video: ${findCategory(pick.category)?.label} · ${subsOf(pick).map((x) => x.label).join(', ')}`);
+  if (pickRaw === 'any' && saved.niche) log('Subject without a category: not limited to My channel.');
   const videos = await listVideos();
   if (!manual) {
     if (!s.enabled) return log('Scheduled videos are turned off in Settings. Nothing to do.');
@@ -96,12 +109,9 @@ async function main() {
   if (budget.day !== day()) Object.assign(budget, { day: day(), n: 0 });
   if (budget.n >= s.aiDailyLimit) throw new Error(`Daily AI limit reached (${s.aiDailyLimit}). Raise it in Settings or wait until tomorrow.`);
 
-  // A subject typed for this one video (app box or GitHub "Run workflow") replaces the trend search.
-  const subject = (process.env.SUBJECT ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
   let candidates: Candidate[];
   if (subject) {
     log(`Subject: ${subject}`);
-    const ideaUrl = /^https:\/\/\S+$/.test(process.env.IDEA_URL ?? '') ? process.env.IDEA_URL! : '';
     // An idea from the app's "Ideas" list is a headline: use it as is if a fresh search finds nothing more.
     const c = (await subjectNews(subject, s.country)) ?? (ideaUrl ? { topic: subject, headlines: [{ title: subject, url: ideaUrl }] } : null);
     if (!c) throw new Error(`No recent news found about "${subject}". Try other words, or leave the subject empty for the top trend.`);
@@ -122,7 +132,7 @@ async function main() {
   await writeJson('ai', budget);
   const sc = await writeScript(candidates, s);
   if (sc.pick < 0 || !candidates[sc.pick]) {
-    if (subject) throw new Error(`The AI skipped "${subject}" (sad or risky subjects are avoided): ${sc.why}`);
+    if (subject) throw new Error(`The AI skipped "${subject}": ${sc.why}`);
     return log('The AI found nothing suitable today:', sc.why);
   }
   const cand = candidates[sc.pick];
@@ -136,7 +146,7 @@ async function main() {
     sources: sc.sources.map((i) => cand.headlines[i]).filter(Boolean), durationSec: 0, sizeBytes: 0,
     voice: s.voice, footage: [], model: MODEL,
     draft: { lines: sc.lines.map((l) => ({ text: l.text, footage: l.footage, keywords: (l.keywords ?? []).slice(0, 3), real: l.real?.trim().slice(0, 80) || undefined })) },
-    pick: process.env.PICK?.trim() || undefined,
+    pick: pickRaw || undefined,
   };
   if (!base.sources.length) base.sources = cand.headlines;
   // Next video starts with the next subcategory of your channel.
@@ -225,8 +235,7 @@ async function buildChecked(id: string, saved: AppSettings) {
   const rec = (await listVideos()).find((v) => v.id === id);
   if (!rec) throw new Error(`Script ${id} not found.`);
   if (rec.status !== 'building' && rec.status !== 'script') return log(`Video ${id} is already ${rec.status}: nothing to build.`);
-  const pick = pickedNiche(rec.pick, saved.niche);
-  const s = pick ? { ...saved, niche: pick } : saved;
+  const s = settingsFor(rec.pick, saved);
   log(`Building checked script ${id}: ${rec.title}`);
   await build({ ...rec, status: 'building' }, s);
 }
