@@ -191,7 +191,10 @@ export function MakeNow(p: {
       </div>
 
       <div className="flex flex-col gap-2 sm:flex-row">
-        <input id="subject" className="input w-full sm:flex-1" maxLength={200} placeholder="Subject (optional), e.g. Zelda, Champions League" value={p.subject} onChange={(e) => (p.onSubject(e.target.value), p.ideaUrl && p.onIdea(null))} aria-label="Subject" />
+        <div className="relative w-full sm:flex-1">
+        <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base">✏️</span>
+        <input id="subject" className="input w-full !pl-10" maxLength={200} placeholder="Subject (optional), e.g. Zelda, Champions League" value={p.subject} onChange={(e) => (p.onSubject(e.target.value), p.ideaUrl && p.onIdea(null))} aria-label="Subject" />
+        </div>
         <button type="submit" className="btn-primary shrink-0" disabled={p.busy}>{p.busy ? <><span className="spinner" /> Starting…</> : p.subject.trim() ? '+ Make it about this' : '+ Make a video now'}</button>
       </div>
       <p className="text-xs text-slate-500">{p.subject.trim() ? `Uses the latest news about "${p.subject.trim().slice(0, 60)}${p.subject.trim().length > 60 ? '…' : ''}", in the style of ${where}.` : `Empty: the app picks the best story from ${where}.`}</p>

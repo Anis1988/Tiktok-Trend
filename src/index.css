@@ -35,7 +35,8 @@
   .btn-primary { @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-violet-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow-[0_0_24px_rgba(34,211,238,0.25)] transition hover:brightness-110 active:scale-95 disabled:pointer-events-none disabled:opacity-40 sm:min-h-[38px] sm:px-3 sm:py-1.5; }
   .btn-ghost { @apply inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-cyan-300 hover:bg-white/5 active:scale-95; }
   .btn-danger { @apply inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-xl border border-red-400/40 bg-red-500/15 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-red-200 transition hover:bg-red-500/25 active:scale-95 disabled:opacity-50; }
-  .input { @apply min-h-[44px] min-w-0 max-w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-base text-slate-100 placeholder:text-slate-500 focus:border-cyan-300/60 focus:outline-none focus:ring-2 focus:ring-cyan-300/20 sm:min-h-[38px] sm:py-1.5 sm:text-sm; }
+  /* Typing boxes: lighter than the card with a clear border, so they are easy to spot on a phone. */
+  .input { @apply min-h-[44px] min-w-0 max-w-full rounded-xl border border-slate-400/40 bg-slate-700/40 px-3 py-2 text-base text-white caret-cyan-300 shadow-inner placeholder:text-slate-300/70 focus:border-cyan-300 focus:bg-slate-700/60 focus:outline-none focus:ring-2 focus:ring-cyan-300/35 disabled:opacity-60 sm:min-h-[38px] sm:py-1.5 sm:text-sm; }
   .toggle { @apply relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border border-white/15 bg-white/10 transition; }
   .toggle[aria-checked='true'] { @apply border-cyan-300/50 bg-gradient-to-r from-cyan-400/80 to-violet-500/80; }
   .toggle > span { @apply inline-block h-5 w-5 translate-x-1 rounded-full bg-white shadow transition; }
