@@ -26,12 +26,12 @@ export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, example =
       setBusy('');
     }
   };
-  // In the app only (not on the email review page): delete the video, its file and thumbnail for good.
+  // Delete the video, its file and thumbnail from the server for good (in the app and on the email review page).
   const remove = async () => {
     if (example || !window.confirm(`Delete "${v.title}" for good? The video file is removed too.${v.status === 'sent' ? ' (A copy already in your TikTok drafts stays there.)' : ''}`)) return;
     setBusy('delete');
     try {
-      await api.deleteVideo(v.id);
+      await api.deleteVideo(v.id, v.sig);
       onDeleted?.(v.id);
       toast('success', 'Video deleted.');
     } catch (e) {

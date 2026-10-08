@@ -35,7 +35,7 @@ const Post = z.discriminatedUnion('action', [
  * POST {action:'make-now', subject?} -> start a new video now, optionally about one subject (access code)
  * POST {action:'save-script'|'build', id, sig?} -> edit a script waiting to be checked / build its video
  * POST {action, id, sig?}       -> approve / reject / posted / retry (access code OR signed link)
- * POST {action:'delete', id}    -> delete the video and its files for good (access code only, never the email link)
+ * POST {action:'delete', id, sig?} -> delete the video and its files for good (access code OR signed link)
  */
 export default async (req: Request): Promise<Response> => {
   const url = new URL(req.url);
@@ -70,8 +70,6 @@ export default async (req: Request): Promise<Response> => {
       return json({ ok: true, message: `Started${subject ? ` (about "${subject}")` : ''}. A new video takes 2 to 5 minutes; you will get an email.` });
     }
     if (body.action === 'delete') {
-      const noCode = guard(req, 'videos', 60);
-      if (noCode) return noCode;
       const v = await getVideo(body.id);
       if (!v) return json({ ok: true }); // already gone
       if (v.status === 'building' || v.status === 'publishing') return json({ error: `This video is being ${v.status === 'building' ? 'built' : 'sent to TikTok'}. Try again in a few minutes.` }, 409);

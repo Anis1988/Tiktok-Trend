@@ -186,7 +186,7 @@ export function Guide() {
           <VideoDetail v={EXAMPLE} example onDeleted={() => {}} />
         </Example>
         <ul className="list-disc space-y-1.5 pl-5">
-          <li><b>🗑 Delete</b> removes a video for good: its entry, the video file and the picture. It asks you first. Only in the app (not from the email link). A copy already sent to your TikTok drafts stays in TikTok.</li>
+          <li><b>🗑 Delete</b> removes a video for good: its entry, the video file and the picture. It asks you first. It's on the video in the app and on the page the email opens. A copy already sent to your TikTok drafts stays in TikTok, and the backup copy on the GitHub run page disappears by itself after 7 days.</li>
           <li>After "Make a video now", the list updates by itself every 20 seconds until the new video shows up (no need to tap Refresh). It also refreshes when you come back to the app.</li>
         </ul>
       </Section>
