@@ -30,6 +30,8 @@ const Post = z.discriminatedUnion('action', [
       text: z.string().trim().min(1).max(220), footage: z.string().trim().min(1).max(60), keywords: z.array(z.string().trim().max(30)).max(3),
       real: z.string().trim().max(80).optional(), media: z.string().max(30).optional(),
       character: z.string().trim().max(100).optional(), object: z.string().trim().max(60).optional(), label: z.string().trim().max(40).optional(), quiz: z.enum(['hide', 'reveal']).optional(),
+      chart: z.object({ title: z.string().trim().max(40), unit: z.string().trim().max(12).optional(), bars: z.array(z.object({ label: z.string().trim().max(24), value: z.number() })).min(2).max(6) }).optional(),
+      map: z.string().trim().max(60).optional(),
     })).min(2).max(14),
   }),
 ]);

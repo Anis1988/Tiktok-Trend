@@ -1,5 +1,6 @@
 import type { Source } from '../../src/lib/types';
 import { findCategory, subsOf, type Niche } from '../../src/lib/niches';
+import { youtubeReadToken } from './youtube';
 export { LISTY } from '../../src/lib/niches';
 
 /** One possible video topic with the headlines behind it. */
@@ -28,9 +29,9 @@ const items = (xml: string) => xml.match(/<item[\s>][\s\S]*?<\/item>/gi) ?? [];
 const entries = (xml: string) => xml.match(/<entry[\s>][\s\S]*?<\/entry>/gi) ?? [];
 
 /** Fetches a page. `tries` > 1 retries a busy site (HTTP 429 / 5xx or no answer) after a short wait. */
-async function get(url: string, tries = 1): Promise<string> {
+async function get(url: string, tries = 1, ms = 10_000): Promise<string> {
   for (let i = 1; ; i++) {
-    const res = await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(10_000) }).catch((e: unknown) => e as Error);
+    const res = await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(ms) }).catch((e: unknown) => e as Error);
     if (res instanceof Response && res.ok) return res.text();
     const err = res instanceof Response ? new Error(`${new URL(url).hostname}: HTTP ${res.status}`) : new Error(`${new URL(url).hostname}: ${res.message}`);
     const busy = !(res instanceof Response) || res.status === 429 || res.status >= 500;
@@ -50,6 +51,95 @@ export async function googleTrends(country: string): Promise<Candidate[]> {
       headlines: news.slice(0, 3).map((n) => ({ title: tag(n, 'ht:news_item_title'), url: tag(n, 'ht:news_item_url'), site: tag(n, 'ht:news_item_source') || undefined })),
     };
   }).filter((c) => c.topic && c.headlines.length);
+}
+
+const n = (x: number) => (x >= 1e6 ? `${(x / 1e6).toFixed(1)}M` : x >= 1e3 ? `${Math.round(x / 1e3)}K` : String(x));
+const stripHtml = (s = '') => s.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+
+/** Recent Google News headlines about a name (no retries; empty if none or busy). */
+async function newsAbout(q: string, country: string, max = 4): Promise<Source[]> {
+  try {
+    const xml = await get(`https://news.google.com/rss/search?q=${encodeURIComponent(`"${q}" when:2d`)}&hl=en-${country}&gl=${country}&ceid=${country}:en`, 1, 5000);
+    return items(xml).slice(0, max).map((it) => ({ title: tag(it, 'title'), url: tag(it, 'link'), site: tag(it, 'source') || undefined })).filter((h) => h.title);
+  } catch {
+    return [];
+  }
+}
+
+interface WikiArticle {
+  views?: number; normalizedtitle?: string; titles?: { normalized?: string }; title: string; type?: string; extract?: string; description?: string;
+  view_history?: { views: number }[]; content_urls?: { desktop?: { page?: string } };
+}
+const SKIP_WIKI = /^(Main Page|Special:|Wikipedia:|Portal:|File:|Help:|Deaths in|List of|\d{4} in |Cleopatra$|Google$|YouTube$|Facebook$|ChatGPT$|Pornhub|XXX|XHamster|Xvideos)/i;
+
+/**
+ * Wikipedia (free, no key): yesterday's most-read articles that suddenly jumped (at least twice their usual views),
+ * and the "In the news" stories. What people are curious about right now, with the latest headlines about each.
+ */
+export async function wikipediaTrends(country: string): Promise<Candidate[]> {
+  const d = new Date(Date.now() - 86400_000);
+  const date = `${d.getUTCFullYear()}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCDate()).padStart(2, '0')}`;
+  const j = JSON.parse(await get(`https://en.wikipedia.org/api/rest_v1/feed/featured/${date}`, 1, 6000)) as {
+    mostread?: { articles?: WikiArticle[] };
+    news?: { story?: string; links?: WikiArticle[] }[];
+  };
+  const name = (a: WikiArticle) => a.normalizedtitle ?? a.titles?.normalized ?? a.title.replace(/_/g, ' ');
+  const page = (a: WikiArticle) => a.content_urls?.desktop?.page ?? `https://en.wikipedia.org/wiki/${encodeURIComponent(a.title)}`;
+  const about = (a: WikiArticle): Source => ({ title: `Wikipedia: ${name(a)}${a.description ? ` (${a.description})` : ''}. ${(a.extract ?? '').slice(0, 280)}`, url: page(a), site: 'Wikipedia' });
+
+  const spikes = (j.mostread?.articles ?? [])
+    .filter((a) => a.type !== 'disambiguation' && !SKIP_WIKI.test(name(a)))
+    .filter((a) => {
+      const past = (a.view_history ?? []).slice(0, -1).map((h) => h.views);
+      const usual = past.length ? past.reduce((t, v) => t + v, 0) / past.length : 0;
+      return !usual || (a.views ?? 0) >= 2 * usual; // a sudden jump, not an always-popular page
+    })
+    .slice(0, 8);
+  const read = await Promise.all(spikes.map(async (a) => ({
+    topic: name(a), traffic: `${n(a.views ?? 0)} Wikipedia reads yesterday`,
+    headlines: [...(await newsAbout(name(a), country)), about(a)],
+  })));
+  const news = (j.news ?? []).slice(0, 5).flatMap((x) => {
+    const a = x.links?.[0];
+    const story = stripHtml(x.story);
+    return a && story ? [{ topic: name(a), headlines: [{ title: `In the news (Wikipedia): ${story}`, url: page(a), site: 'Wikipedia' }, about(a)] }] : [];
+  });
+  // Articles with fresh headlines first: their facts explain why people are reading.
+  return [...news, ...read.sort((x, y) => Number(y.headlines.length > 1) - Number(x.headlines.length > 1))];
+}
+
+/** YouTube categories that fit each channel niche (for the trending chart). */
+const YT_CATEGORY: Record<string, string> = { gaming: '20', tech: '28', sports: '17', movies: '1', music: '10', science: '28', cars: '2', food: '26', travel: '19', viral: '23' };
+
+/**
+ * YouTube's "Trending" chart for your country (and niche): what video viewers are watching today. Needs YOUTUBE_API_KEY
+ * (free, Google Cloud) or YouTube connected in Settings. Returns nothing when neither is set.
+ */
+export async function youtubeTrending(country: string, niche?: string): Promise<Candidate[]> {
+  const key = process.env.YOUTUBE_API_KEY?.trim();
+  const token = key ? null : await youtubeReadToken();
+  if (!key && !token) return [];
+  const q = new URLSearchParams({ part: 'snippet,statistics', chart: 'mostPopular', regionCode: country, maxResults: '15' });
+  const cat = niche ? YT_CATEGORY[niche] : undefined;
+  if (cat) q.set('videoCategoryId', cat);
+  if (key) q.set('key', key);
+  const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?${q}`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, signal: AbortSignal.timeout(10_000) });
+  if (!res.ok) throw new Error(`YouTube trending: HTTP ${res.status}`);
+  const j = (await res.json()) as { items?: { id: string; snippet?: { title?: string; channelTitle?: string; description?: string }; statistics?: { viewCount?: string } }[] };
+  return (j.items ?? []).flatMap((v) => {
+    const title = v.snippet?.title?.trim();
+    if (!title) return [];
+    const views = Number(v.statistics?.viewCount ?? 0);
+    const url = `https://www.youtube.com/watch?v=${v.id}`;
+    const desc = (v.snippet?.description ?? '').split('\n').map((l) => l.trim()).find((l) => l.length > 20 && !/https?:\/\//.test(l));
+    return [{
+      topic: `Trending on YouTube: ${title}`, traffic: `${n(views)} YouTube views`,
+      headlines: [
+        { title: `"${title}" by ${v.snippet?.channelTitle ?? 'a creator'} is trending on YouTube (${n(views)} views)`, url, site: 'YouTube' },
+        ...(desc ? [{ title: `From the video description: ${desc.slice(0, 200)}`, url, site: 'YouTube' }] : []),
+      ],
+    }];
+  });
 }
 
 /** Today's news for one of your topics (Google News RSS, free). Each headline is its own candidate. */
@@ -125,9 +215,10 @@ export async function nicheCandidates(n: Niche, country: string, recent: string[
   const order = [...subs.slice(first), ...subs.slice(0, first)];
   const jobs: Promise<Candidate[]>[] = [
     ...n.focus.map((f) => topicNews(f, country).then((cs) => cs.slice(0, 3))),
+    youtubeTrending(country, cat.id).then((cs) => cs.slice(0, 3)), // what's trending in this category on YouTube today
     ...order.map((s) => topicNews(s.query, country).then((cs) => cs.slice(0, 6).map((c) => ({ ...c, topic: c.topic.replace(s.query, s.label) })))),
     ...cat.feeds.map((u) => feedNews(u, cat.label)),
-    ...(n.mix === 'mix' ? [googleTrends(country)] : []),
+    ...(n.mix === 'mix' ? [googleTrends(country), wikipediaTrends(country)] : []),
   ];
   const settled = await Promise.allSettled(jobs);
   const errors = settled.flatMap((r) => (r.status === 'rejected' ? [String(r.reason instanceof Error ? r.reason.message : r.reason)] : []));
@@ -144,14 +235,18 @@ export async function nicheCandidates(n: Niche, country: string, recent: string[
 
 /** Everything worth considering today, minus topics used recently. */
 export async function findCandidates(topics: string[], country: string, recent: string[]): Promise<{ candidates: Candidate[]; errors: string[] }> {
-  const jobs = [googleTrends(country), ...topics.map((t) => topicNews(t, country))];
+  const jobs = [googleTrends(country), ...topics.map((t) => topicNews(t, country)), wikipediaTrends(country), youtubeTrending(country).then((cs) => cs.slice(0, 8))];
   const settled = await Promise.allSettled(jobs);
   const errors = settled.flatMap((r) => (r.status === 'rejected' ? [String(r.reason instanceof Error ? r.reason.message : r.reason)] : []));
   const seen = new Set(recent.map((t) => t.toLowerCase()));
   const out: Candidate[] = [];
   // With your topics set, your topics come first; general trends fill in.
   const lists = settled.map((r) => (r.status === 'fulfilled' ? r.value : []));
-  const ordered = topics.length ? [...lists.slice(1).flat(), ...lists[0]] : lists.flat();
+  // Order: your topics (if any), then Google Trends, then Wikipedia and YouTube, mixed so each source gets a fair look.
+  const [trends, ...rest] = lists;
+  const [wiki, yt] = rest.splice(-2);
+  const mixed = trends.flatMap((c, i) => [c, ...(wiki[i] ? [wiki[i]] : []), ...(yt[i] ? [yt[i]] : [])]).concat(wiki.slice(trends.length), yt.slice(trends.length));
+  const ordered = [...rest.flat(), ...mixed];
   for (const c of ordered) {
     const k = c.topic.toLowerCase();
     if (seen.has(k)) continue;

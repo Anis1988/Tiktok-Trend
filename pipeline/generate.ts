@@ -46,6 +46,8 @@ async function sample() {
     { text: 'Number one: LeBron James, who would dunk the sugar cube.', footage: 'basketball court', keywords: ['LeBron'], real: 'LeBron James', label: '#1 LeBron James' },
     { text: 'Picture sipping it right under the Eiffel Tower.', footage: 'paris cafe', real: 'Eiffel Tower', keywords: ['Eiffel Tower'] },
     { text: 'Or floating past Saturn, if space stations had a barista.', footage: 'space stars', real: 'Saturn', keywords: ['Saturn'] },
+    { text: 'Made-up numbers: espresso beats latte, and tea is crying.', footage: 'coffee shop', keywords: ['espresso'], chart: { title: 'Made-up coffee poll', unit: '%', bars: [{ label: 'Espresso', value: 46 }, { label: 'Latte', value: 31 }, { label: 'Tea', value: 23 }] } },
+    { text: 'And the best beans? Reports say they grow in Colombia.', footage: 'coffee beans', keywords: ['Colombia'], map: 'Colombia' },
     { text: 'Would you let a robot pick your coffee for a week?', footage: 'robot arm technology', keywords: [] },
   ];
   const dir = 'out/sample';
@@ -55,7 +57,7 @@ async function sample() {
   for (const [i, l] of lines.entries()) {
     const wav = `${dir}/l${i}.wav`;
     await speak(l.text, voice, wav, true);
-    const v = await visualFor(l, i, dir, { mine: null, real: true, characters: true, used, credits: [] });
+    const v = await visualFor(l, i, dir, { mine: null, real: true, characters: true, charts: true, accent: '#22D3EE', used, credits: [] });
     if (v.credit) log(`Sample scene ${i + 1}: ${v.credit}`);
     scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, ...v });
   }
@@ -165,6 +167,8 @@ async function main() {
       text: l.text, footage: l.footage, keywords: (l.keywords ?? []).slice(0, 3), real: l.real?.trim().slice(0, 80) || undefined,
       character: l.character?.trim().slice(0, 100) || undefined, object: l.object?.trim().slice(0, 60) || undefined, label: l.label?.trim().slice(0, 40) || undefined,
       quiz: l.quiz || undefined,
+      chart: l.chartBars.length >= 2 ? { title: (l.chartTitle || sc.title).slice(0, 40), unit: l.chartUnit?.trim().slice(0, 12) || undefined, bars: l.chartBars.slice(0, 6).map((b) => ({ label: b.label.slice(0, 24), value: b.value })) } : undefined,
+      map: l.map?.trim().slice(0, 60) || undefined,
     })) },
     pick: pickRaw || undefined,
     topicVideo: cand.evergreen || undefined,
@@ -185,6 +189,9 @@ async function main() {
   }
   await build(base, s);
 }
+
+/** The accent colour of the video's look (charts and maps use it too). */
+const accentOf = (s: AppSettings) => (s.effects.nicheLook ? findCategory(s.niche?.category)?.look ?? DEFAULT_LOOK : DEFAULT_LOOK).accent;
 
 /** Effects and look from Settings (Videos tab → Video style). */
 function renderOptions(s: AppSettings, hook: string, v: Pick<VideoRecord, 'extras' | 'cover'> = {}): RenderOptions {
@@ -221,7 +228,7 @@ async function build(base: VideoRecord, s: AppSettings) {
     for (const [i, l] of lines.entries()) {
       const wav = `${dir}/l${i}.wav`;
       await speak(l.text, s.voice, wav, s.tone === 'punchy' || s.tone === 'witty');
-      const v = await visualFor(l, i, dir, { mine: mine[i], real: s.effects.realMedia, characters: s.effects.characters, used, credits });
+      const v = await visualFor(l, i, dir, { mine: mine[i], real: s.effects.realMedia, characters: s.effects.characters, charts: s.effects.charts, accent: accentOf(s), used, credits });
       if (mine[i]) log(`Scene ${i + 1}: your clip "${mine[i]!.name}"`);
       else if (v.credit) log(`Scene ${i + 1}: ${v.credit}`);
       scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, ...v });

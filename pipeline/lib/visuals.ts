@@ -6,6 +6,7 @@ import { durationOf } from './sh';
 import { findClip } from './footage';
 import { findReal } from './realmedia';
 import { characterPicture, objectPhoto } from './pictures';
+import { chartClip, mapClip } from './graphics';
 import type { Scene } from './render';
 
 export interface Credit { by: string; url: string; site?: string }
@@ -26,13 +27,14 @@ async function fetchMedia(item: MediaItem, out: string): Promise<boolean> {
 const EXT: Record<string, string> = { 'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 
 /**
- * What to show behind one line, best first: your clip (picked or matched by tag) -> the character's picture (if
+ * What to show behind one line, best first: your clip (picked or matched by tag) -> an animated chart or map (if the
+ * script asks for one and "Charts & maps" is on) -> the character's picture (if
  * "Character pictures" is on) -> a free real photo / clip of the person, place or event -> a free photo of the object
  * -> stock footage -> a moving colour background.
  */
 export async function visualFor(
   l: DraftLine, i: number, dir: string,
-  o: { mine: MediaItem | null; real: boolean; characters: boolean; used: Set<string>; credits: Credit[] },
+  o: { mine: MediaItem | null; real: boolean; characters: boolean; charts?: boolean; accent?: string; used: Set<string>; credits: Credit[] },
 ): Promise<Pick<Scene, 'clip' | 'clipStart' | 'image' | 'credit'>> {
   if (o.mine) {
     const out = `${dir}/mine${i}.${EXT[o.mine.type] ?? 'bin'}`;
@@ -41,6 +43,17 @@ export async function visualFor(
       // Long clips: start somewhere random, so the same clip looks different from video to video.
       const d = await durationOf(out).catch(() => 0);
       return { clip: out, clipStart: d > 12 ? Math.random() * (d - 10) : 0 };
+    }
+  }
+  if (o.charts !== false && l.chart && l.chart.bars.length >= 2) {
+    const out = `${dir}/chart${i}.mp4`;
+    if (await chartClip(l.chart, out, o.accent ?? '#22D3EE').catch((e) => (console.log(`Chart failed:`, e instanceof Error ? e.message : e), false))) return { clip: out };
+  }
+  if (o.charts !== false && l.map?.trim()) {
+    const out = `${dir}/map${i}.mp4`;
+    if (await mapClip(l.map, out, o.accent ?? '#22D3EE').catch((e) => (console.log(`Map "${l.map}" failed:`, e instanceof Error ? e.message : e), false))) {
+      o.credits.push({ by: 'Natural Earth', url: 'https://www.naturalearthdata.com', site: 'Map data' });
+      return { clip: out, credit: 'Map data: Natural Earth' };
     }
   }
   if (o.characters && l.character?.trim()) {

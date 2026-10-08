@@ -62,7 +62,8 @@ export function Guide() {
 
       <Section title="How it works" open>
         <ol className="list-decimal space-y-2 pl-5">
-          <li><b>Find a topic.</b> If you set up "My channel" (see below), the app reads today's news for your niche. Otherwise it looks at what people are searching for (Google Trends). You can also pick the subject for one video yourself (see "Choosing the subject").</li>
+          <li><b>Find a topic.</b> If you set up "My channel" (see below), the app reads today's news for your niche, plus what's trending in that category on YouTube. Otherwise it mixes three free signals of what people care about right now: what they search (Google Trends), what they suddenly read on Wikipedia (articles read at least twice as much as usual, and Wikipedia's "In the news"), and YouTube's trending chart. You can also pick the subject for one video yourself (see "Choosing the subject").</li>
+          <li><b>YouTube trending</b> needs YouTube connected in Settings (or a free <code>YOUTUBE_API_KEY</code>, see "Setting it up"); without it, the other sources are used.</li>
           <li><b>Write the script.</b> Claude picks one good topic and writes a 30 to 60 second script using only facts from the headlines. It tries 3 opening lines and keeps the one most likely to stop someone scrolling, adds a clever line or comparison, and ends with a punchline or a fun question. It also writes the caption and a witty comment for you to pin. No subject is skipped, on daily videos or ones you start (politics and politicians included). Only the legal limits stay: no false claims about real people, no copied lyrics or text, no private people, no hate. When <b>you</b> type or pick the subject, it always makes it.</li>
           <li><b>Make the video.</b> A natural-sounding AI voice (Kokoro) reads the script. Sharp stock clips from Pixabay play behind it with a slow zoom and smooth transitions between them (glides, zooms, soft fades, taken in turn so the video keeps moving). Captions show 1 to 3 words at a time, with the word being spoken in yellow. The sound is cleaned up and set to TikTok's standard loudness. Full HD vertical video (1080×1920), ready for TikTok.</li>
           <li><b>Email you.</b> You get an email with a link. Watch it, then tap <b>Approve</b> or <b>Reject</b>.</li>
@@ -107,9 +108,10 @@ export function Guide() {
         <p>Viewers should <b>see</b> what the voice talks about. For each sentence the AI notes who or what it is about, and the app looks for a picture, best first:</p>
         <ul className="list-disc space-y-1.5 pl-5">
           <li><b>Your clips</b> (My clips), when a sentence mentions one of their tags.</li>
+          <li><b>Charts &amp; maps</b>, drawn by the app: when the story has real numbers (prices, scores, polls, box office...), the bars grow one by one and the numbers count up; when the place matters, a map starts on the whole world, zooms in, lights up the country and drops a pin with the name. Up to 2 per video. They make a video look made for that story instead of stock footage. Turn them off in <b>Video style &amp; effects → Charts &amp; maps</b>.</li>
           <li><b>Characters</b> (anime, manga): the character's official picture from AniList, like "Levi Ackerman" from Attack on Titan. Shown with "© Attack on Titan". These pictures belong to the studios: very common in ranking videos, but a rights holder could claim one. Turn it off in <b>Video style &amp; effects → Character pictures</b>. Game and movie characters are not always found.</li>
-          <li><b>Real people, places and events</b>: a free photo from Wikimedia Commons (the library behind Wikipedia), or NASA for space. If the Wikipedia photo isn't free, the app tries the person's free photo on Wikidata. Credit like "Photo: Jane Doe · CC BY-SA 4.0 · Wikimedia Commons".</li>
-          <li><b>Things</b> (an apple, a basketball, a controller): a free photo from Pixabay (or Pexels).</li>
+          <li><b>Real people, places and events</b>: a free photo from Wikimedia Commons (the library behind Wikipedia), or NASA for space. If the Wikipedia photo isn't free, the app tries the person's free photo on Wikidata. Credit like "Photo: Jane Doe · CC BY-SA 4.0 · Wikimedia Commons". If Wikimedia has none, <b>Openverse</b> is searched: 800 million free photos (Flickr, museums...), only licences that allow use in your videos, and only photos whose title names that person or place.</li>
+          <li><b>Things</b> (an apple, a basketball, a controller): a free photo from Pixabay (or Pexels), then Openverse.</li>
           <li>Otherwise a stock video clip, as before.</li>
           <li>Pictures appear as a framed card over a blurred copy, sliding gently into place with a slow zoom.</li>
           <li><b>Titles:</b> in rankings, each place shows a big title at the top, like "<b>#3</b> LEVI ACKERMAN", with the number in your accent colour.</li>
@@ -301,6 +303,7 @@ export function Guide() {
           <Key name="TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET">later, once TikTok approves your developer app.</Key>
           <Key name="GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET">optional, for YouTube Shorts (see "Other platforms").</Key>
           <Key name="META_APP_ID, META_APP_SECRET">optional, for Facebook and Instagram Reels (see "Other platforms").</Key>
+          <Key name="YOUTUBE_API_KEY">optional, also in GitHub: lets the app read YouTube's trending chart without connecting YouTube. Free: Google Cloud console → APIs &amp; Services → turn on YouTube Data API v3 → Credentials → Create credentials → API key.</Key>
           <Key name="VITE_CONTACT_EMAIL">optional: the email shown on the Terms and Privacy pages (TikTok's reviewers like to see one).</Key>
         </ul>
         <p><b>In GitHub</b> (repository → Settings → Secrets and variables → Actions → New repository secret):</p>

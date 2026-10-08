@@ -22,6 +22,10 @@ const Script = z.object({
     label: z.string().describe('big on-screen title for this scene, max 28 characters: in a ranking "#rank Name" (e.g. "#3 Levi Ackerman"); otherwise an empty string'),
     quiz: z.enum(['', 'hide', 'reveal']).describe('only in "Guess who?" quiz videos: "hide" on the clue line (picture blurred), "reveal" on the answer line right after it (same picture, shown sharp); otherwise ""'),
     keywords: z.array(z.string()).describe('the 1 or 2 most important words of this line, copied exactly as written in it (shown bigger and in colour)'),
+    chartTitle: z.string().describe('only when this line compares 2 to 6 real numbers from the headlines or well-known facts (prices, scores, polls, sales, records): a short chart title, max 40 characters; otherwise an empty string'),
+    chartUnit: z.string().describe('the unit of the chart numbers, e.g. "%", "$M", "$", "points", "km"; empty if none or no chart'),
+    chartBars: z.array(z.object({ label: z.string().describe('max 20 characters'), value: z.number() })).describe('the 2 to 6 numbers of the chart, exactly as in the facts, biggest first; empty if no chart'),
+    map: z.string().describe('only when this line is about where something happens or is (a country, city, region, landmark): its name as on Wikipedia, e.g. "Japan", "Gaza Strip", "Lake Tahoe"; otherwise an empty string'),
   })).describe('the whole voice-over in order, starting with the hook line'),
   cover: z.string().describe('2 to 5 punchy words for the video cover (first frame), like a poster title, e.g. "STRONGEST IN AOT?"'),
   caption: z.string().describe('TikTok description, max 150 characters, no hashtags; witty, not a summary'),
@@ -52,6 +56,8 @@ Rules:
 - Footage search words describe generic scenes (no real people, logos or brands), because the footage is generic stock video.
 - Pictures matter: viewers must SEE what the voice talks about. For each line fill the matching field: "character" for a fictional character, "real" for a real well-known person, place or event (never a private person), "object" for a concrete thing (an apple, a car, a phone). Fill at least one of them on most lines; leave them empty only for abstract lines.
 - "label": only for rankings and lists, "#rank Name" on the line that presents that place.
+- Charts and maps make a video look made for the story, not stock: when the facts have 2 to 6 comparable numbers, put them in a chart on that line (real numbers only, never estimates); when the place matters, put it on the map (once or twice per video at most, not on the hook line). A chart or map line needs no "real", "character" or "object".
+- Candidates come from Google Trends, news sites, Wikipedia (articles suddenly read far more than usual) and YouTube's trending chart. For Wikipedia and YouTube candidates, they show what people are curious about; the facts still come only from their headlines.
 
 Legal limits (the only content limits):
 - No false statements of fact about real people or companies (defamation): facts only from the headlines or well-known facts, opinions and jokes clearly sound like opinions or jokes, and accusations are only "reports say" when the headlines say so.

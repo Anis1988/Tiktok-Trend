@@ -4,6 +4,8 @@ import { writeFile } from 'node:fs/promises';
  * Real photos and clips that are free to use, for the people, places and events a script mentions:
  * - Wikimedia Commons (via the Wikipedia article's main photo, or a Commons search): free licences only, with credit.
  * - NASA image and video library: public domain (space, science, Earth).
+ * - Openverse (openverse.org): 800M+ openly licensed photos (Flickr, museums...), only licences that allow commercial use
+ *   and changes, with credit. Used when Wikimedia has nothing.
  * Never news-agency, TV, film, anime or game footage: those are copyrighted.
  */
 export interface RealMedia {
@@ -11,7 +13,7 @@ export interface RealMedia {
   path: string;
   credit: string; // shown on screen, e.g. "Photo: Jane Doe · CC BY-SA 4.0 · Wikimedia Commons"
   url: string; // page of the file, for the credits list
-  site: 'Wikimedia' | 'NASA';
+  site: 'Wikimedia' | 'NASA' | 'Openverse';
   by: string;
 }
 
@@ -113,16 +115,44 @@ async function nasa(query: string, outBase: string): Promise<RealMedia | null> {
   return null;
 }
 
+interface OpenverseHit { id: string; url: string; creator?: string; license: string; license_version?: string; foreign_landing_url?: string; width?: number; height?: number; source?: string; title?: string }
+
+/**
+ * Openverse: openly licensed photos (no key needed). `mustContain`: words the title must include, so the photo
+ * is really of that thing. Never the same photo twice in one video.
+ */
+export async function openverse(query: string, out: string, mustContain: string[] = [], used?: Set<string>): Promise<RealMedia | null> {
+  const q = new URLSearchParams({ q: query, license_type: 'commercial,modification', page_size: '20', mature: 'false' });
+  const j = await getJson<{ results?: OpenverseHit[] }>(`https://api.openverse.org/v1/images/?${q}`);
+  for (const h of j.results ?? []) {
+    if ((h.width ?? 0) < 800 || (h.height ?? 0) < 500) continue;
+    const title = (h.title ?? '').toLowerCase();
+    if (mustContain.some((w) => !title.includes(w))) continue;
+    const licence = `${h.license === 'cc0' || h.license === 'pdm' ? h.license.toUpperCase() : `CC ${h.license.toUpperCase()}`}${h.license_version && h.license !== 'pdm' ? ` ${h.license_version}` : ''}`;
+    if (!freeLicence(licence)) continue;
+    const key = `openverse:${h.id}`;
+    if (used?.has(key) || !(await download(h.url, out).catch(() => false))) continue;
+    used?.add(key);
+    const by = (h.creator || 'Unknown').slice(0, 40);
+    const from = h.source ? ` (${h.source.replace(/_/g, ' ')})` : '';
+    return { kind: 'image', path: out, credit: `Photo: ${by} · ${licence} · Openverse${from}`.slice(0, 90), url: h.foreign_landing_url || h.url, site: 'Openverse', by };
+  }
+  return null;
+}
+
 const SPACE = /\b(nasa|space|rocket|launch|moon|lunar|mars|jupiter|saturn|venus|mercury|planet|galaxy|nebula|star|sun|solar|eclipse|comet|asteroid|meteor|telescope|webb|hubble|astronaut|iss|space station|artemis|orbit|aurora|hurricane|earth from)\b/i;
 
-/** A real photo or clip of `query`, or null. Space and science: NASA first, then Wikimedia. Everything else: Wikimedia only. */
+/** A real photo or clip of `query`, or null. Space and science: NASA first. Then Wikimedia, then Openverse. */
 export async function findReal(query: string, outBase: string): Promise<RealMedia | null> {
   const q = query.trim().slice(0, 80);
   if (!q) return null;
-  const order = SPACE.test(q) ? [nasa, wikimedia] : [wikimedia]; // NASA only for space and science topics
+  // Openverse only with every word of the name in the photo's title, so it is really that person or place.
+  const words = q.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+  const ov = (x: string, out: string) => openverse(x, out, words);
+  const order = SPACE.test(q) ? [nasa, wikimedia, ov] : [wikimedia, ov]; // NASA only for space and science topics
   for (const source of order) {
     try {
-      const r = source === wikimedia ? await wikimedia(q, `${outBase}.jpg`) : await nasa(q, outBase);
+      const r = source === nasa ? await nasa(q, outBase) : await source(q, `${outBase}.jpg`);
       if (r) return r;
     } catch (e) {
       console.log(`Real media "${q}" (${source.name}) failed:`, e instanceof Error ? e.message : e);

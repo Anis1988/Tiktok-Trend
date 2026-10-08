@@ -1,10 +1,11 @@
 import { writeFile } from 'node:fs/promises';
+import { openverse } from './realmedia';
 
 /**
  * Pictures of what a line talks about:
  * - characterPicture: the official picture of an anime / manga character (AniList, free API, no key). These pictures
  *   belong to the studios (copyrighted): only used when "Character pictures" is on.
- * - objectPhoto: a free photo of a concrete thing ("apple", "basketball"): Pixabay (key you already have), then Pexels.
+ * - objectPhoto: a free photo of a concrete thing ("apple", "basketball"): Pixabay (key you already have), then Pexels, then Openverse.
  */
 export interface Picture { path: string; credit: string; by: string; url: string; site: string }
 
@@ -105,6 +106,12 @@ export async function objectPhoto(query: string, out: string, used: Set<string>)
     } catch (e) {
       console.log(`Photo search "${q}" (Pexels) failed:`, e instanceof Error ? e.message : e);
     }
+  }
+  try {
+    const o = await openverse(q, out, [], used);
+    if (o) return { path: o.path, credit: o.credit, by: o.by, url: o.url, site: 'Openverse' };
+  } catch (e) {
+    console.log(`Photo search "${q}" (Openverse) failed:`, e instanceof Error ? e.message : e);
   }
   return null;
 }

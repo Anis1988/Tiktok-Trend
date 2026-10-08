@@ -54,6 +54,12 @@ async function accessToken(): Promise<string> {
   return j.access_token;
 }
 
+/** A token to read YouTube (trending chart) when YouTube is connected, else null. Never throws. */
+export async function youtubeReadToken(): Promise<string | null> {
+  if (!youtubeReady()) return null;
+  return accessToken().catch(() => null);
+}
+
 /** YouTube refuses < and > in titles and descriptions. */
 const clean = (s: string) => s.replace(/[<>]/g, '').trim();
 

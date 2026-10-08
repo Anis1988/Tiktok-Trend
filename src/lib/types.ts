@@ -29,6 +29,8 @@ export interface DraftLine {
   label?: string; // big on-screen title for this scene, e.g. "#3 Levi Ackerman"
   quiz?: 'hide' | 'reveal'; // "Guess who?" videos: picture hidden (blurred) on this line, then shown sharp with a flash
   media?: string; // a clip from "My clips" chosen for this scene (its id), or "stock" to never use one
+  chart?: { title: string; unit?: string; bars: { label: string; value: number }[] }; // an animated bar chart of the line's numbers
+  map?: string; // a place to show on an animated map, e.g. "Japan", "Paris", "Gulf of Mexico"
 }
 
 /** Extras you pick for one video ("Make a video now"). */
@@ -113,6 +115,7 @@ export interface VideoEffects {
   realMedia: boolean; // real photos and clips (Wikimedia, NASA) with a credit line
   myClips: boolean; // use your own clips when a scene mentions their tags
   characters: boolean; // official pictures of anime / manga characters (AniList); copyrighted
+  charts: boolean; // animated bar charts for numbers and maps for places, drawn by the app
 }
 
 export type CaptionColor = 'yellow' | 'cyan' | 'green' | 'pink' | 'white';
@@ -126,6 +129,7 @@ export const EFFECT_LABEL: Record<keyof VideoEffects, [string, string]> = {
   endCard: ['End card', '"Follow for more …" for the last 2 seconds, with your name.'],
   realMedia: ['Real photos & clips', 'Free-to-use real photos and clips (Wikimedia, NASA) of the people, places and events mentioned, with a small credit.'],
   myClips: ['Use my clips', 'When a scene mentions a tag of one of your clips (My clips), that clip is shown.'],
+  charts: ['Charts & maps', 'When the story has numbers (prices, scores, polls...), an animated bar chart shows them; when it happens somewhere, a map zooms to the place with a pin. Drawn by the app, free.'],
   characters: ['Character pictures (official art, copyrighted)', 'Anime and manga characters are shown with their official picture (from AniList). These pictures belong to the studios: common in ranking videos, but a rights holder could claim one. You decide.'],
 };
 
@@ -171,7 +175,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   tone: 'witty',
   music: false,
   cleanup: { enabled: true, days: 30 },
-  effects: { hookCard: true, keywords: true, sfx: true, progress: true, nicheLook: true, endCard: true, realMedia: true, myClips: true, characters: true },
+  effects: { hookCard: true, keywords: true, sfx: true, progress: true, nicheLook: true, endCard: true, realMedia: true, myClips: true, characters: true, charts: true },
   captionStyle: { color: 'yellow', size: 'big' },
   endCardName: '',
   reviewScript: false,
