@@ -146,7 +146,7 @@ async function main() {
 
   budget.n++;
   await writeJson('ai', budget);
-  const sc = await writeScript(candidates, s, extras);
+  const sc = await writeScript(candidates, s, extras, !!subject); // your own subject: only legal limits apply
   if (sc.pick < 0 || !candidates[sc.pick]) {
     if (subject) throw new Error(`The AI skipped "${subject}": ${sc.why}`);
     return log('The AI found nothing suitable today:', sc.why);

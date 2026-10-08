@@ -63,6 +63,18 @@ Topic rules (they replace the headline rules above):
 - Spoilers: name big plot twists only if the subject asks for them, and keep them light.
 - sources: an empty list.`;
 
+/**
+ * The creator typed this subject (or picked it from the ideas): it is always covered. Only legal limits stay.
+ * Daily automatic videos keep the stricter topic rules above.
+ */
+const CHOSEN = `The creator chose this subject themselves. Make the video about it: never set pick to -1 because of what the subject is about.
+These rules replace every "skip" rule above (and the humour rule): politics and politicians, elections, crime, deaths, disasters, health, money and any other subject are all fine, and jokes may poke fun at what public figures say and do.
+Only these legal limits stay:
+- No false statements of fact about real people or companies (defamation): facts only from the headlines or well-known facts, opinions and jokes clearly sound like opinions or jokes, and accusations are only "reports say" when the headlines say so.
+- No copyrighted text: no song lyrics, poems or passages from books or articles.
+- No private person's name or personal details.
+- No hate or threats against people for who they are (race, religion, gender and so on).`;
+
 /** The creator's channel niche, so topic choice, jokes, footage and hashtags all fit it. */
 function channel(s: AppSettings): string {
   const c = s.niche && findCategory(s.niche.category);
@@ -92,7 +104,7 @@ const EXTRA_RULES: Record<Extra, string> = {
   cover: 'Write a strong "cover": 2 to 5 big words that make people tap, matching the hook (e.g. "STRONGEST IN AOT?", "NASA JUST DID WHAT?").',
 };
 
-export async function writeScript(cands: Candidate[], s: AppSettings, extras: Extra[] = []): Promise<ScriptOut> {
+export async function writeScript(cands: Candidate[], s: AppSettings, extras: Extra[] = [], chosen = false): Promise<ScriptOut> {
   const words = Math.round(s.maxSeconds * 2.5); // a voice reads about 150 words a minute
   const topic = cands.length === 1 && cands[0].evergreen;
   const list = cands
@@ -107,7 +119,7 @@ export async function writeScript(cands: Candidate[], s: AppSettings, extras: Ex
     max_tokens: 16000,
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default', // if the main model declines, Anthropic retries on its recommended fallback model
-    system: [SYSTEM, ...(topic ? [TOPIC] : []), ...extras.map((e) => `Extra for this video: ${EXTRA_RULES[e]}`)].join('\n\n'),
+    system: [SYSTEM, ...(topic ? [TOPIC] : []), ...(chosen ? [CHOSEN] : []), ...extras.map((e) => `Extra for this video: ${EXTRA_RULES[e]}`)].join('\n\n'),
     messages: [{ role: 'user', content }],
     output_config: { effort: 'high', format: betaZodOutputFormat(Script) },
   });
