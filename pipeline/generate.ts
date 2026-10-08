@@ -97,7 +97,7 @@ async function main() {
   // A subject typed for this one video (app box or GitHub "Run workflow") replaces the trend search.
   const subject = (process.env.SUBJECT ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
   // Extras picked for this one video in the app: quiz, fast pacing, bold cover.
-  const extras = [...new Set((process.env.EXTRAS ?? '').split(',').map((x) => x.trim()))].filter((x): x is Extra => x === 'quiz' || x === 'fast' || x === 'cover');
+  const extras = [...new Set((process.env.EXTRAS ?? '').split(',').map((x) => x.trim()))].filter((x): x is Extra => ['quiz', 'facts', 'fast', 'cover'].includes(x));
   if (extras.length) log(`Extras: ${extras.join(', ')}`);
   const ideaUrl = /^https:\/\/\S+$/.test(process.env.IDEA_URL ?? '') ? process.env.IDEA_URL! : '';
   // A category / subcategory picked for this one video ("Make a video now") replaces "My channel" for this run.
@@ -126,8 +126,8 @@ async function main() {
     // Otherwise the latest news; an idea from the app's "Ideas" list is a headline, used as is if a fresh search finds nothing more;
     // and a subject that is not in the news becomes a topic video too.
     const topic: Candidate = { topic: subject, headlines: [], evergreen: true };
-    // A quiz is about well-known characters or people, so its subject is always a topic video.
-    const c = !ideaUrl && (LISTY.test(subject) || extras.includes('quiz'))
+    // A quiz or fun facts use well-known facts, so their subject is always a topic video.
+    const c = !ideaUrl && (LISTY.test(subject) || extras.includes('quiz') || extras.includes('facts'))
       ? topic
       : (await subjectNews(subject, s.country)) ?? (ideaUrl ? { topic: subject, headlines: [{ title: subject, url: ideaUrl }] } : topic);
     if (c.evergreen) log('Topic video (not news): written from well-known facts.');

@@ -32,9 +32,10 @@ export interface DraftLine {
 }
 
 /** Extras you pick for one video ("Make a video now"). */
-export type Extra = 'quiz' | 'fast' | 'cover';
+export type Extra = 'quiz' | 'facts' | 'fast' | 'cover';
 export const EXTRA_LABEL: Record<Extra, [string, string]> = {
-  quiz: ['🎯 Guess who?', 'A quiz: the picture starts blurred with a big "?", then a flash reveals who it is. Best with a subject, e.g. "Attack on Titan characters".'],
+  quiz: ['🎯 Guess who?', 'A quiz: the picture starts blurred with a big "?", a 3-second countdown, then a flash reveals who it is. Best with a subject, e.g. "Attack on Titan characters".'],
+  facts: ['💡 Fun facts', 'Up to 10 surprising fun facts about your subject (someone or something), each with its picture and a "Fact #3" title.'],
   fast: ['⚡ Fast pacing', 'Shorter lines and a quick zoom on the key word, so the picture changes every 2 to 3 seconds.'],
   cover: ['🖼️ Bold cover', 'The first frame is a poster with 2 to 5 big words, so it stands out on your profile and in search.'],
 };

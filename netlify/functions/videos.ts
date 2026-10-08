@@ -15,7 +15,7 @@ const Post = z.discriminatedUnion('action', [
     subject: z.string().trim().max(200).optional(),
     pick: z.string().regex(/^[a-z-]{2,30}(:[a-z0-9-]{2,30})?$/).optional(),
     ideaUrl: z.string().url().startsWith('https://').max(1000).optional(),
-    extras: z.array(z.enum(['quiz', 'fast', 'cover'])).max(3).optional(),
+    extras: z.array(z.enum(['quiz', 'facts', 'fast', 'cover'])).max(4).optional(),
   }),
   z.object({ action: z.enum(['approve', 'reject', 'posted', 'retry', 'build', 'delete']), id: z.string().max(40), sig: z.string().max(64).optional() }),
   z.object({

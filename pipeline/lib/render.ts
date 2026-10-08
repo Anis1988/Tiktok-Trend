@@ -12,6 +12,7 @@ const FADE = 0.4; // transition between scenes
 export const TRANSITIONS = ['smoothleft', 'zoomin', 'smoothup', 'fade', 'smoothright', 'circleopen', 'smoothdown'];
 const TAIL = 0.5; // picture stays a moment after the last word
 const END_CARD = 2.2; // seconds of end card after the last word
+const COUNTDOWN = 3; // "Guess who?": seconds of 3-2-1 after each clue, before the answer
 const FONT_DIR = process.env.CAPTION_FONT_DIR ?? '/usr/share/fonts/truetype/dejavu';
 const BACKGROUNDS = [['0x1e1b4b', '0x0e7490'], ['0x0f172a', '0x7c3aed'], ['0x164e63', '0x1e3a8a'], ['0x3b0764', '0xbe185d'], ['0x14532d', '0x0f766e']];
 
@@ -89,7 +90,7 @@ const assTime = (t: number) => {
 };
 const assText = (s: string) => s.toUpperCase().replace(/[{}\\]/g, '');
 
-export interface CaptionLine { text: string; start: number; dur: number; keywords?: string[]; credit?: string; label?: string; quiz?: 'hide' | 'reveal' }
+export interface CaptionLine { text: string; start: number; dur: number; keywords?: string[]; credit?: string; label?: string; quiz?: 'hide' | 'reveal'; countdown?: number }
 
 /**
  * ASS subtitle file: 1 to 3 words at a time, white bold with a thick outline; the spoken word in the caption colour,
@@ -155,7 +156,13 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
   }
   for (const l of lines) {
     if (l.quiz !== 'hide') continue;
-    events.push(`Dialogue: 1,${assTime(l.start)},${assTime(l.start + l.dur + GAP)},Quiz,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.4)})\\c${accent}\\fad(120,80)\\t(0,500,\\fscx112\\fscy112)\\t(500,1000,\\fscx100\\fscy100)}?`);
+    // The big "?" while the clue is spoken, then 3, 2, 1 (one per second) before the answer.
+    const cd = l.countdown ?? 0;
+    const at = l.start + l.dur + GAP;
+    for (let k = 0; k < cd; k++) {
+      events.push(`Dialogue: 2,${assTime(at + k)},${assTime(at + k + 1)},Quiz,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.4)})\\c${hi}\\fscx60\\fscy60\\t(0,140,\\fscx100\\fscy100)\\fad(0,120)}${cd - k}`);
+    }
+    events.push(`Dialogue: 1,${assTime(l.start)},${assTime(at)},Quiz,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.4)})\\c${accent}\\fad(120,80)\\t(0,500,\\fscx112\\fscy112)\\t(500,1000,\\fscx100\\fscy100)}?`);
   }
   const coverEnd = o.cover ? 1.2 : 0;
   if (o.cover) {
@@ -196,13 +203,13 @@ async function makeMusic(seconds: number, out: string): Promise<void> {
 
 // ---------- scenes ----------
 
-/** The spoken line, trimmed of the voice's own leading/trailing silence, then a short pause. */
-async function cleanLine(wav: string, out: string): Promise<number> {
+/** The spoken line, trimmed of the voice's own leading/trailing silence, then a short pause (plus `extra` seconds of quiet). */
+async function cleanLine(wav: string, out: string, extra = 0): Promise<number> {
   const trim = 'silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.05';
-  const pad = `apad=pad_dur=${GAP}`;
+  const pad = `apad=pad_dur=${GAP + extra}`;
   await run('ffmpeg', ['-y', '-v', 'error', '-i', wav, '-af', `${trim},areverse,${trim},areverse,${pad}`, '-ar', '48000', '-ac', '1', out]);
   const d = await durationOf(out);
-  if (d > GAP + 0.3) return d;
+  if (d > GAP + extra + 0.3) return d;
   // Never trim a line away (a very quiet recording): keep it as it is.
   await run('ffmpeg', ['-y', '-v', 'error', '-i', wav, '-af', pad, '-ar', '48000', '-ac', '1', out]);
   return durationOf(out);
@@ -242,8 +249,10 @@ async function renderScene(s: Scene, i: number, dur: number, dir: string, tail: 
 // ---------- sound effects: made here, so no licence needed ----------
 
 /** A soft whoosh at each scene change and a pop at the start (hook), as one track as long as the video. */
-async function makeSfx(changes: number[], pop: boolean, seconds: number, dir: string): Promise<string | null> {
-  if (!changes.length && !pop) return null;
+async function makeSfx(changes: number[], pop: boolean, seconds: number, dir: string, ticks: number[] = []): Promise<string | null> {
+  if (!changes.length && !pop && !ticks.length) return null;
+  const tick = `${dir}/tick.wav`;
+  await run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', "aevalsrc='0.8*sin(2*PI*1400*t)*exp(-t*55)':s=48000:d=0.12", '-ac', '1', tick]);
   const whoosh = `${dir}/whoosh.wav`;
   const blip = `${dir}/pop.wav`;
   await run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'anoisesrc=d=0.5:c=pink:a=0.5:r=48000',
@@ -256,9 +265,14 @@ async function makeSfx(changes: number[], pop: boolean, seconds: number, dir: st
     changes.forEach((t, i) => (parts.push(`[w${i}]adelay=delays=${Math.max(0, Math.round((t - 0.22) * 1000))}:all=1[d${i}]`), labels.push(`[d${i}]`)));
   }
   if (pop) (parts.push('[1:a]adelay=delays=60:all=1[p]'), labels.push('[p]'));
+  if (ticks.length) {
+    // Countdown: a clock tick on each number (the last one higher).
+    parts.push(`[2:a]asplit=${ticks.length}${ticks.map((_, i) => `[k${i}]`).join('')}`);
+    ticks.forEach((t, i) => (parts.push(`[k${i}]${(i + 1) % COUNTDOWN === 0 ? 'asetrate=60000,aresample=48000,' : ''}adelay=delays=${Math.round(t * 1000)}:all=1[t${i}]`), labels.push(`[t${i}]`)));
+  }
   parts.push(`${labels.join('')}amix=inputs=${labels.length}:normalize=0,apad=whole_dur=${seconds.toFixed(2)}[out]`);
   const out = `${dir}/sfx.wav`;
-  await run('ffmpeg', ['-y', '-v', 'error', '-i', whoosh, '-i', blip, '-filter_complex', parts.join(';'), '-map', '[out]', '-t', seconds.toFixed(2), '-ar', '48000', '-ac', '1', out]);
+  await run('ffmpeg', ['-y', '-v', 'error', '-i', whoosh, '-i', blip, '-i', tick, '-filter_complex', parts.join(';'), '-map', '[out]', '-t', seconds.toFixed(2), '-ar', '48000', '-ac', '1', out]);
   return out;
 }
 
@@ -267,7 +281,9 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
   const look = o.look ?? DEFAULT_LOOK;
   const tail = o.endCard ? END_CARD : TAIL;
   const durs: number[] = [];
-  for (const [i, s] of scenes.entries()) durs.push(await cleanLine(s.wav, `${dir}/a${i}.wav`));
+  // A quiz clue line gets COUNTDOWN quiet seconds after the voice (the 3-2-1 before the answer).
+  const extra = scenes.map((s) => (s.quiz === 'hide' ? COUNTDOWN : 0));
+  for (const [i, s] of scenes.entries()) durs.push(await cleanLine(s.wav, `${dir}/a${i}.wav`, extra[i]));
   const starts = durs.map((_, i) => durs.slice(0, i).reduce((a, b) => a + b, 0));
   const voiceEnd = durs.reduce((a, b) => a + b, 0);
   const total = voiceEnd + tail;
@@ -286,10 +302,11 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
 
   await writeFile(`${dir}/a.txt`, scenes.map((_, i) => `file '${resolve(`${dir}/a${i}.wav`)}'`).join('\n'));
   await run('ffmpeg', ['-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', `${dir}/a.txt`, '-af', `apad=pad_dur=${tail + 1}`, '-c:a', 'pcm_s16le', `${dir}/voice.wav`]);
-  const lines = scenes.map((s, i) => ({ text: s.text, start: starts[i], dur: durs[i] - GAP, keywords: s.keywords, credit: s.credit, label: s.label, quiz: s.quiz }));
+  const lines = scenes.map((s, i) => ({ text: s.text, start: starts[i], dur: durs[i] - GAP - extra[i], keywords: s.keywords, credit: s.credit, label: s.label, quiz: s.quiz, countdown: extra[i] }));
+  const ticks = scenes.flatMap((_, i) => (extra[i] ? Array.from({ length: COUNTDOWN }, (_, k) => starts[i] + durs[i] - extra[i] + k) : []));
   await writeFile(`${dir}/captions.ass`, captionsAss(lines, { ...o, look, voiceEnd, total }));
   if (o.music) await makeMusic(total + 1, `${dir}/music.wav`);
-  const sfx = o.sfx ? await makeSfx(starts.slice(1), !!o.hook, total + 1, dir) : null;
+  const sfx = o.sfx || ticks.length ? await makeSfx(o.sfx ? starts.slice(1) : [], !!o.hook && !!o.sfx, total + 1, dir, ticks) : null;
 
   // Picture: crossfade scene i into i+1 exactly when line i+1 starts, then the overlays and captions.
   const inputs = videos.flatMap((v) => ['-i', v]);

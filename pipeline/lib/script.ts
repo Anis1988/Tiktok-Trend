@@ -84,9 +84,10 @@ function channel(s: AppSettings): string {
 /** Extra directions for the extras picked for this video. */
 const EXTRA_RULES: Record<Extra, string> = {
   quiz: `"GUESS WHO?" QUIZ video. After the hook, do 3 to 5 rounds. Each round is TWO lines:
-  1. the clue line: 2 or 3 fun clues without the name, quiz "hide", label "Guess #N", and the same "character" or "real" as the answer (so its picture can be shown blurred);
+  1. the clue line: 2 or 3 fun clues without the name, ending with a countdown cue like "You've got 3 seconds!" (a 3-2-1 countdown plays right after it), quiz "hide", label "Guess #N", and the same "character" or "real" as the answer (so its picture can be shown blurred);
   2. the answer line right after: starts with the name ("It's Levi!"), quiz "reveal", label = the name, same "character" or "real".
   Use well-known characters or people whose picture is easy to find. End by asking how many they got right.`,
+  facts: `FUN FACTS video: 5 to 10 surprising, TRUE fun facts about the subject (a person, character, place, animal or thing). Hook first, then ONE fact per line, each with label "Fact #N" (counting up), the matching "character", "real" or "object" so its picture is shown, and a short witty reaction where it fits. Most surprising fact last. Only facts that are widely known and certain; if you have fewer than 5 solid facts, use fewer. End by asking which fact surprised them most.`,
   fast: 'FAST PACING: short punchy lines of 5 to 12 words, more lines (8 to 14), one idea per line, no slow intros. Every line should change the picture.',
   cover: 'Write a strong "cover": 2 to 5 big words that make people tap, matching the hook (e.g. "STRONGEST IN AOT?", "NASA JUST DID WHAT?").',
 };

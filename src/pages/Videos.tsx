@@ -212,8 +212,9 @@ export function MakeNow(p: {
   extras?: Extra[]; onExtras?: (e: Extra[]) => void;
 }) {
   const extras = p.extras ?? [];
-  const topicHint = !p.ideaUrl && (LISTY.test(p.subject) || extras.includes('quiz'));
-  const toggle = (e: Extra) => p.onExtras?.(extras.includes(e) ? extras.filter((x) => x !== e) : [...extras, e]);
+  const topicHint = !p.ideaUrl && (LISTY.test(p.subject) || extras.includes('quiz') || extras.includes('facts'));
+  // Guess who? and Fun facts are two kinds of video: picking one turns the other off.
+  const toggle = (e: Extra) => p.onExtras?.(extras.includes(e) ? extras.filter((x) => x !== e) : [...extras.filter((x) => !(e === 'quiz' && x === 'facts') && !(e === 'facts' && x === 'quiz')), e]);
   const [catId, subId] = p.pick.split(':');
   const cat = findCategory(catId);
   const where = cat ? `${cat.label}${subId ? ` · ${cat.subs.find((x) => x.id === subId)?.label ?? ''}` : ''}` : p.niche ? 'your channel' : 'today\'s top trends';
