@@ -55,7 +55,7 @@ export function VideoStyle({ s, save }: { s: AppSettings; save: (p: Partial<AppS
       </Field>
       <Field label="Length">
         <select className="input w-36" value={s.maxSeconds} onChange={(e) => save({ maxSeconds: Number(e.target.value) })}>
-          {[30, 45, 60].map((n) => <option key={n} value={n}>about {n}s</option>)}
+          {[30, 45, 60, 75].map((n) => <option key={n} value={n}>{n === 75 ? 'over 1 min (65-75s)' : `about ${n}s`}</option>)}
         </select>
       </Field>
       <Field label="News from" hint="Which country's trends and news.">
@@ -93,6 +93,12 @@ export function VideoStyle({ s, save }: { s: AppSettings; save: (p: Partial<AppS
           <input className="input w-44" maxLength={30} placeholder="@yourname" defaultValue={s.endCardName} onBlur={(e) => e.target.value.trim() !== s.endCardName && save({ endCardName: e.target.value.trim() })} />
         </Field>
       )}
+      <Field label="Series name" hint='Makes your videos a series: each one shows "Daily Tech Drop #14" with the hook, with a boom. Empty = off.'>
+        <input className="input w-44" maxLength={30} placeholder="e.g. Daily Tech Drop" defaultValue={s.seriesName} onBlur={(e) => e.target.value.trim() !== s.seriesName && save({ seriesName: e.target.value.trim() })} />
+      </Field>
+      <Field label="Weekly recap" hint='Every Sunday, an extra "Top 5 this week" video made from your week&#39;s videos (no AI cost). You still approve it.'>
+        <Toggle on={s.weeklyRecap} onChange={(v) => save({ weeklyRecap: v })} label="Weekly recap" />
+      </Field>
       <Field label="Check the script first" hint="On: each run writes the script only. You read and edit it, then tap Build video (no extra AI cost).">
         <Toggle on={s.reviewScript} onChange={(v) => save({ reviewScript: v })} label="Check the script first" />
       </Field>

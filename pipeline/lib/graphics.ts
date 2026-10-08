@@ -257,3 +257,136 @@ export async function mapClip(place: string, out: string, accent: string): Promi
   await framesToClip(frames, out, 12);
   return true;
 }
+
+// ---------- comment reply ----------
+
+/** "Replying to @name": the viewer's comment in a speech bubble, popping in (the first scene of a reply video). */
+export async function commentClip(c: { text: string; by?: string }, out: string, accent: string): Promise<boolean> {
+  const text = c.text.replace(/\s+/g, ' ').trim();
+  if (!text) return false;
+  const by = (c.by?.replace(/^@/, '').trim() || 'viewer').slice(0, 24);
+  const lines = wrap(text, 28, 5);
+  const lineH = 66;
+  const top = 420;
+  const h = 150 + lines.length * lineH + 40;
+  const frames = Array.from({ length: 30 }, (_, f) => {
+    const p = ease(f / 10);
+    const s = 0.85 + 0.15 * p;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${background(accent)}
+  <text x="80" y="${top - 60}" font-family="${FONT}" font-weight="bold" font-size="40" fill="#fff" opacity="${p.toFixed(2)}">Replying to <tspan fill="${accent}">@${esc(by)}</tspan></text>
+  <g transform="translate(${W / 2} ${top + h / 2}) scale(${s.toFixed(3)}) translate(${-W / 2} ${-(top + h / 2)})" opacity="${p.toFixed(2)}">
+    <rect x="70" y="${top}" width="${W - 140}" height="${h}" rx="34" fill="#fff"/>
+    <path d="M150,${top + h - 2} l-30,58 l78,-58Z" fill="#fff"/>
+    <circle cx="140" cy="${top + 72}" r="38" fill="${accent}"/>
+    <text x="140" y="${top + 88}" text-anchor="middle" font-family="${FONT}" font-weight="bold" font-size="42" fill="#0b1020">${esc(by[0].toUpperCase())}</text>
+    <text x="198" y="${top + 86}" font-family="${FONT}" font-weight="bold" font-size="36" fill="#475569">@${esc(by)}</text>
+    ${lines.map((l, i) => `<text x="110" y="${top + 170 + i * lineH}" font-family="${FONT}" font-size="52" fill="#0b1020">${esc(l)}</text>`).join('')}
+  </g>
+</svg>`;
+  });
+  await framesToClip(frames, out, 20);
+  return true;
+}
+
+// ---------- timeline ----------
+
+export interface TimelineSpec { title: string; events: { date: string; label: string }[] }
+
+/** "How we got here": a line draws down the screen and each date pops in with what happened. */
+export async function timelineClip(t: TimelineSpec, out: string, accent: string): Promise<boolean> {
+  const events = t.events.filter((e) => e.date.trim() && e.label.trim()).slice(0, 5);
+  if (events.length < 2) return false;
+  const titleLines = wrap(t.title, 24);
+  const y0 = 250 + titleLines.length * 70 + 60;
+  const gap = Math.min(215, (1060 - y0) / events.length);
+  const per = 9; // frames per event
+  const n = 8 + events.length * per + 20;
+  const frames = Array.from({ length: n }, (_, f) => {
+    const intro = ease(f / 10);
+    const lineP = ease((f - 4) / (events.length * per));
+    const yEnd = y0 + (events.length - 1) * gap + 20;
+    const parts = [background(accent)];
+    titleLines.forEach((l, i) => parts.push(`<text x="80" y="${300 + i * 70}" font-family="${FONT}" font-weight="bold" font-size="60" fill="#fff" opacity="${intro}">${esc(l)}</text>`));
+    parts.push(`<rect x="118" y="${y0 - 20}" width="6" height="${((yEnd - y0 + 20) * lineP).toFixed(1)}" rx="3" fill="#fff" fill-opacity="0.25"/>`);
+    events.forEach((e, i) => {
+      const p = ease((f - 6 - i * per) / 10);
+      if (p <= 0) return;
+      const y = y0 + i * gap;
+      const last = i === events.length - 1;
+      parts.push(`<circle cx="121" cy="${y}" r="${(last ? 22 : 16) * p}" fill="${last ? accent : '#fff'}" stroke="${accent}" stroke-width="5"/>`);
+      parts.push(`<g opacity="${p.toFixed(2)}" transform="translate(${(30 * (1 - p)).toFixed(1)} 0)">`);
+      parts.push(`<text x="170" y="${y - 6}" font-family="${FONT}" font-weight="bold" font-size="48" fill="${accent}">${esc(e.date.slice(0, 20))}</text>`);
+      wrap(e.label, 28, 2).forEach((l, k) => parts.push(`<text x="170" y="${y + 50 + k * 50}" font-family="${FONT}" font-size="42" fill="#fff" fill-opacity="0.9">${esc(l)}</text>`));
+      parts.push('</g>');
+    });
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${parts.join('')}</svg>`;
+  });
+  await framesToClip(frames, out, 20);
+  return true;
+}
+
+// ---------- this or that ----------
+
+/** A picture as a small JPEG data URL, so it can sit inside the SVG frames. */
+async function dataUrl(path: string, dir: string, name: string): Promise<string> {
+  const small = `${dir}/${name}.small.jpg`;
+  await run('ffmpeg', ['-y', '-v', 'error', '-i', path, '-vf', 'scale=640:-2', '-frames:v', '1', '-q:v', '4', small]);
+  return `data:image/jpeg;base64,${(await readFile(small)).toString('base64')}`;
+}
+
+/** "This or that?": two pictures side by side slide in, "OR" pops between them, with "A" and "B" to comment. */
+export async function versusClip(a: { name: string; image: string }, b: { name: string; image: string }, out: string, accent: string, dir: string): Promise<boolean> {
+  const [ia, ib] = await Promise.all([dataUrl(a.image, dir, 'vsA'), dataUrl(b.image, dir, 'vsB')]);
+  const top = 300;
+  const ph = 640;
+  const pw = 450;
+  const frames = Array.from({ length: 30 }, (_, f) => {
+    const p = ease(f / 12);
+    const or = ease((f - 10) / 8);
+    const side = (x: number, img: string, name: string, letter: string, dx: number, clip: string) => `
+    <g transform="translate(${(dx * (1 - p)).toFixed(1)} 0)" opacity="${p.toFixed(2)}">
+      <clipPath id="${clip}"><rect x="${x}" y="${top}" width="${pw}" height="${ph}" rx="28"/></clipPath>
+      <image href="${img}" x="${x}" y="${top}" width="${pw}" height="${ph}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clip})"/>
+      <rect x="${x}" y="${top}" width="${pw}" height="${ph}" rx="28" fill="none" stroke="#fff" stroke-width="6"/>
+      <circle cx="${x + 56}" cy="${top + 56}" r="36" fill="${accent}"/>
+      <text x="${x + 56}" y="${top + 72}" text-anchor="middle" font-family="${FONT}" font-weight="bold" font-size="44" fill="#0b1020">${letter}</text>
+      ${wrap(name, 16, 2).map((l, i) => `<text x="${x + pw / 2}" y="${top + ph + 70 + i * 52}" text-anchor="middle" font-family="${FONT}" font-weight="bold" font-size="46" fill="#fff">${esc(l.toUpperCase())}</text>`).join('')}
+    </g>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${background(accent)}
+  ${side(60, ia, a.name, 'A', -120, 'ca')}${side(W - 60 - pw, ib, b.name, 'B', 120, 'cb')}
+  ${or > 0 ? `<g transform="translate(${W / 2} ${top + ph / 2}) scale(${(0.6 + 0.4 * or).toFixed(3)})"><circle r="70" fill="#0b1020" stroke="${accent}" stroke-width="6"/><text y="18" text-anchor="middle" font-family="${FONT}" font-weight="bold" font-size="52" fill="#fff">OR</text></g>` : ''}
+</svg>`;
+  });
+  await framesToClip(frames, out, 20);
+  return true;
+}
+
+// ---------- animated text ----------
+
+/** Big words slam onto the screen one at a time (for lines with no good picture); the last word in the accent colour. */
+export async function kineticClip(text: string, out: string, accent: string): Promise<boolean> {
+  const words = text.replace(/[^\p{L}\p{N}'’?!%$&-]+/gu, ' ').trim().split(/\s+/).filter(Boolean).slice(0, 5);
+  if (!words.length) return false;
+  const size = words.some((w) => w.length > 9) ? 120 : 150;
+  const per = 7;
+  const n = words.length * per + 24;
+  const y0 = 860 - ((words.length - 1) * size * 1.05) / 2 - 120;
+  const frames = Array.from({ length: n }, (_, f) => {
+    const parts = [background(accent)];
+    words.forEach((w, i) => {
+      const t = (f - i * per) / 6;
+      if (t <= 0) return;
+      const p = ease(t);
+      const s = 1.7 - 0.7 * p;
+      const y = y0 + i * size * 1.05;
+      const last = i === words.length - 1;
+      parts.push(`<g transform="translate(${W / 2} ${y}) scale(${s.toFixed(3)})" opacity="${Math.min(1, t * 1.5).toFixed(2)}"><text text-anchor="middle" font-family="${FONT}" font-weight="bold" font-size="${size}" fill="${last ? accent : '#fff'}" stroke="#000" stroke-opacity="0.35" stroke-width="4" paint-order="stroke">${esc(w.toUpperCase())}</text></g>`);
+    });
+    // A quick white flash on each new word.
+    const since = f % per;
+    if (f < words.length * per && since < 2) parts.push(`<rect width="${W}" height="${H}" fill="#fff" opacity="${since === 0 ? 0.12 : 0.05}"/>`);
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${parts.join('')}</svg>`;
+  });
+  await framesToClip(frames, out, 20);
+  return true;
+}

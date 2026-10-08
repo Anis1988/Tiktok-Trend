@@ -32,7 +32,21 @@ function AccessGate({ onDone }: { onDone: () => void }) {
   );
 }
 
+/** Shared from the phone's Share menu (/share?title=&text=&url=): keep the link for "Make a video now". */
+function takeShare(): void {
+  if (!window.location.pathname.startsWith('/share')) return;
+  const q = new URLSearchParams(window.location.search);
+  const all = [q.get('url'), q.get('text'), q.get('title')].filter(Boolean).join(' ');
+  const link = all.match(/https?:\/\/\S+/)?.[0];
+  const shared = (link ?? (q.get('title') || q.get('text') || '')).trim().slice(0, 300);
+  try {
+    if (shared) sessionStorage.setItem('tt.share', shared);
+  } catch { /* private mode */ }
+  window.history.replaceState(null, '', '/');
+}
+
 export default function App() {
+  useState(takeShare);
   const path = window.location.pathname;
   const review = path.match(/^\/review\/([\w-]+)/);
   const legal = path.startsWith('/terms') ? 'terms' : path.startsWith('/privacy') ? 'privacy' : null;

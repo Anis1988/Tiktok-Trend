@@ -27,6 +27,7 @@ export interface Scene {
   credit?: string; // small credit line during this scene (free-licence photos and clips)
   label?: string; // big title at the top during this scene, e.g. "#3 Levi Ackerman"
   quiz?: 'hide' | 'reveal'; // "Guess who?": picture blurred with a big "?", then shown sharp after a white flash
+  verdict?: 'myth' | 'fact'; // "Myth vs Fact": a big red ✗ MYTH or green ✓ FACT stamps on screen mid-line
 }
 
 export interface RenderOptions {
@@ -41,6 +42,8 @@ export interface RenderOptions {
   endCard?: { title: string; subtitle?: string }; // "Follow for more <title>" + your name
   fast?: boolean; // fast pacing: quicker transitions and a punch-in zoom on each line's key word
   cover?: string; // bold cover: these words big on the first frame (poster for the profile grid and search)
+  series?: string; // episode tag shown with the hook, e.g. "DAILY TECH DROP #14"
+  notes?: string[]; // quality check notes are added here (e.g. captions not timed to the voice)
 }
 
 /** "#RRGGBB" -> ASS colour "&H00BBGGRR&". */
@@ -98,7 +101,7 @@ function wordsOf(l: { text: string; start: number; dur: number; times?: Timing[]
   return timeWords(l.text, l.start, l.dur);
 }
 
-export interface CaptionLine { text: string; start: number; dur: number; times?: Timing[]; keywords?: string[]; credit?: string; label?: string; quiz?: 'hide' | 'reveal'; countdown?: number }
+export interface CaptionLine { text: string; start: number; dur: number; times?: Timing[]; keywords?: string[]; credit?: string; label?: string; quiz?: 'hide' | 'reveal'; countdown?: number; verdict?: 'myth' | 'fact'; stampAt?: number }
 
 /**
  * ASS subtitle file: 1 to 3 words at a time, white bold with a thick outline; the spoken word in the caption colour,
@@ -122,6 +125,10 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
     'Style: Cover,DejaVu Sans,124,&H00FFFFFF,&H00FFFFFF,&H00000000,&HA0000000,-1,0,0,0,100,100,0,0,1,11,5,5,70,70,0,1',
     // Quiz: a giant "?" over the blurred picture.
     'Style: Quiz,DejaVu Sans,420,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,-1,0,0,0,100,100,0,0,1,14,6,5,60,60,0,1',
+    // Myth vs Fact stamp: huge bold word with a thick outline, tilted.
+    'Style: Stamp,DejaVu Sans,176,&H00FFFFFF,&H00FFFFFF,&H00FFFFFF,&H96000000,-1,0,0,0,100,100,4,0,1,11,6,5,40,40,0,1',
+    // Series tag ("DAILY TECH DROP #14"): dark words on an accent box.
+    `Style: Series,DejaVu Sans,40,&H00140B0B,&H00140B0B,${accent},&H00000000,-1,0,0,0,100,100,2,0,3,14,0,5,60,60,0,1`,
     'Style: Credit,DejaVu Sans,28,&H30FFFFFF,&H30FFFFFF,&H80000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,5,60,60,0,1',
     'Style: End,DejaVu Sans,84,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,-1,0,0,0,100,100,1,0,1,8,3,5,90,90,0,1', '',
     '[Events]', 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
@@ -173,12 +180,21 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
     }
     events.push(`Dialogue: 1,${assTime(l.start)},${assTime(at)},Quiz,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.4)})\\c${accent}\\fad(120,80)\\t(0,500,\\fscx112\\fscy112)\\t(500,1000,\\fscx100\\fscy100)}?`);
   }
+  for (const l of lines) {
+    if (!l.verdict || l.stampAt === undefined) continue;
+    const [mark, word, col] = l.verdict === 'myth' ? ['✗', 'MYTH', '&H004444EF&'] : ['✓', 'FACT', '&H005EC522&'];
+    events.push(`Dialogue: 3,${assTime(l.stampAt)},${assTime(l.start + l.dur + GAP)},Stamp,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.33)})\\c${col}\\frz8\\fscx190\\fscy190\\t(0,130,\\fscx100\\fscy100)\\fad(0,120)}${mark} ${word}`);
+  }
   const coverEnd = o.cover ? 1.2 : 0;
   if (o.cover) {
     // No fade-in: the very first frame shows the whole cover (TikTok uses it as the poster).
     const words = assText(o.cover).slice(0, 40).split(/\s+/).filter(Boolean);
     const cover = words.length > 2 ? `{\\c${accent}}${words.slice(0, 2).join(' ')}{\\r}\\N${words.slice(2).join(' ')}` : `{\\c${accent}}${words.join(' ')}`;
     events.push(`Dialogue: 3,${assTime(0)},${assTime(coverEnd)},Cover,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.42)})\\fad(0,180)}${cover}`);
+  }
+  if (o.series) {
+    const until = Math.max(coverEnd + 1.6, Math.min(2.8, o.total ?? 2.8));
+    events.push(`Dialogue: 2,${assTime(coverEnd)},${assTime(until)},Series,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.16)})\\fad(120,200)}${o.series.toUpperCase().replace(/[{}\\]/g, '').slice(0, 40)}`);
   }
   if (o.hook) {
     const until = Math.max(coverEnd + 1.2, Math.min(2.4, lines[1]?.start ?? 2.4, o.total ?? 2.4));
@@ -258,8 +274,14 @@ async function renderScene(s: Scene, i: number, dur: number, dir: string, tail: 
 // ---------- sound effects: made here, so no licence needed ----------
 
 /** A soft whoosh at each scene change and a pop at the start (hook), as one track as long as the video. */
-async function makeSfx(changes: number[], pop: boolean, seconds: number, dir: string, ticks: number[] = []): Promise<string | null> {
-  if (!changes.length && !pop && !ticks.length) return null;
+async function makeSfx(changes: number[], pop: boolean, seconds: number, dir: string, ticks: number[] = [], hits: number[] = [], risers: number[] = []): Promise<string | null> {
+  if (!changes.length && !pop && !ticks.length && !hits.length && !risers.length) return null;
+  // Riser: a rising tone and hiss for 1.2 s before a reveal. Hit: a deep boom on the hook and on reveals.
+  const riser = `${dir}/riser.wav`;
+  await run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', "aevalsrc='0.35*sin(2*PI*(180*t+420*t*t))*pow(t/1.2,2)':s=48000:d=1.2", '-f', 'lavfi', '-i', 'anoisesrc=d=1.2:c=white:a=0.25:r=48000',
+    '-filter_complex', '[1:a]highpass=f=2500,afade=t=in:d=1.15:curve=exp[n];[0:a][n]amix=inputs=2:normalize=0,afade=t=out:st=1.12:d=0.08', '-ac', '1', riser]);
+  const hit = `${dir}/hit.wav`;
+  await run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', "aevalsrc='0.9*sin(2*PI*(48+70*exp(-t*16))*t)*exp(-t*5)':s=48000:d=0.9", '-af', 'lowpass=f=400', '-ac', '1', hit]);
   const tick = `${dir}/tick.wav`;
   await run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', "aevalsrc='0.8*sin(2*PI*1400*t)*exp(-t*55)':s=48000:d=0.12", '-ac', '1', tick]);
   const whoosh = `${dir}/whoosh.wav`;
@@ -279,9 +301,17 @@ async function makeSfx(changes: number[], pop: boolean, seconds: number, dir: st
     parts.push(`[2:a]asplit=${ticks.length}${ticks.map((_, i) => `[k${i}]`).join('')}`);
     ticks.forEach((t, i) => (parts.push(`[k${i}]${(i + 1) % COUNTDOWN === 0 ? 'asetrate=60000,aresample=48000,' : ''}adelay=delays=${Math.round(t * 1000)}:all=1[t${i}]`), labels.push(`[t${i}]`)));
   }
+  if (risers.length) {
+    parts.push(`[3:a]asplit=${risers.length}${risers.map((_, i) => `[r${i}]`).join('')}`);
+    risers.forEach((t, i) => (parts.push(`[r${i}]adelay=delays=${Math.max(0, Math.round((t - 1.2) * 1000))}:all=1[rd${i}]`), labels.push(`[rd${i}]`)));
+  }
+  if (hits.length) {
+    parts.push(`[4:a]asplit=${hits.length}${hits.map((_, i) => `[h${i}]`).join('')}`);
+    hits.forEach((t, i) => (parts.push(`[h${i}]adelay=delays=${Math.max(0, Math.round(t * 1000))}:all=1[hd${i}]`), labels.push(`[hd${i}]`)));
+  }
   parts.push(`${labels.join('')}amix=inputs=${labels.length}:normalize=0,apad=whole_dur=${seconds.toFixed(2)}[out]`);
   const out = `${dir}/sfx.wav`;
-  await run('ffmpeg', ['-y', '-v', 'error', '-i', whoosh, '-i', blip, '-i', tick, '-filter_complex', parts.join(';'), '-map', '[out]', '-t', seconds.toFixed(2), '-ar', '48000', '-ac', '1', out]);
+  await run('ffmpeg', ['-y', '-v', 'error', '-i', whoosh, '-i', blip, '-i', tick, '-i', riser, '-i', hit, '-filter_complex', parts.join(';'), '-map', '[out]', '-t', seconds.toFixed(2), '-ar', '48000', '-ac', '1', out]);
   return out;
 }
 
@@ -296,7 +326,9 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
   const starts = durs.map((_, i) => durs.slice(0, i).reduce((a, b) => a + b, 0));
   // When each word is really said (speech recognition), so captions and the punch-in zoom land on the word.
   const times = await alignLines(scenes.map((s, i) => ({ wav: `${dir}/a${i}.wav`, text: s.text, dur: durs[i] - GAP - extra[i] })));
-  console.log(`Word timing from the voice: ${times.filter(Boolean).length} of ${scenes.length} lines`);
+  const timed = times.filter(Boolean).length;
+  console.log(`Word timing from the voice: ${timed} of ${scenes.length} lines`);
+  if (process.env.TTS_FAKE !== '1' && process.env.ALIGN !== '0' && timed < scenes.length / 2) o.notes?.push('Captions were timed by word length (speech timing was not available this time).');
   const voiceEnd = durs.reduce((a, b) => a + b, 0);
   const total = voiceEnd + tail;
 
@@ -314,11 +346,16 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
 
   await writeFile(`${dir}/a.txt`, scenes.map((_, i) => `file '${resolve(`${dir}/a${i}.wav`)}'`).join('\n'));
   await run('ffmpeg', ['-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', `${dir}/a.txt`, '-af', `apad=pad_dur=${tail + 1}`, '-c:a', 'pcm_s16le', `${dir}/voice.wav`]);
-  const lines = scenes.map((s, i) => ({ text: s.text, start: starts[i], dur: durs[i] - GAP - extra[i], times: times[i] ?? undefined, keywords: s.keywords, credit: s.credit, label: s.label, quiz: s.quiz, countdown: extra[i] }));
+  // Myth vs Fact: the stamp lands a bit past the middle of the line (on the word nearest that moment).
+  const stampAt = scenes.map((s, i) => (s.verdict ? starts[i] + (durs[i] - GAP - extra[i]) * 0.55 : undefined));
+  const lines = scenes.map((s, i) => ({ text: s.text, start: starts[i], dur: durs[i] - GAP - extra[i], times: times[i] ?? undefined, verdict: s.verdict, stampAt: stampAt[i], keywords: s.keywords, credit: s.credit, label: s.label, quiz: s.quiz, countdown: extra[i] }));
   const ticks = scenes.flatMap((_, i) => (extra[i] ? Array.from({ length: COUNTDOWN }, (_, k) => starts[i] + durs[i] - extra[i] + k) : []));
   await writeFile(`${dir}/captions.ass`, captionsAss(lines, { ...o, look, voiceEnd, total }));
   if (o.music) await makeMusic(total + 1, `${dir}/music.wav`);
-  const sfx = o.sfx || ticks.length ? await makeSfx(o.sfx ? starts.slice(1) : [], !!o.hook && !!o.sfx, total + 1, dir, ticks) : null;
+  // Sound design: a boom on the hook, and a riser into each reveal (quiz answer, myth/fact stamp) that lands with a boom.
+  const reveals = [...stampAt.filter((t): t is number => t !== undefined), ...scenes.flatMap((s, i) => (s.quiz === 'reveal' ? [starts[i]] : []))].filter((t) => t > 1.3);
+  const hits = o.sfx ? [...(o.hook || o.series ? [0.03] : []), ...reveals] : [];
+  const sfx = o.sfx || ticks.length ? await makeSfx(o.sfx ? starts.slice(1) : [], !!o.hook && !!o.sfx, total + 1, dir, ticks, hits, o.sfx ? reveals : []) : null;
 
   // Picture: crossfade scene i into i+1 exactly when line i+1 starts, then the overlays and captions.
   const inputs = videos.flatMap((v) => ['-i', v]);

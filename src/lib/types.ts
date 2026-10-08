@@ -32,13 +32,21 @@ export interface DraftLine {
   chart?: { title: string; unit?: string; bars: { label: string; value: number }[] }; // an animated bar chart of the line's numbers
   map?: string; // a place to show on an animated map, e.g. "Japan", "Paris", "Gulf of Mexico"
   headline?: { title: string; site?: string }; // a real news headline shown as a card with its source
+  timeline?: { title: string; events: { date: string; label: string }[] }; // "How we got here": an animated timeline
+  versus?: { a: string; b: string }; // "This or that": two pictures side by side (each a real thing, person or object)
+  verdict?: 'myth' | 'fact'; // "Myth vs Fact": a red ✗ MYTH or green ✓ FACT stamp on this line
+  bigText?: string; // 1 to 4 words shown big, one at a time, when no picture fits the line
+  comment?: { text: string; by?: string }; // reply videos: the viewer's comment as a bubble (first scene)
 }
 
 /** Extras you pick for one video ("Make a video now"). */
-export type Extra = 'quiz' | 'facts' | 'fast' | 'cover';
+export type Extra = 'quiz' | 'facts' | 'myth' | 'versus' | 'fast' | 'cover' | 'long';
 export const EXTRA_LABEL: Record<Extra, [string, string]> = {
   quiz: ['🎯 Guess who?', 'A quiz: the picture starts blurred with a big "?", a 3-second countdown, then a flash reveals who it is. Best with a subject, e.g. "Attack on Titan characters".'],
   facts: ['💡 Fun facts', 'Up to 10 surprising fun facts about your subject (someone or something), each with its picture and a "Fact #3" title.'],
+  myth: ['✗✓ Myth vs Fact', '3 to 5 popular beliefs about the subject; each gets a big red ✗ MYTH or green ✓ FACT stamp with a boom, then the real answer. People love to argue in the comments.'],
+  versus: ['🆚 This or That', 'Rounds of two pictures side by side ("A or B?"), with a fun reason for each. Ends asking viewers to comment A or B. Great for comments.'],
+  long: ['⏱️ Over 1 minute', 'Makes this video 65 to 75 seconds, still fast-paced. TikTok\'s Creator Rewards only pay for videos over 1 minute (check TikTok\'s current rules).'],
   fast: ['⚡ Fast pacing', 'Shorter lines and a quick zoom on the key word, so the picture changes every 2 to 3 seconds.'],
   cover: ['🖼️ Bold cover', 'The first frame is a poster with 2 to 5 big words, so it stands out on your profile and in search.'],
 };
@@ -84,6 +92,10 @@ export interface VideoRecord {
   cover?: string; // the big words on the cover (first frame), when "Bold cover" is on
   fileRemovedAt?: string; // the video file was deleted by the auto clean-up (the text is kept)
   tiktok?: { publishId?: string; sentAt?: string; status?: string };
+  recap?: boolean; // a weekly recap made from the week's videos
+  episode?: number; // number in your series ("Daily Tech Drop #14")
+  checks?: string[]; // quality check notes: what was fixed or could be better
+  comment?: { text: string; by?: string }; // reply videos: the comment it answers
   /** Other platforms, each with its own Send button (after you approve). */
   platforms?: Partial<Record<PlatformId, PlatformPost>>;
   /** How it did: YouTube and Instagram are read automatically; TikTok numbers are typed in the app. */
@@ -177,6 +189,8 @@ export interface AppSettings {
   maxSeconds: number;
   aiDailyLimit: number; // paid AI calls per day
   notifyEmail: string;
+  seriesName: string; // e.g. "Daily Tech Drop": each video gets "#14" and the name with the hook (empty = off)
+  weeklyRecap: boolean; // every Sunday, a "Top 5 this week" video made from the week's videos (no AI cost)
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -196,6 +210,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   maxSeconds: 45,
   aiDailyLimit: 6,
   notifyEmail: '',
+  seriesName: '',
+  weeklyRecap: true,
 };
 
 export const TONE_LABEL: Record<Tone, string> = {

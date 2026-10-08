@@ -14,6 +14,8 @@ import { CATEGORIES, DEFAULT_LOOK, findCategory, subsOf, type Niche } from '../s
 import { cleanUp } from '../netlify/lib/cleanup';
 import { MODEL, writeScript } from './lib/script';
 import { refreshStats, resultsNote } from '../netlify/lib/stats';
+import { recapDue, recapScript } from './lib/recap';
+import { kineticClip } from './lib/graphics';
 import { speak, voiceUsed } from './lib/tts';
 import { footageReady } from './lib/footage';
 import { renderVideo, type RenderOptions, type Scene } from './lib/render';
@@ -40,7 +42,12 @@ async function sample() {
   }
   const voice = (process.env.SAMPLE_VOICE || 'af_heart') as AppSettings['voice'];
   const lines: DraftLine[] = [
+    { text: 'You asked if coffee can get a promotion. It can.', footage: 'coffee cup morning', keywords: ['promotion'], comment: { text: 'Can coffee actually get a promotion?? Asking for a friend', by: 'sample_viewer' } },
     { text: 'Your coffee order just got a promotion.', footage: 'coffee cup morning', keywords: ['promotion'], object: 'coffee cup' },
+    { text: 'Nobody saw this coming.', footage: 'surprised people', keywords: ['coming'], bigText: 'Nobody saw this coming' },
+    { text: 'Coffee was discovered by goats? Made-up example, but here it is a fact.', footage: 'goats', keywords: ['goats'], label: 'Claim #1', verdict: 'fact' },
+    { text: 'Eiffel Tower or Statue of Liberty for your coffee break?', footage: 'landmarks', keywords: [], label: 'Round 1', versus: { a: 'Eiffel Tower', b: 'Statue of Liberty' } },
+    { text: 'How we got here, in made-up dates.', footage: 'calendar', keywords: [], timeline: { title: 'How we got here', events: [{ date: '1999', label: 'Made-up: first latte art' }, { date: '2015', label: 'Made-up: coffee apps' }, { date: 'Today', label: 'Made-up: coffee gets promoted' }] } },
     { text: 'This is a made-up example, so nothing here is real news.', footage: 'city street people walking', keywords: [] },
     { text: 'Guess who: short, scary fast, and obsessed with cleaning.', footage: 'anime city', keywords: ['cleaning'], character: 'Levi Ackerman | Attack on Titan', label: 'Guess #1', quiz: 'hide' },
     { text: "It's Levi, who would clean the cup before drinking it.", footage: 'anime city', keywords: ['Levi'], character: 'Levi Ackerman | Attack on Titan', label: 'Levi Ackerman', quiz: 'reveal' },
@@ -59,12 +66,12 @@ async function sample() {
   for (const [i, l] of lines.entries()) {
     const wav = `${dir}/l${i}.wav`;
     await speak(l.text, voice, wav, true);
-    const v = await visualFor(l, i, dir, { mine: null, real: true, characters: true, charts: true, accent: '#22D3EE', used, credits: [] });
-    if (v.credit) log(`Sample scene ${i + 1}: ${v.credit}`);
-    scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, ...v });
+    const { kind, ...v } = await visualFor(l, i, dir, { mine: null, real: true, characters: true, charts: true, accent: '#22D3EE', used, credits: [] });
+    log(`Sample scene ${i + 1}: ${kind}${v.credit ? ` · ${v.credit}` : ''}`);
+    scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, verdict: l.verdict, ...v });
   }
   const dur = await renderVideo(scenes, dir, `${dir}/video.mp4`, `${dir}/thumb.jpg`, {
-    ...renderOptions({ ...DEFAULT_SETTINGS, niche: { category: 'food', subs: ['drinks'], focus: [], mix: 'niche' }, endCardName: '@yourname' }, lines[0].text, { extras: ['fast', 'cover'], cover: 'Coffee gets promoted?' }),
+    ...renderOptions({ ...DEFAULT_SETTINGS, niche: { category: 'food', subs: ['drinks'], focus: [], mix: 'niche' }, endCardName: '@yourname', seriesName: 'Coffee News' }, lines[0].text, { extras: ['fast', 'cover'], cover: 'Coffee gets promoted?', episode: 7 }),
     music: process.env.SAMPLE_MUSIC !== '0',
   });
   log(`Sample rendered: ${dur.toFixed(1)} s, voice ${voiceUsed()}`);
@@ -98,12 +105,28 @@ async function main() {
   // Auto clean-up first (free, quick), so it also runs when no video is due today.
   await cleanUp(saved, log).catch((e) => log('Clean-up failed:', e instanceof Error ? e.message : e));
   if (process.env.RENDER_ID?.trim()) return buildChecked(process.env.RENDER_ID.trim(), saved);
+  const rawExtras = (process.env.EXTRAS ?? '').split(',').map((x) => x.trim());
+  // Weekly recap: "Make this week's recap" in the app, or Sunday's scheduled run.
+  if (rawExtras.includes('recap')) return weeklyRecap(saved, true);
+  if (!manual && saved.enabled && saved.weeklyRecap && recapDue(await listVideos())) await weeklyRecap(saved, false).catch((e) => log('Weekly recap failed:', e instanceof Error ? e.message : e));
   // A subject typed for this one video (app box or GitHub "Run workflow") replaces the trend search.
-  const subject = (process.env.SUBJECT ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
-  // Extras picked for this one video in the app: quiz, fast pacing, bold cover.
-  const extras = [...new Set((process.env.EXTRAS ?? '').split(',').map((x) => x.trim()))].filter((x): x is Extra => ['quiz', 'facts', 'fast', 'cover'].includes(x));
+  let subject = (process.env.SUBJECT ?? '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  // Extras picked for this one video in the app: quiz, fast pacing, bold cover…
+  const extras = [...new Set(rawExtras)].filter((x): x is Extra => ['quiz', 'facts', 'myth', 'versus', 'fast', 'cover', 'long'].includes(x));
   if (extras.length) log(`Extras: ${extras.join(', ')}`);
-  const ideaUrl = /^https:\/\/\S+$/.test(process.env.IDEA_URL ?? '') ? process.env.IDEA_URL! : '';
+  let ideaUrl = /^https:\/\/\S+$/.test(process.env.IDEA_URL ?? '') ? process.env.IDEA_URL! : '';
+  // A link pasted (or shared from the phone) as the subject: the video is about that page.
+  if (/^https?:\/\/\S+$/.test(subject)) {
+    ideaUrl = subject.replace(/^http:/, 'https:');
+    subject = (await pageTitle(ideaUrl)) || subject;
+    log(`Link: ${ideaUrl} -> "${subject}"`);
+  }
+  subject = subject.slice(0, 200);
+  // Reply videos: the viewer's comment (and name) the video answers.
+  const commentText = (process.env.COMMENT ?? '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  const comment = commentText ? { text: commentText, by: (process.env.COMMENT_BY ?? '').replace(/[^\w.@-]/g, '').slice(0, 30) || undefined } : undefined;
+  if (comment) log(`Reply to a comment${comment.by ? ` from @${comment.by.replace(/^@/, '')}` : ''}: ${comment.text}`);
+  if (comment && !subject) subject = comment.text.slice(0, 200);
   // A category / subcategory picked for this one video ("Make a video now") replaces "My channel" for this run.
   // A typed subject with no category is free: it does not have to fit "My channel" (ideas from the list come from it anyway).
   const pickRaw = process.env.PICK?.trim() || (subject && !ideaUrl ? 'any' : '');
@@ -114,7 +137,7 @@ async function main() {
   const videos = await listVideos();
   if (!manual) {
     if (!s.enabled) return log('Scheduled videos are turned off in Settings. Nothing to do.');
-    const made = videos.filter((v) => v.createdAt.startsWith(day()) && v.status !== 'failed').length;
+    const made = videos.filter((v) => v.createdAt.startsWith(day()) && v.status !== 'failed' && !v.recap).length;
     if (made >= s.perDay) return log(`Already made ${made} today (limit ${s.perDay}).`);
   }
 
@@ -130,8 +153,8 @@ async function main() {
     // Otherwise the latest news; an idea from the app's "Ideas" list is a headline, used as is if a fresh search finds nothing more;
     // and a subject that is not in the news becomes a topic video too.
     const topic: Candidate = { topic: subject, headlines: [], evergreen: true };
-    // A quiz or fun facts use well-known facts, so their subject is always a topic video.
-    const c = !ideaUrl && (LISTY.test(subject) || extras.includes('quiz') || extras.includes('facts'))
+    // A quiz, fun facts, myth vs fact or this-or-that use well-known facts, so their subject is always a topic video.
+    const c = !ideaUrl && (LISTY.test(subject) || extras.some((e) => ['quiz', 'facts', 'myth', 'versus'].includes(e)))
       ? topic
       : (await subjectNews(subject, s.country)) ?? (ideaUrl ? { topic: subject, headlines: [{ title: subject, url: ideaUrl }] } : topic);
     if (c.evergreen) log('Topic video (not news): written from well-known facts.');
@@ -155,7 +178,7 @@ async function main() {
 
   budget.n++;
   await writeJson('ai', budget);
-  const sc = await writeScript(candidates, s, extras, !!subject, results); // your own subject: only legal limits apply
+  const sc = await writeScript(candidates, s, extras, !!subject, results, comment); // your own subject: only legal limits apply
   if (sc.pick < 0 || !candidates[sc.pick]) {
     if (subject) throw new Error(`The AI skipped "${subject}": ${sc.why}`);
     return log('The AI found nothing suitable today:', sc.why);
@@ -177,12 +200,20 @@ async function main() {
       chart: l.chartBars.length >= 2 ? { title: (l.chartTitle || sc.title).slice(0, 40), unit: l.chartUnit?.trim().slice(0, 12) || undefined, bars: l.chartBars.slice(0, 6).map((b) => ({ label: b.label.slice(0, 24), value: b.value })) } : undefined,
       map: l.map?.trim().slice(0, 60) || undefined,
       headline: headlineOf(cand.headlines[l.headline]),
+      bigText: l.bigText?.trim().slice(0, 40) || undefined,
+      verdict: l.verdict || undefined,
+      versus: l.versusA?.trim() && l.versusB?.trim() ? { a: l.versusA.trim().slice(0, 60), b: l.versusB.trim().slice(0, 60) } : undefined,
+      timeline: l.timelineEvents.length >= 2 ? { title: (l.timelineTitle || 'How we got here').slice(0, 40), events: l.timelineEvents.slice(0, 5).map((e) => ({ date: e.date.slice(0, 20), label: e.label.slice(0, 60) })) } : undefined,
     })) },
     pick: pickRaw || undefined,
     topicVideo: cand.evergreen || undefined,
     extras: extras.length ? extras : undefined,
     cover: sc.cover?.trim().slice(0, 40) || undefined,
+    comment,
+    episode: s.seriesName.trim() ? await nextEpisode() : undefined,
   };
+  // Reply videos open on the comment itself.
+  if (comment && base.draft?.lines[0]) base.draft.lines[0].comment = comment;
   if (!base.sources.length) base.sources = cand.headlines;
   // Next video starts with the next subcategory of your channel.
   if (s.niche && !subject && !pick) await writeJson('nicheTurn', (await readJson<number>('nicheTurn', 0)) + 1);
@@ -198,6 +229,45 @@ async function main() {
   await build(base, s);
 }
 
+/** The title of a web page (for a link pasted or shared as the subject). Empty if it can't be read. */
+async function pageTitle(url: string): Promise<string> {
+  try {
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TrendVideos/1.0)' }, redirect: 'follow', signal: AbortSignal.timeout(12_000) });
+    const html = (await res.text()).slice(0, 300_000);
+    const og = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)?.[1] ?? html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:title["']/i)?.[1];
+    const t = og ?? html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? '';
+    return t.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').replace(/\s+[|–-]\s+[^|–-]{2,40}$/, '').trim().slice(0, 200);
+  } catch {
+    return '';
+  }
+}
+
+/** Next number in your series ("Daily Tech Drop #14"). */
+async function nextEpisode(): Promise<number> {
+  const n = (await readJson<number>('episode', 0)) + 1;
+  await writeJson('episode', n);
+  return n;
+}
+
+/** "Top 5 this week" from this week's videos: no AI call, then built and emailed like any video. */
+async function weeklyRecap(saved: AppSettings, manual: boolean): Promise<void> {
+  const r = recapScript(await listVideos());
+  if (!r) {
+    const msg = 'Weekly recap: fewer than 3 videos this week, nothing to recap.';
+    if (manual) throw new Error(msg);
+    return log(msg);
+  }
+  log(`Weekly recap: ${r.title}`);
+  const id = `${day()}-recap-${randomBytes(2).toString('hex')}`;
+  const s = { ...saved, effects: { ...saved.effects, loop: false } };
+  const base: VideoRecord = {
+    ...r, id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status: 'failed',
+    durationSec: 0, sizeBytes: 0, voice: s.voice, footage: [], model: 'none (made from this week\'s videos)', extras: ['fast'],
+    episode: s.seriesName.trim() ? await nextEpisode() : undefined,
+  };
+  await build(base, s);
+}
+
 /** A headline for the card: Google News titles end in " - Site", which is shown separately. */
 function headlineOf(h: Candidate['headlines'][number] | undefined): DraftLine['headline'] {
   if (!h?.title || h.site === 'Wikipedia' || h.site === 'YouTube') return undefined;
@@ -209,7 +279,7 @@ function headlineOf(h: Candidate['headlines'][number] | undefined): DraftLine['h
 const accentOf = (s: AppSettings) => (s.effects.nicheLook ? findCategory(s.niche?.category)?.look ?? DEFAULT_LOOK : DEFAULT_LOOK).accent;
 
 /** Effects and look from Settings (Videos tab → Video style). */
-function renderOptions(s: AppSettings, hook: string, v: Pick<VideoRecord, 'extras' | 'cover'> = {}): RenderOptions {
+function renderOptions(s: AppSettings, hook: string, v: Pick<VideoRecord, 'extras' | 'cover' | 'episode'> = {}): RenderOptions {
   const e = s.effects;
   const x = v.extras ?? [];
   const cat = findCategory(s.niche?.category);
@@ -225,6 +295,7 @@ function renderOptions(s: AppSettings, hook: string, v: Pick<VideoRecord, 'extra
     endCard: e.endCard ? { title: cat ? cat.label : 'trending news', subtitle: s.endCardName.trim() || undefined } : undefined,
     fast: x.includes('fast'),
     cover: x.includes('cover') ? (v.cover || hook) : undefined,
+    series: s.seriesName.trim() && v.episode ? `${s.seriesName.trim()} #${v.episode}` : undefined,
   };
 }
 
@@ -239,20 +310,39 @@ async function build(base: VideoRecord, s: AppSettings) {
     const used = new Set<string>();
     const scenes: Scene[] = [];
     const credits: Credit[] = [];
+    const checks: string[] = [];
     const mine = chooseMedia(lines, s.effects.myClips || lines.some((l) => l.media) ? await listMedia() : [], s.effects.myClips);
     for (const [i, l] of lines.entries()) {
       const wav = `${dir}/l${i}.wav`;
       await speak(l.text, s.voice, wav, s.tone === 'punchy' || s.tone === 'witty');
-      const v = await visualFor(l, i, dir, { mine: mine[i], real: s.effects.realMedia, characters: s.effects.characters, charts: s.effects.charts, headlines: s.effects.headlines, accent: accentOf(s), used, credits });
+      let { kind, ...v } = await visualFor(l, i, dir, { mine: mine[i], real: s.effects.realMedia, characters: s.effects.characters, charts: s.effects.charts, headlines: s.effects.headlines, accent: accentOf(s), used, credits });
       if (mine[i]) log(`Scene ${i + 1}: your clip "${mine[i]!.name}"`);
       else if (v.credit) log(`Scene ${i + 1}: ${v.credit}`);
-      scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, ...v });
+      // Quality check: fix what can be fixed, and note the rest for you.
+      const n = i + 1;
+      if (kind === 'none') {
+        const words = l.bigText || (l.keywords.length ? l.keywords.join(' ') : l.text.split(/\s+/).slice(0, 3).join(' '));
+        const out = `${dir}/fix${i}.mp4`;
+        if (await kineticClip(words, out, accentOf(s)).catch(() => false)) (v = { clip: out }), checks.push(`Scene ${n}: no picture or clip was found, so big animated words were used instead (fixed).`);
+        else checks.push(`Scene ${n}: no picture was found (plain background).`);
+      } else if (kind === 'stock' || kind === 'text') {
+        const asked = l.real || (s.effects.characters && l.character?.split('|')[0]) || l.object;
+        if (asked) checks.push(`Scene ${n}: no free picture of "${asked.trim()}" was found, so ${kind === 'text' ? 'animated words' : 'stock footage'} were used.`);
+        if (l.versus) checks.push(`Scene ${n}: pictures for "${l.versus.a}" or "${l.versus.b}" were not found, so the This or That split screen was skipped.`);
+      }
+      scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, verdict: l.verdict, ...v });
     }
     const mp4 = `${dir}/video.mp4`;
     const jpg = `${dir}/thumb.jpg`;
-    const dur = await renderVideo(scenes, dir, mp4, jpg, renderOptions(s, base.hook, base));
+    const ro = renderOptions(s, base.hook, base);
+    if (lines[0]?.comment) ro.hook = undefined; // a reply opens on the comment bubble: no hook title over it
+    const dur = await renderVideo(scenes, dir, mp4, jpg, { ...ro, notes: checks });
     const bytes = await readFile(mp4);
     log(`Rendered ${dur.toFixed(1)} s, ${(bytes.length / 1e6).toFixed(1)} MB`);
+    const long = base.extras?.includes('long') || s.maxSeconds > 60;
+    if (long && dur < 61) checks.push(`Only ${Math.round(dur)} seconds: TikTok's Creator Rewards need over 1 minute. Try "Check the script first" and add a line or two.`);
+    if (!long && !base.recap && dur > s.maxSeconds + 25) checks.push(`${Math.round(dur)} seconds: longer than your ${s.maxSeconds}s setting.`);
+    if (checks.length) log('Quality check:', checks.join(' | '));
 
     const files = store('tt-files');
     await files.set(`${id}.mp4`, new Uint8Array(bytes).buffer);
@@ -260,6 +350,7 @@ async function build(base: VideoRecord, s: AppSettings) {
     const rec: VideoRecord = {
       ...base, lines: lines.map((l) => l.text), voice: voiceUsed() || base.voice, status: 'pending', error: undefined,
       durationSec: Math.round(dur), sizeBytes: bytes.length, footage: [...new Map(credits.map((c) => [c.url, c])).values()],
+      checks: checks.length ? checks : undefined,
     };
     await saveVideo(rec);
     log(`Saved ${id}`);
@@ -310,6 +401,7 @@ async function notify(rec: VideoRecord, to: string) {
           '',
           `Caption: ${rec.caption} ${rec.hashtags.map((h) => `#${h}`).join(' ')}`,
           ...(rec.firstComment ? [`Comment to pin: ${rec.firstComment}`] : []),
+          ...(rec.checks?.length ? ['', 'Quality check:', ...rec.checks.map((c) => `  - ${c}`)] : []),
           rec.topicVideo && !rec.sources.length ? 'Topic video: written from well-known facts, not news. Check the facts before approving.' : `Sources: ${rec.sources.map((x) => x.url).join('  ')}`,
           '',
           'Nothing is posted until you approve it.',

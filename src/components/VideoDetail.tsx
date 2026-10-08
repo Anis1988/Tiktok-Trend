@@ -162,6 +162,19 @@ export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, sendTo = 
         <h3 className="text-xl font-semibold leading-snug">{v.title}</h3>
         {v.fileRemovedAt && <p className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-slate-400">The video file was removed by the auto clean-up on {when(v.fileRemovedAt)}. The text below is kept.</p>}
         {v.error && <p className="rounded-lg border border-red-300/40 bg-red-500/10 px-2 py-1.5 text-sm text-red-100">{v.error}</p>}
+        {(v.episode || v.comment || v.recap) && (
+          <p className="text-xs text-slate-400">
+            {v.recap && <span className="mr-2">📅 Weekly recap</span>}
+            {v.episode && <span className="mr-2">Episode #{v.episode}</span>}
+            {v.comment && <span>💬 Reply to {v.comment.by ? `@${v.comment.by.replace(/^@/, '')}` : 'a comment'}: "{v.comment.text.slice(0, 80)}{v.comment.text.length > 80 ? '…' : ''}"</span>}
+          </p>
+        )}
+        {!!v.checks?.length && (
+          <div className="rounded-lg border border-amber-300/30 bg-amber-400/5 px-3 py-2 text-sm">
+            <p className="label !text-amber-200">Quality check</p>
+            <ul className="mt-1 list-disc space-y-0.5 pl-5 text-amber-50/90">{v.checks.map((c, i) => <li key={i}>{c}</li>)}</ul>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2">
           {(v.status === 'pending' || (v.status === 'failed' && hasFile)) && (

@@ -97,7 +97,7 @@ export function Guide() {
           <li><b>Caption colour and size:</b> the colour of the word being spoken, and how big the words are.</li>
           <li><b>Hook title card:</b> the first line shows in big letters for 2 seconds. This is what stops people scrolling.</li>
           <li><b>Keyword pop:</b> the AI marks the 1 or 2 most important words of each sentence; they show bigger and in your category's colour.</li>
-          <li><b>Sound effects:</b> a soft whoosh when the picture changes and a pop on the hook. Made by the app, so no copyright problems.</li>
+          <li><b>Sound effects:</b> a soft whoosh when the picture changes, a pop and a deep boom on the hook, and a rising whoosh into every reveal (quiz answers, Myth/Fact stamps) that lands with a boom. Made by the app, so no copyright problems.</li>
           <li><b>Progress bar:</b> a thin line at the top fills up as the video plays, so people watch to the end.</li>
           <li><b>Niche look:</b> colours and picture tone that fit your category (for example neon green for Gaming, orange for Sports, warm for Food).</li>
           <li><b>End card:</b> for the last 2 seconds, "Follow for more Gaming" (your category) and your name.</li>
@@ -111,6 +111,8 @@ export function Guide() {
         <ul className="list-disc space-y-1.5 pl-5">
           <li><b>Your clips</b> (My clips), when a sentence mentions one of their tags.</li>
           <li><b>Charts &amp; maps</b>, drawn by the app: when the story has real numbers (prices, scores, polls, box office...), the bars grow one by one and the numbers count up; when the place matters, a map starts on the whole world, zooms in, lights up the country and drops a pin with the name. Up to 2 per video. They make a video look made for that story instead of stock footage. Turn them off in <b>Video style &amp; effects → Charts &amp; maps</b>.</li>
+          <li><b>Timelines</b> ("How we got here"): for a story with a backstory, a line draws down the screen and each date pops in with what happened, ending with today. Under the same Charts &amp; maps switch.</li>
+          <li><b>Big animated words</b>: for a line with nothing to picture ("Nobody saw this coming"), the words slam onto the screen one at a time instead of a random stock clip. At most 2 per video.</li>
           <li><b>Characters</b> (anime, manga): the character's official picture from AniList, like "Levi Ackerman" from Attack on Titan. Shown with "© Attack on Titan". These pictures belong to the studios: very common in ranking videos, but a rights holder could claim one. Turn it off in <b>Video style &amp; effects → Character pictures</b>. Game and movie characters are not always found.</li>
           <li><b>Real people, places and events</b>: a free photo from Wikimedia Commons (the library behind Wikipedia), or NASA for space. If the Wikipedia photo isn't free, the app tries the person's free photo on Wikidata. Credit like "Photo: Jane Doe · CC BY-SA 4.0 · Wikimedia Commons". If Wikimedia has none, <b>Openverse</b> is searched: 800 million free photos (Flickr, museums...), only licences that allow use in your videos, and only photos whose title names that person or place.</li>
           <li><b>Things</b> (an apple, a basketball, a controller): a free photo from Pixabay (or Pexels), then Openverse.</li>
@@ -179,10 +181,37 @@ export function Guide() {
         </Example>
         <ul className="list-disc space-y-1.5 pl-5">
           <li><b>🎯 Guess who?</b> A quiz with 3 to 5 rounds. Each round shows the picture blurred with a giant "?" and a "Guess #1" title while the voice gives clues and says "You've got 3 seconds!", then a big 3, 2, 1 countdown (with ticks), then a white flash reveals who it is. People stay to the end and argue in the comments. Works best with a subject like "Attack on Titan characters" or "famous footballers"; a quiz always uses well-known facts (a topic video).</li>
-          <li><b>💡 Fun facts:</b> up to 10 surprising, true fun facts about your subject (a person, a character, an animal, a place, a thing), one per scene, each with its picture and a "Fact #3" title, the most surprising one last. Type the subject, e.g. "octopus" or "Cristiano Ronaldo". Picking Fun facts turns off Guess who? (and the other way round).</li>
+          <li><b>💡 Fun facts:</b> up to 10 surprising, true fun facts about your subject (a person, a character, an animal, a place, a thing), one per scene, each with its picture and a "Fact #3" title, the most surprising one last. Type the subject, e.g. "octopus" or "Cristiano Ronaldo". Guess who?, Fun facts, Myth vs Fact and This or That are different kinds of video, so picking one turns the others off.</li>
+          <li><b>✗✓ Myth vs Fact:</b> 3 to 5 popular beliefs about your subject. On each, a big red <b>✗ MYTH</b> or green <b>✓ FACT</b> stamps onto the screen with a rising whoosh and a boom, then the voice gives the real answer. Myths and facts are mixed so viewers can't guess. People love arguing about these in the comments.</li>
+          <li><b>🆚 This or That:</b> rounds of two pictures side by side, "A" and "B", with an "OR" between them and a fun reason for each. The video ends asking viewers to comment A or B. Type a subject like "fast food" or "anime villains".</li>
+          <li><b>⏱️ Over 1 minute:</b> makes this video 65 to 75 seconds, still fast-paced. As far as we know, TikTok's Creator Rewards only pay for videos over 1 minute; check TikTok's current rules. To make every video longer, choose <b>Length → over 1 min</b> in Video style &amp; effects.</li>
           <li><b>⚡ Fast pacing:</b> shorter lines (so more pictures), quicker transitions, and a quick zoom-in on each line's key word. The screen never sits still.</li>
           <li><b>🖼️ Bold cover:</b> the first moment of the video is a poster: 2 to 5 big words (like "STRONGEST IN AOT?") over the first picture. TikTok shows it on your profile and in search. With "Check the script first" on, you can change the words.</li>
           <li>Extras cost nothing extra: still one AI script per video. Daily scheduled videos don't use extras.</li>
+        </ul>
+      </Section>
+
+      <Section title="Reply to a comment">
+        <p>Answering comments with a video is one of the best ways to grow on TikTok. In <b>Make a video now</b>, tap <b>💬 Reply to a comment</b>, paste the viewer's comment and (if you like) their name, then tap <b>Make the reply</b>.</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li>The video opens on the comment in a white bubble, "Replying to @name", then the voice answers it with real facts (the latest news if there is any, otherwise well-known facts), honestly, even if the answer is "nobody knows yet".</li>
+          <li>The subject box is optional: add one if the comment is vague (e.g. comment "is this real??", subject "Titan mission").</li>
+          <li>In TikTok, post it as a reply to that comment (tap the comment → the video icon) so the viewer gets notified.</li>
+        </ul>
+      </Section>
+
+      <Section title="Weekly recap and series">
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>📅 Weekly recap:</b> every Sunday, an extra "Top 5 this week" video is made from your week's videos: counted down from 5 to 1, each with its own hook, title and picture, ending with "Which one did you miss?". It needs at least 3 videos that week. No AI cost, and you still approve it. Turn it on or off in Video style &amp; effects, or tap <b>📅 This week's recap</b> in Make a video now any day. The order follows your results when you've typed them in.</li>
+          <li><b>Series name:</b> type a name like "Daily Tech Drop" in Video style &amp; effects. Every video then shows "DAILY TECH DROP #14" for the first seconds (with a boom), and the number goes up each time. Series build a habit and get people to follow for the next episode.</li>
+        </ul>
+      </Section>
+
+      <Section title="Make a video from a link (or from your phone's Share menu)">
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li>Paste any article link in the subject box and tap <b>Make it about this</b>: the video is about that page (the app reads its title, then finds the news about it).</li>
+          <li><b>Android:</b> in Chrome, open the app, tap ⋮ → <b>Add to Home screen</b> (or Install app). Then, reading anything, tap <b>Share → Trend Videos</b>: the app opens with the link filled in. Pick extras if you like, then tap Make it about this.</li>
+          <li><b>iPhone:</b> Safari doesn't let web apps appear in the Share menu. Copy the link instead and paste it in the subject box.</li>
         </ul>
       </Section>
 
@@ -205,6 +234,7 @@ export function Guide() {
           <VideoDetail v={EXAMPLE} example onDeleted={() => {}} />
         </Example>
         <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>Quality check:</b> after building, the app checks every scene. A scene with nothing to show gets big animated words instead of a plain background (fixed automatically). Anything else worth knowing is listed on the video and in the email, e.g. "no free picture of X was found, so stock footage was used", or a video that's under 1 minute when you asked for longer.</li>
           <li><b>🗑 Delete</b> removes a video for good: its entry, the video file and the picture. It asks you first. It's on the video in the app and on the page the email opens. A copy already sent to your TikTok drafts stays in TikTok, and the backup copy on the GitHub run page disappears by itself after 7 days.</li>
           <li>After "Make a video now", the list updates by itself every 20 seconds until the new video shows up (no need to tap Refresh). It also refreshes when you come back to the app.</li>
         </ul>

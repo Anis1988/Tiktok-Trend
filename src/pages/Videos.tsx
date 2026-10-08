@@ -111,10 +111,23 @@ export function Videos() {
     setPick(x);
     setIdeas(null); // ideas belong to the old category
   };
-  const makeNow = async () => {
+  const [reply, setReply] = useState<{ text: string; by: string } | null>(null);
+  // Shared from the phone (Share → Trend Videos): the link becomes the subject, ready to make.
+  useEffect(() => {
+    try {
+      const shared = sessionStorage.getItem('tt.share');
+      if (!shared) return;
+      sessionStorage.removeItem('tt.share');
+      setSubject(shared);
+      toast('info', 'Link ready. Pick extras if you like, then tap "Make it about this".');
+    } catch { /* private mode */ }
+  }, []);
+  const makeNow = async (recap = false) => {
+    if (reply && !reply.text.trim() && !recap) return toast('error', 'Paste the comment to reply to (or close "Reply to a comment").');
     setBusy(true);
     try {
-      toast('info', (await api.makeNow({ subject, pick, ideaUrl: idea?.url, extras })).message);
+      toast('info', (await api.makeNow(recap ? { recap: true } : { subject, pick, ideaUrl: idea?.url, extras, comment: reply?.text, commentBy: reply?.by })).message);
+      if (!recap) setReply(null);
       setWatchFrom(new Date(Date.now() - 60_000).toISOString());
       setWatchUntil(Date.now() + 15 * 60_000);
       setSubject('');
@@ -141,7 +154,7 @@ export function Videos() {
           <button className="btn" onClick={() => void load()}>↻ Refresh</button>
         </div>
       </div>
-      <MakeNow subject={subject} onSubject={setSubject} pick={pick} onPick={choosePick} ideaUrl={idea?.url} onIdea={chooseIdea} ideas={ideas} ideasBusy={ideasBusy} onIdeas={() => void loadIdeas()} busy={busy} onMake={() => void makeNow()} niche={niche} extras={extras} onExtras={setExtras} />
+      <MakeNow subject={subject} onSubject={setSubject} pick={pick} onPick={choosePick} ideaUrl={idea?.url} onIdea={chooseIdea} ideas={ideas} ideasBusy={ideasBusy} onIdeas={() => void loadIdeas()} busy={busy} onMake={() => void makeNow()} niche={niche} extras={extras} onExtras={setExtras} reply={reply} onReply={setReply} onRecap={() => void makeNow(true)} />
       {settings && (
         <>
           <Fold id="channel" title="My channel" subtitle={niche ? `${findCategory(niche.category)?.emoji ?? ''} ${findCategory(niche.category)?.label ?? ''} · used for every video` : 'Anything trending · tap to choose your niche'}>
@@ -210,11 +223,14 @@ export function MakeNow(p: {
   ideas: Idea[] | null; ideasBusy?: boolean; onIdeas: () => void;
   busy?: boolean; onMake: () => void; niche?: Niche | null;
   extras?: Extra[]; onExtras?: (e: Extra[]) => void;
+  reply?: { text: string; by: string } | null; onReply?: (r: { text: string; by: string } | null) => void;
+  onRecap?: () => void;
 }) {
   const extras = p.extras ?? [];
-  const topicHint = !p.ideaUrl && (LISTY.test(p.subject) || extras.includes('quiz') || extras.includes('facts'));
-  // Guess who? and Fun facts are two kinds of video: picking one turns the other off.
-  const toggle = (e: Extra) => p.onExtras?.(extras.includes(e) ? extras.filter((x) => x !== e) : [...extras.filter((x) => !(e === 'quiz' && x === 'facts') && !(e === 'facts' && x === 'quiz')), e]);
+  const topicHint = !p.ideaUrl && !/^https?:\/\//.test(p.subject.trim()) && (LISTY.test(p.subject) || extras.some((e) => ['quiz', 'facts', 'myth', 'versus'].includes(e)));
+  // Guess who?, Fun facts, Myth vs Fact and This or That are kinds of video: picking one turns the others off.
+  const KINDS: Extra[] = ['quiz', 'facts', 'myth', 'versus'];
+  const toggle = (e: Extra) => p.onExtras?.(extras.includes(e) ? extras.filter((x) => x !== e) : [...extras.filter((x) => !(KINDS.includes(e) && KINDS.includes(x))), e]);
   const [catId, subId] = p.pick.split(':');
   const cat = findCategory(catId);
   const where = cat ? `${cat.label}${subId ? ` · ${cat.subs.find((x) => x.id === subId)?.label ?? ''}` : ''}` : p.niche ? 'your channel' : 'today\'s top trends';
@@ -243,10 +259,28 @@ export function MakeNow(p: {
       <div className="flex flex-col gap-2 sm:flex-row">
         <div className="relative w-full sm:flex-1">
         <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base">✏️</span>
-        <input id="subject" className="input w-full !pl-10" maxLength={200} placeholder="Subject (optional): news or any topic, e.g. Zelda, Top 10 strongest in AOT" value={p.subject} onChange={(e) => (p.onSubject(e.target.value), p.ideaUrl && p.onIdea(null))} aria-label="Subject" />
+        <input id="subject" className="input w-full !pl-10" maxLength={200} placeholder="Subject or a link (optional), e.g. Zelda, Top 10 strongest in AOT" value={p.subject} onChange={(e) => (p.onSubject(e.target.value), p.ideaUrl && p.onIdea(null))} aria-label="Subject" />
         </div>
-        <button type="submit" className="btn-primary shrink-0" disabled={p.busy}>{p.busy ? <><span className="spinner" /> Starting…</> : p.subject.trim() ? '+ Make it about this' : '+ Make a video now'}</button>
+        <button type="submit" className="btn-primary shrink-0" disabled={p.busy}>{p.busy ? <><span className="spinner" /> Starting…</> : p.reply ? '💬 Make the reply' : p.subject.trim() ? '+ Make it about this' : '+ Make a video now'}</button>
       </div>
+      {p.onReply && (
+        p.reply ? (
+          <div className="space-y-2 rounded-xl border border-cyan-300/30 bg-cyan-400/5 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium text-cyan-50">💬 Reply to a comment</p>
+              <button type="button" className="btn-ghost !min-h-0 !py-1 text-xs" onClick={() => p.onReply?.(null)}>✕ Close</button>
+            </div>
+            <textarea className="input min-h-[84px] w-full" maxLength={300} placeholder="Paste the viewer's comment, e.g. Is this actually real?" value={p.reply.text} onChange={(e) => p.onReply?.({ ...p.reply!, text: e.target.value })} aria-label="Comment to reply to" />
+            <input className="input w-full" maxLength={30} placeholder="Their name (optional), e.g. @coffee_fan22" value={p.reply.by} onChange={(e) => p.onReply?.({ ...p.reply!, by: e.target.value })} aria-label="Commenter name" />
+            <p className="text-xs text-slate-400">The video opens on the comment in a bubble ("Replying to @name"), then answers it. The subject box above is optional (it helps find news). Tip: in TikTok, post it as a reply to that comment.</p>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn !min-h-0 !py-1.5 text-xs" onClick={() => p.onReply?.({ text: '', by: '' })}>💬 Reply to a comment</button>
+            {p.onRecap && <button type="button" className="btn !min-h-0 !py-1.5 text-xs" disabled={p.busy} onClick={p.onRecap} title="Top 5 of this week's videos, counted down. No AI cost.">📅 This week's recap</button>}
+          </div>
+        )
+      )}
       <div className="space-y-1.5">
         <p className="text-xs text-slate-400">Extras for this video <span className="text-slate-500">· pick any, or none</span></p>
         <div className="flex flex-wrap gap-1.5">

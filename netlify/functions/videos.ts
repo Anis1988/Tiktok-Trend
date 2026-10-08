@@ -18,7 +18,10 @@ const Post = z.discriminatedUnion('action', [
     subject: z.string().trim().max(200).optional(),
     pick: z.string().regex(/^[a-z-]{2,30}(:[a-z0-9-]{2,30})?$/).optional(),
     ideaUrl: z.string().url().startsWith('https://').max(1000).optional(),
-    extras: z.array(z.enum(['quiz', 'facts', 'fast', 'cover'])).max(4).optional(),
+    extras: z.array(z.enum(['quiz', 'facts', 'myth', 'versus', 'fast', 'cover', 'long'])).max(7).optional(),
+    comment: z.string().trim().max(300).optional(),
+    commentBy: z.string().trim().max(30).optional(),
+    recap: z.boolean().optional(),
   }),
   z.object({ action: z.enum(['approve', 'reject', 'posted', 'retry', 'build', 'delete']), id: z.string().max(40), sig: z.string().max(64).optional() }),
   z.object({ action: z.literal('stats'), id: z.string().max(40), sig: z.string().max(64).optional(), views: z.number().int().min(0).max(1e10).optional(), likes: z.number().int().min(0).max(1e10).optional() }),
@@ -34,6 +37,11 @@ const Post = z.discriminatedUnion('action', [
       chart: z.object({ title: z.string().trim().max(40), unit: z.string().trim().max(12).optional(), bars: z.array(z.object({ label: z.string().trim().max(24), value: z.number() })).min(2).max(6) }).optional(),
       map: z.string().trim().max(60).optional(),
       headline: z.object({ title: z.string().trim().max(200), site: z.string().trim().max(60).optional() }).optional(),
+      timeline: z.object({ title: z.string().trim().max(40), events: z.array(z.object({ date: z.string().trim().max(20), label: z.string().trim().max(60) })).min(2).max(5) }).optional(),
+      versus: z.object({ a: z.string().trim().min(1).max(60), b: z.string().trim().min(1).max(60) }).optional(),
+      verdict: z.enum(['myth', 'fact']).optional(),
+      bigText: z.string().trim().max(40).optional(),
+      comment: z.object({ text: z.string().trim().max(300), by: z.string().trim().max(30).optional() }).optional(),
     })).min(2).max(14),
   }),
 ]);
@@ -82,8 +90,16 @@ export default async (req: Request): Promise<Response> => {
   try {
     if (body.action === 'make-now') {
       const subject = body.subject?.replace(/[\r\n]+/g, ' ') ?? '';
-      await dispatch('generate.yml', { manual: 'true', subject, pick: body.pick ?? '', idea_url: body.ideaUrl ?? '', extras: [...new Set(body.extras ?? [])].join(',') });
-      return json({ ok: true, message: `Started${subject ? ` (about "${subject}")` : ''}. A new video takes 2 to 5 minutes; you will get an email.` });
+      if (body.recap) {
+        await dispatch('generate.yml', { manual: 'true', extras: 'recap' });
+        return json({ ok: true, message: 'Making this week\'s recap from your videos (no AI cost). About 3 to 5 minutes; you will get an email.' });
+      }
+      const comment = body.comment?.replace(/[\r\n]+/g, ' ') ?? '';
+      await dispatch('generate.yml', {
+        manual: 'true', subject, pick: body.pick ?? '', idea_url: body.ideaUrl ?? '', extras: [...new Set(body.extras ?? [])].join(','),
+        ...(comment ? { comment, comment_by: body.commentBy ?? '' } : {}),
+      });
+      return json({ ok: true, message: `Started${comment ? ' a reply to the comment' : subject ? ` (about "${subject}")` : ''}. A new video takes 2 to 5 minutes; you will get an email.` });
     }
     if (body.action === 'delete') {
       const v = await getVideo(body.id);

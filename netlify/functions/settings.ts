@@ -23,7 +23,9 @@ const Patch = z.object({
   reviewScript: z.boolean(),
   cleanup: z.object({ enabled: z.boolean(), days: z.union([z.literal(7), z.literal(14), z.literal(30), z.literal(60), z.literal(90)]) }),
   perDay: z.number().int().min(1).max(3),
-  maxSeconds: z.union([z.literal(30), z.literal(45), z.literal(60)]),
+  maxSeconds: z.union([z.literal(30), z.literal(45), z.literal(60), z.literal(75)]),
+  seriesName: z.string().trim().max(30).optional(),
+  weeklyRecap: z.boolean().optional(),
   aiDailyLimit: z.number().int().min(1).max(30),
   notifyEmail: z.union([z.literal(''), z.string().email().max(200)]),
 }).partial();

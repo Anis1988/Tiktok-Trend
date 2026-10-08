@@ -26,7 +26,15 @@ on:
         required: false
         default: ''
       extras:
-        description: 'Extras for this video (optional, filled in by the app): quiz, fast, cover (comma separated)'
+        description: 'Extras for this video (optional, filled in by the app): quiz, facts, myth, versus, fast, cover, long, recap (comma separated)'
+        required: false
+        default: ''
+      comment:
+        description: 'Reply video: the viewer comment to answer (optional, filled in by the app)'
+        required: false
+        default: ''
+      comment_by:
+        description: 'Reply video: the name of whoever wrote the comment (optional)'
         required: false
         default: ''
       render_id:
@@ -122,6 +130,8 @@ jobs:
           PICK: ${{ inputs.pick }}
           EXTRAS: ${{ inputs.extras }}
           IDEA_URL: ${{ inputs.idea_url }}
+          COMMENT: ${{ inputs.comment }}
+          COMMENT_BY: ${{ inputs.comment_by }}
           RENDER_ID: ${{ inputs.render_id }}
           SAMPLE: ${{ inputs.sample && '1' || '0' }}
           SAVE_COPY_DIR: done
