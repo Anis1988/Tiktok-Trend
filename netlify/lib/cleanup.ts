@@ -17,6 +17,7 @@ export async function cleanUp(s: AppSettings, log: (...a: unknown[]) => void): P
   let changed = false;
   for (const v of videos) {
     if (!FINISHED.has(v.status) || v.fileRemovedAt || Date.parse(v.createdAt) > cutoff) continue;
+    if (Object.values(v.platforms ?? {}).some((x) => x?.state === 'sending')) continue; // being sent to YouTube / Facebook / Instagram
     await Promise.all([files.delete(`${v.id}.mp4`), files.delete(`${v.id}.jpg`)]);
     Object.assign(v, { fileRemovedAt: new Date().toISOString(), sizeBytes: 0 });
     removed++;

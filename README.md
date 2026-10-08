@@ -16,6 +16,9 @@ Makes short vertical videos about what's trending, emails you a preview, and aft
    "Make a video now" takes an optional subject (also on GitHub's Run workflow form); each run attaches the MP4 under "Artifacts" for 7 days.
 3. **Approve** → `publish.yml` uploads the video to your TikTok inbox/drafts (Content Posting API). You add a sound,
    turn on "AI-generated content", and post from the TikTok app. Before TikTok is connected: download and post yourself.
+4. **Other platforms**: approved videos also get one Send button per connected platform (Settings): **YouTube Shorts**
+   (uploaded as Private), **Facebook Reels** (saved as a draft on your Page) and **Instagram Reels** (no drafts in the API:
+   posts publicly after you confirm). Each runs `publish.yml` with a `platform` input (`netlify/lib/youtube.ts`, `meta.ts`).
 
 ## Setup
 
@@ -23,6 +26,10 @@ See the **Guide** tab (Setting it up) or `.env.example` for every key and where 
 
 TikTok developer app (developers.tiktok.com): products **Login Kit** + **Content Posting API**, scopes
 `user.info.basic,video.upload`, redirect `https://<your-site>/api/tiktok/callback`. Needs TikTok's review.
+
+YouTube: Google Cloud project with **YouTube Data API v3**, OAuth client (Web), redirect `https://<your-site>/api/connect/youtube/callback`,
+`GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` in Netlify and GitHub. Facebook & Instagram: Meta app (Facebook Login for Business),
+redirect `https://<your-site>/api/connect/meta/callback`, `META_APP_ID` / `META_APP_SECRET` in Netlify.
 
 ## Run locally
 

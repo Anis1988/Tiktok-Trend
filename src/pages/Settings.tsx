@@ -25,6 +25,20 @@ export function Settings() {
     setSt((x) => (x ? { ...x, tiktok: { connected: false } } : x));
   };
 
+  // YouTube (Google login) and Facebook & Instagram (one Meta login).
+  const connectOther = async (p: 'youtube' | 'meta') => {
+    try {
+      window.location.href = (await api.connectStart(p)).url;
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : String(e));
+    }
+  };
+  const disconnectOther = async (p: 'youtube' | 'meta') => {
+    if (!window.confirm(`Disconnect ${p === 'youtube' ? 'YouTube' : 'Facebook & Instagram'}? Videos already sent there stay there.`)) return;
+    await api.connectDisconnect(p).catch(() => undefined);
+    setSt((x) => (!x ? x : p === 'youtube' ? { ...x, youtube: { connected: false } } : { ...x, meta: { connected: false } }));
+  };
+
   if (err) return <p className="card text-red-200">{err}</p>;
   if (!s || !st) return <p className="text-slate-400"><span className="spinner" /> Loading…</p>;
 
@@ -73,6 +87,43 @@ export function Settings() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-slate-300">{st.tiktok.expired ? 'The TikTok login expired.' : 'Not connected.'}</p>
             <button className="btn-primary" onClick={() => void connect()}>Connect TikTok</button>
+          </div>
+        )}
+      </Card>
+
+      <Card title="YouTube Shorts" subtitle="A Send button on approved videos: uploads them as Private">
+        {!st.ready.youtubeApp ? (
+          <p className="text-sm text-slate-300">Not set up yet: add <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> in Netlify and GitHub (see the Guide, "Other platforms").</p>
+        ) : st.youtube.connected ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-emerald-200">✓ Connected{st.youtube.name ? ` to ${st.youtube.name}` : ''}</p>
+            <button className="btn" onClick={() => void disconnectOther('youtube')}>Disconnect</button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-slate-300">Not connected.</p>
+            <button className="btn-primary" onClick={() => void connectOther('youtube')}>Connect YouTube</button>
+          </div>
+        )}
+      </Card>
+
+      <Card title="Facebook & Instagram Reels" subtitle="One login for both. Facebook: saved as a draft. Instagram: posted after you confirm">
+        {!st.ready.metaApp ? (
+          <p className="text-sm text-slate-300">Not set up yet: add <code>META_APP_ID</code> and <code>META_APP_SECRET</code> in Netlify (see the Guide, "Other platforms").</p>
+        ) : st.meta.connected ? (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-emerald-200">✓ Facebook Page: {st.meta.page}</p>
+              <button className="btn" onClick={() => void disconnectOther('meta')}>Disconnect</button>
+            </div>
+            <p className={`text-sm ${st.meta.instagram ? 'text-emerald-200' : 'text-amber-200'}`}>
+              {st.meta.instagram ? `✓ Instagram: ${st.meta.instagram === 'connected' ? 'connected' : `@${st.meta.instagram}`}` : 'No Instagram account is linked to this Page. Link a Business or Creator account to it in Instagram, then connect again.'}
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-slate-300">Not connected.</p>
+            <button className="btn-primary" onClick={() => void connectOther('meta')}>Connect Facebook &amp; Instagram</button>
           </div>
         )}
       </Card>

@@ -1,6 +1,12 @@
-/** Sends an approved video to your TikTok drafts. Runs in GitHub Actions (publish.yml), started by the Approve button. */
-import { getVideo, patchVideo, store } from '../netlify/lib/store';
+/**
+ * Sends an approved video to one platform. Runs in GitHub Actions (publish.yml), started by the Approve button (TikTok drafts)
+ * or by a platform's Send button (YouTube as Private, Facebook as a draft, Instagram posted after you confirmed).
+ */
+import { getVideo, patchPlatform, patchVideo, store } from '../netlify/lib/store';
 import { publishStatus, sendToDrafts } from '../netlify/lib/tiktok';
+import { uploadToYouTube, youtubeStatus } from '../netlify/lib/youtube';
+import { postToInstagram, sendToFacebook } from '../netlify/lib/meta';
+import type { PlatformId, VideoRecord } from '../src/lib/types';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -8,6 +14,8 @@ async function main() {
   const id = process.env.VIDEO_ID ?? '';
   const v = await getVideo(id);
   if (!v) throw new Error(`Video ${id} not found.`);
+  const platform = process.env.PLATFORM || 'tiktok';
+  if (platform !== 'tiktok') return sendOther(v, platform as PlatformId);
   try {
     const data = await store('tt-files').get(`${id}.mp4`, { type: 'arrayBuffer' });
     if (!data) throw new Error('The video file is missing.');
@@ -26,6 +34,40 @@ async function main() {
     await patchVideo(id, { status: 'sent', tiktok: { publishId, status: 'PROCESSING', sentAt: new Date().toISOString() } });
   } catch (e) {
     await patchVideo(id, { status: 'failed', error: e instanceof Error ? e.message : String(e) });
+    throw e;
+  }
+}
+
+async function sendOther(v: VideoRecord, p: PlatformId) {
+  if (!['youtube', 'facebook', 'instagram'].includes(p)) throw new Error(`Unknown platform ${p}.`);
+  try {
+    if (v.status === 'pending' || v.status === 'rejected' || v.status === 'script' || v.status === 'building') throw new Error('The video is not approved.');
+    if (v.platforms?.[p]?.state === 'sent') return console.log(`Already sent to ${p}.`);
+    const data = await store('tt-files').get(`${v.id}.mp4`, { type: 'arrayBuffer' });
+    if (!data) throw new Error('The video file is missing.');
+    const video = Buffer.from(data);
+    const tags = v.hashtags.map((h) => `#${h}`).join(' ');
+    const text = `${v.caption} ${tags}`.trim();
+    let done: { id: string; url?: string };
+    if (p === 'youtube') {
+      const ytId = await uploadToYouTube(video, { title: v.title, description: `${text} #Shorts`, tags: v.hashtags });
+      for (let i = 0; i < 20; i++) {
+        await sleep(6000);
+        const st = await youtubeStatus(ytId);
+        console.log('YouTube status:', st.status);
+        if (st.status === 'failed' || st.status === 'rejected') throw new Error(`YouTube rejected the video: ${st.reason ?? st.status}`);
+        if (st.status === 'processed') break;
+      }
+      done = { id: ytId, url: `https://studio.youtube.com/video/${ytId}/edit` };
+    } else if (p === 'facebook') {
+      done = await sendToFacebook(video, text);
+    } else {
+      done = await postToInstagram(video, text);
+    }
+    await patchPlatform(v.id, p, { state: 'sent', at: new Date().toISOString(), id: done.id, url: done.url });
+    console.log(`Sent to ${p}:`, done.url ?? done.id);
+  } catch (e) {
+    await patchPlatform(v.id, p, { state: 'failed', at: new Date().toISOString(), error: e instanceof Error ? e.message : String(e) });
     throw e;
   }
 }

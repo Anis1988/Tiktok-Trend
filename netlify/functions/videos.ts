@@ -1,13 +1,16 @@
 import { z } from 'zod';
 import { guard, json, linkGuard } from '../lib/guard';
-import { deleteVideo, getTikTok, getVideo, listVideos, patchVideo } from '../lib/store';
+import { deleteVideo, getMeta, getTikTok, getVideo, getYouTube, listVideos, patchPlatform, patchVideo } from '../lib/store';
 import { sign, verify } from '../lib/sign';
 import { dispatch, dispatchReady } from '../lib/github';
-import type { VideoRecord } from '../../src/lib/types';
+import { PLATFORM_INFO, type PlatformId, type VideoRecord } from '../../src/lib/types';
 
 export const config = { path: '/api/videos' };
 
 const withSig = (v: VideoRecord) => ({ ...v, sig: sign(v.id) });
+
+/** A send that started less than 15 minutes ago is still running (after that it is treated as stuck, so you can retry). */
+const sendingNow = (v: VideoRecord) => Object.values(v.platforms ?? {}).some((x) => x?.state === 'sending' && Date.now() - Date.parse(x.at) < 15 * 60_000);
 
 const Post = z.discriminatedUnion('action', [
   z.object({
@@ -18,6 +21,7 @@ const Post = z.discriminatedUnion('action', [
     extras: z.array(z.enum(['quiz', 'facts', 'fast', 'cover'])).max(4).optional(),
   }),
   z.object({ action: z.enum(['approve', 'reject', 'posted', 'retry', 'build', 'delete']), id: z.string().max(40), sig: z.string().max(64).optional() }),
+  z.object({ action: z.literal('send'), id: z.string().max(40), sig: z.string().max(64).optional(), platform: z.enum(['youtube', 'facebook', 'instagram']), confirm: z.boolean().optional() }),
   z.object({
     action: z.literal('save-script'), id: z.string().max(40), sig: z.string().max(64).optional(),
     title: z.string().trim().min(1).max(80), hook: z.string().trim().min(1).max(120),
@@ -37,6 +41,7 @@ const Post = z.discriminatedUnion('action', [
  * POST {action:'save-script'|'build', id, sig?} -> edit a script waiting to be checked / build its video
  * POST {action, id, sig?}       -> approve / reject / posted / retry (access code OR signed link)
  * POST {action:'delete', id, sig?} -> delete the video and its files for good (access code OR signed link)
+ * POST {action:'send', id, sig?, platform, confirm?} -> send an approved video to YouTube / Facebook / Instagram (Instagram needs confirm: it posts publicly)
  */
 export default async (req: Request): Promise<Response> => {
   const url = new URL(req.url);
@@ -58,7 +63,12 @@ export default async (req: Request): Promise<Response> => {
   if (req.method === 'GET') {
     if (id) {
       const v = await getVideo(id);
-      return v ? json(withSig(v)) : json({ error: 'Video not found.' }, 404);
+      if (!v) return json({ error: 'Video not found.' }, 404);
+      if (!byLink) return json(withSig(v));
+      // The email review page has no access code, so it learns here which Send buttons to show.
+      const [yt, meta] = await Promise.all([getYouTube(), getMeta()]);
+      const sendTo: PlatformId[] = [...(yt ? ['youtube' as const] : []), ...(meta ? ['facebook' as const] : []), ...(meta?.igUserId ? ['instagram' as const] : [])];
+      return json({ ...withSig(v), sendTo });
     }
     return json((await listVideos()).map(withSig));
   }
@@ -74,6 +84,7 @@ export default async (req: Request): Promise<Response> => {
       const v = await getVideo(body.id);
       if (!v) return json({ ok: true }); // already gone
       if (v.status === 'building' || v.status === 'publishing') return json({ error: `This video is being ${v.status === 'building' ? 'built' : 'sent to TikTok'}. Try again in a few minutes.` }, 409);
+      if (sendingNow(v)) return json({ error: 'This video is being sent to another platform. Try again in a few minutes.' }, 409);
       await deleteVideo(v.id);
       return json({ ok: true });
     }
@@ -93,6 +104,7 @@ export default async (req: Request): Promise<Response> => {
       await dispatch('generate.yml', { manual: 'true', render_id: v.id });
       return json(withSig((await patchVideo(v.id, { status: 'building', error: undefined }))!));
     }
+    if (body.action === 'send') return json(await send(v, body.platform, !!body.confirm));
     if (body.action === 'reject') return json(withSig((await patchVideo(v.id, { status: 'rejected' }))!));
     if (body.action === 'posted') return json(withSig((await patchVideo(v.id, { status: 'posted' }))!));
     // approve / retry: send to TikTok drafts when connected, otherwise it is yours to download and post.
@@ -103,6 +115,25 @@ export default async (req: Request): Promise<Response> => {
     await dispatch('publish.yml', { id: v.id });
     return json(withSig((await patchVideo(v.id, { status: 'publishing', error: undefined }))!));
   } catch (e) {
-    return json({ error: e instanceof Error ? e.message : String(e) }, 502);
+    const status = (e as { status?: number }).status ?? 502;
+    return json({ error: e instanceof Error ? e.message : String(e) }, status);
   }
 };
+
+/** Starts the GitHub job that sends one approved video to one platform. Only ever after you approved it. */
+async function send(v: VideoRecord, p: PlatformId, confirm: boolean) {
+  const info = PLATFORM_INFO[p];
+  const fail = (error: string, status = 409) => Object.assign(new Error(error), { status });
+  if (!['approved', 'publishing', 'sent', 'posted', 'failed'].includes(v.status)) throw fail(v.status === 'pending' ? 'Approve the video first.' : `This video is ${v.status}, so it can't be sent.`);
+  if (!v.sizeBytes || v.fileRemovedAt) throw fail('The video file is gone, so there is nothing to send.');
+  const cur = v.platforms?.[p];
+  if (cur?.state === 'sent') throw fail(`Already sent to ${info.name}.`);
+  if (cur?.state === 'sending' && Date.now() - Date.parse(cur.at) < 15 * 60_000) throw fail(`Already being sent to ${info.name}.`);
+  if (info.publicNow && !confirm) throw fail(`${info.name} posts publicly right away. Confirm to post.`, 400);
+  const connected = p === 'youtube' ? await getYouTube() : await getMeta();
+  if (!connected) throw fail(`${p === 'youtube' ? 'YouTube' : 'Facebook & Instagram'} is not connected. Connect it in Settings.`);
+  if (p === 'instagram' && !(connected as { igUserId?: string }).igUserId) throw fail('No Instagram account is linked to your Facebook Page. Link one, then connect again in Settings.');
+  if (!dispatchReady()) throw fail('Set GH_DISPATCH_TOKEN in Netlify so the app can start GitHub jobs.', 503);
+  await dispatch('publish.yml', { id: v.id, platform: p });
+  return withSig((await patchPlatform(v.id, p, { state: 'sending', at: new Date().toISOString() }))!);
+}

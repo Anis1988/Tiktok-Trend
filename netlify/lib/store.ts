@@ -1,5 +1,5 @@
 import { getStore } from '@netlify/blobs';
-import type { AppSettings, VideoRecord } from '../../src/lib/types';
+import type { AppSettings, PlatformId, PlatformPost, VideoRecord } from '../../src/lib/types';
 import { DEFAULT_SETTINGS } from '../../src/lib/types';
 
 /**
@@ -73,3 +73,33 @@ export interface TikTokAuth {
 }
 export const getTikTok = () => readJson<TikTokAuth | null>('tiktok', null);
 export const setTikTok = (t: TikTokAuth | null) => writeJson('tiktok', t);
+
+/** Updates one platform's send state, keeping the others (read fresh, so two sends at once don't undo each other). */
+export async function patchPlatform(id: string, p: PlatformId, post: PlatformPost): Promise<VideoRecord | undefined> {
+  const v = await getVideo(id);
+  if (!v) return undefined;
+  return patchVideo(id, { platforms: { ...v.platforms, [p]: post } });
+}
+
+/** YouTube login (Google OAuth). */
+export interface YouTubeAuth {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: number; // ms
+  channelId?: string;
+  name?: string;
+}
+export const getYouTube = () => readJson<YouTubeAuth | null>('youtube', null);
+export const setYouTube = (t: YouTubeAuth | null) => writeJson('youtube', t);
+
+/** Meta login: one Facebook Page (its token does not expire) and the Instagram account linked to it, if any. */
+export interface MetaAuth {
+  pageId: string;
+  pageName: string;
+  pageToken: string;
+  igUserId?: string;
+  igName?: string;
+  connectedAt: string;
+}
+export const getMeta = () => readJson<MetaAuth | null>('meta', null);
+export const setMeta = (t: MetaAuth | null) => writeJson('meta', t);

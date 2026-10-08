@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { api, fileUrl, type Video } from '../lib/api';
 import { StatusChip, toast, when } from './ui';
 import { ScriptEditor } from './ScriptEditor';
-import { EXTRA_LABEL, VOICE_LABEL } from '../lib/types';
+import { EXTRA_LABEL, PLATFORM_INFO, PLATFORMS, VOICE_LABEL, type PlatformId } from '../lib/types';
 
 /** "Kokoro af_heart" -> "Heart · warm female (US)". Older videos show the Piper voice name as saved. */
 const voiceText = (v: string) => VOICE_LABEL[v.replace(/^Kokoro /, '') as keyof typeof VOICE_LABEL] ?? v;
 
 /** Everything about one video, with the buttons that fit its status. Used in the app and on the email review page. */
-export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, example = false }: { v: Video; onChange?: (v: Video) => void; onDeleted?: (id: string) => void; tiktokConnected?: boolean; example?: boolean }) {
+export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, sendTo = [], hintConnect = false, example = false }: { v: Video; onChange?: (v: Video) => void; onDeleted?: (id: string) => void; tiktokConnected?: boolean; sendTo?: PlatformId[]; hintConnect?: boolean; example?: boolean }) {
   const [busy, setBusy] = useState('');
   const hasFile = v.sizeBytes > 0;
   const fullCaption = `${v.caption} ${v.hashtags.map((h) => `#${h}`).join(' ')}`.trim();
@@ -40,7 +40,54 @@ export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, example =
       setBusy('');
     }
   };
-  const del = onDeleted && v.status !== 'building' && v.status !== 'publishing' && (
+  // One Send button per connected platform (YouTube, Facebook, Instagram), shown once the video is approved.
+  const sendOne = async (p: PlatformId) => {
+    if (example) return;
+    const info = PLATFORM_INFO[p];
+    if (info.publicNow && !window.confirm(`Post "${v.title}" to Instagram now?\n\nInstagram has no drafts: it goes public on your account right away. You can delete it in Instagram later.`)) return;
+    setBusy(p);
+    try {
+      onChange?.(await api.send(p, v.id, v.sig, info.publicNow));
+      toast('success', `${info.sending} It takes 1 to 3 minutes; refresh to see the result.`);
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy('');
+    }
+  };
+  const approved = ['approved', 'publishing', 'sent', 'posted'].includes(v.status) || (v.status === 'failed' && hasFile);
+  const shown = PLATFORMS.filter((p) => sendTo.includes(p) || v.platforms?.[p]);
+  const sendBlock = approved && (shown.length > 0 || (hintConnect && !example)) && (
+    <div className="panel space-y-2">
+      <p className="label">Other platforms</p>
+      {shown.length === 0 && <p className="text-sm text-slate-400">Connect YouTube, Facebook or Instagram in <a className="underline" href="/settings">Settings</a> to get a Send button for each one here.</p>}
+      {shown.map((p) => {
+        const info = PLATFORM_INFO[p];
+        const st = v.platforms?.[p];
+        const stuck = st?.state === 'sending' && Date.now() - Date.parse(st.at) > 15 * 60_000;
+        const canSend = sendTo.includes(p) && hasFile && !v.fileRemovedAt && (!st || st.state === 'failed' || stuck);
+        return (
+          <div key={p} className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-2 first:border-0 first:pt-0">
+            <div className="min-w-0 flex-1 basis-48">
+              <p className="text-sm font-medium"><span aria-hidden="true" className="mr-1.5 inline-block w-4 text-center">{info.icon}</span>{info.name}</p>
+              {st?.state === 'sent' && <p className="text-xs text-emerald-200">✓ {info.done}{st.url && <> <a className="underline" href={st.url} target="_blank" rel="noopener noreferrer">Open</a></>}</p>}
+              {st?.state === 'sending' && !stuck && <p className="text-xs text-violet-100"><span className="spinner" /> {info.sending} Refresh in a minute.</p>}
+              {stuck && <p className="text-xs text-amber-200">This send seems stuck. Try again.</p>}
+              {st?.state === 'failed' && <p className="text-xs text-red-200">Failed: {st.error}</p>}
+              {!st && info.publicNow && <p className="text-xs text-amber-200">Posts publicly right away (no drafts on Instagram). Asks you first.</p>}
+              {!st && !sendTo.includes(p) && <p className="text-xs text-slate-400">Not connected.</p>}
+            </div>
+            {canSend && (
+              <button className={st ? 'btn' : 'btn-primary'} disabled={!!busy} onClick={() => void sendOne(p)}>
+                {busy === p ? <><span className="spinner" /> Starting…</> : st ? '↻ Try again' : `↑ ${info.button}`}
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+  const del = onDeleted && v.status !== 'building' && v.status !== 'publishing' && !Object.values(v.platforms ?? {}).some((x) => x?.state === 'sending' && Date.now() - Date.parse(x.at) < 15 * 60_000) && (
     <button className="btn !border-red-300/30 text-red-200 hover:!border-red-300/60" disabled={!!busy} onClick={() => void remove()}>{busy === 'delete' ? <><span className="spinner" /> Deleting…</> : '🗑 Delete'}</button>
   );
   const copy = async (text = fullCaption, what = 'Caption') => {
@@ -106,6 +153,7 @@ export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, example =
         {v.status === 'approved' && <p className="text-sm text-sky-100">{tiktokConnected ? 'Tap "Send to TikTok drafts", or ' : ''}Download it, then post it in the TikTok app. Paste the caption, add a sound if you like, and turn on <b>"AI-generated content"</b>.</p>}
         {v.status === 'sent' && <p className="text-sm text-emerald-100">It's in TikTok: open the TikTok app, check your notifications or inbox, then edit and post. Turn on <b>"AI-generated content"</b> before posting.</p>}
         {v.status === 'publishing' && <p className="text-sm text-violet-100">Sending to TikTok. This takes about a minute; refresh to see the result.</p>}
+        {sendBlock}
 
         <div className="panel space-y-1">
           <p className="label">Caption</p>

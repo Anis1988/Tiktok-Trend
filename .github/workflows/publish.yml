@@ -1,4 +1,4 @@
-name: Send to TikTok drafts
+name: Send to TikTok / YouTube / Facebook / Instagram
 
 on:
   workflow_dispatch:
@@ -6,9 +6,13 @@ on:
       id:
         description: 'Video id (started by the Approve button)'
         required: true
+      platform:
+        description: 'tiktok, youtube, facebook or instagram'
+        required: false
+        default: tiktok
 
 concurrency:
-  group: publish-${{ inputs.id }}
+  group: publish-${{ inputs.id }}-${{ inputs.platform || 'tiktok' }}
   cancel-in-progress: false
 
 permissions:
@@ -17,7 +21,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -25,11 +29,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Upload to TikTok
+      - name: Upload to ${{ inputs.platform || 'tiktok' }}
         run: npm run publish-video
         env:
           VIDEO_ID: ${{ inputs.id }}
+          PLATFORM: ${{ inputs.platform || 'tiktok' }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
           TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}

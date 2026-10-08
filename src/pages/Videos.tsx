@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, fileUrl, type Status, type Video } from '../lib/api';
+import { api, fileUrl, sendTargets, type Status, type Video } from '../lib/api';
 import { VideoDetail } from '../components/VideoDetail';
 import { StatusChip, toast, when } from '../components/ui';
 import { CATEGORIES, LISTY, findCategory, type Niche } from '../lib/niches';
@@ -162,7 +162,7 @@ export function Videos() {
       {selected && (
         <section className="card space-y-3">
           <button className="btn-ghost !px-0" onClick={() => setOpen(null)}>← All videos</button>
-          <VideoDetail v={selected} tiktokConnected={!!status?.tiktok.connected && !status.tiktok.expired} onChange={(n) => setList((l) => l?.map((x) => (x.id === n.id ? n : x)) ?? null)} onDeleted={(id) => (setOpen(null), setList((l) => l?.filter((x) => x.id !== id) ?? null))} />
+          <VideoDetail v={selected} tiktokConnected={!!status?.tiktok.connected && !status.tiktok.expired} sendTo={sendTargets(status)} hintConnect onChange={(n) => setList((l) => l?.map((x) => (x.id === n.id ? n : x)) ?? null)} onDeleted={(id) => (setOpen(null), setList((l) => l?.filter((x) => x.id !== id) ?? null))} />
         </section>
       )}
 

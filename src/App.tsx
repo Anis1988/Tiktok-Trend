@@ -39,11 +39,14 @@ export default function App() {
   const [tab, setTab] = useState<Tab>(path.startsWith('/settings') ? 'Settings' : path.startsWith('/guide') ? 'Guide' : 'Videos');
   const [hasCode, setHasCode] = useState(!!getCode());
 
-  // Back from TikTok's login page.
+  // Back from TikTok's, Google's or Facebook's login page.
   useEffect(() => {
-    const r = new URLSearchParams(window.location.search).get('tiktok');
+    const q = new URLSearchParams(window.location.search);
+    const p = q.get('connected');
+    const r = q.get('tiktok') ?? q.get('result');
     if (!r) return;
-    toast(r === 'ok' ? 'success' : 'error', r === 'ok' ? 'TikTok connected.' : `TikTok was not connected: ${r === 'expired' ? 'the login took too long, try again' : r}`);
+    const name = p === 'youtube' ? 'YouTube' : p === 'meta' ? 'Facebook & Instagram' : 'TikTok';
+    toast(r === 'ok' ? 'success' : 'error', r === 'ok' ? `${name} connected.` : `${name} was not connected: ${r === 'expired' ? 'the login took too long, try again' : r}`);
     window.history.replaceState(null, '', '/settings');
   }, []);
   useEffect(() => {

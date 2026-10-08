@@ -81,7 +81,27 @@ export interface VideoRecord {
   cover?: string; // the big words on the cover (first frame), when "Bold cover" is on
   fileRemovedAt?: string; // the video file was deleted by the auto clean-up (the text is kept)
   tiktok?: { publishId?: string; sentAt?: string; status?: string };
+  /** Other platforms, each with its own Send button (after you approve). */
+  platforms?: Partial<Record<PlatformId, PlatformPost>>;
 }
+
+/** Platforms besides TikTok. Facebook and Instagram share one Meta login. */
+export type PlatformId = 'youtube' | 'facebook' | 'instagram';
+export const PLATFORMS: PlatformId[] = ['youtube', 'facebook', 'instagram'];
+
+export interface PlatformPost {
+  state: 'sending' | 'sent' | 'failed';
+  at: string; // when it started or finished
+  id?: string; // the platform's video / post id
+  url?: string; // where to see it
+  error?: string;
+}
+
+export const PLATFORM_INFO: Record<PlatformId, { name: string; icon: string; button: string; sending: string; done: string; publicNow?: boolean }> = {
+  youtube: { name: 'YouTube Shorts', icon: '▶', button: 'Send to YouTube (private)', sending: 'Sending to YouTube…', done: 'On YouTube as Private: open YouTube Studio to make it public.' },
+  facebook: { name: 'Facebook Reels', icon: 'f', button: 'Send to Facebook (draft)', sending: 'Sending to Facebook…', done: 'A draft Reel on your Facebook Page: open Meta Business Suite → Content → Drafts to post it.' },
+  instagram: { name: 'Instagram Reels', icon: '◎', button: 'Post to Instagram', sending: 'Posting to Instagram…', done: 'Posted on Instagram.', publicNow: true },
+};
 
 export interface VideoEffects {
   hookCard: boolean; // the hook in big letters for the first 2 seconds

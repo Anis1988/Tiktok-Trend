@@ -67,6 +67,7 @@ export function Guide() {
           <li><b>Make the video.</b> A natural-sounding AI voice (Kokoro) reads the script. Sharp stock clips from Pixabay play behind it with a slow zoom and smooth transitions between them (glides, zooms, soft fades, taken in turn so the video keeps moving). Captions show 1 to 3 words at a time, with the word being spoken in yellow. The sound is cleaned up and set to TikTok's standard loudness. Full HD vertical video (1080×1920), ready for TikTok.</li>
           <li><b>Email you.</b> You get an email with a link. Watch it, then tap <b>Approve</b> or <b>Reject</b>.</li>
           <li><b>To TikTok.</b> Approved videos go to your TikTok drafts. You get a TikTok notification, add a sound if you like, and tap Post. Until TikTok is connected, you download it and post it yourself.</li>
+          <li><b>To other platforms (if you want).</b> Approved videos also get a separate Send button for each platform you connected: YouTube Shorts, Facebook Reels and Instagram Reels. See "Other platforms" below.</li>
         </ol>
         <p>Nothing is ever posted without your OK.</p>
       </Section>
@@ -205,6 +206,36 @@ export function Guide() {
         </ul>
       </Section>
 
+      <Section title="Other platforms: YouTube, Facebook, Instagram">
+        <p>Once you approve a video, it gets a <b>separate Send button for each platform</b> you connected in Settings, under "Other platforms". Each one only sends to that platform, so you choose where every video goes.</p>
+        <Example caption="An approved video with all three connected (made-up example; buttons do nothing here).">
+          <VideoDetail v={{ ...EXAMPLE, status: 'sent', platforms: { youtube: { state: 'sent', at: EXAMPLE.createdAt } } }} sendTo={['youtube', 'facebook', 'instagram']} example />
+        </Example>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>▶ YouTube Shorts:</b> uploaded as <b>Private</b>. Open YouTube Studio (the "Open" link), check it, then set it to Public. Vertical videos under 3 minutes become Shorts by themselves; the description gets #Shorts. It is marked as "altered or synthetic content" because of the AI voice.</li>
+          <li><b>f Facebook Reels:</b> saved as a <b>draft</b> on your Facebook Page. Post it from Meta Business Suite → Content → Drafts.</li>
+          <li><b>◎ Instagram Reels:</b> Instagram has <b>no drafts</b> for apps, so this button <b>posts it publicly right away</b>. It always asks you first. Turn on the "AI info" label in Instagram after posting if you like (it can't be set by the app).</li>
+          <li>Each send takes 1 to 3 minutes (a GitHub job). Refresh to see ✓ and a link. If one fails, the reason is shown with a <b>Try again</b> button; the others are not affected.</li>
+          <li>A video is sent to each platform only once. The buttons also work on the page the review email opens.</li>
+        </ul>
+        <p><b>Setting up YouTube (free, about 10 minutes):</b></p>
+        <ol className="list-decimal space-y-1.5 pl-5 text-sm">
+          <li>Go to <b>console.cloud.google.com</b>, create a project, then in "APIs &amp; Services → Library" turn on <b>YouTube Data API v3</b>.</li>
+          <li>"OAuth consent screen": choose External, fill in the app name and your email, add your Terms and Privacy links (<code>https://your-site.netlify.app/terms</code> and <code>/privacy</code>), and add yourself as a test user. Then tap <b>Publish app</b>: in "Testing" mode Google logs you out every 7 days.</li>
+          <li>"Credentials → Create credentials → OAuth client ID", type <b>Web application</b>, redirect address <code>https://your-site.netlify.app/api/connect/youtube/callback</code>.</li>
+          <li>Put the client ID and secret as <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> in <b>Netlify and GitHub</b>, redeploy, then tap <b>Connect YouTube</b> in Settings. Google shows an "unverified app" warning because the app is yours: tap Advanced → continue.</li>
+          <li>Good to know: YouTube's free limit is about 6 uploads a day. Google may keep videos from an unverified app <b>locked to Private</b> until you ask Google for an audit (in the Cloud console). Until then, download the video and upload it in the YouTube app instead.</li>
+        </ol>
+        <p><b>Setting up Facebook &amp; Instagram (one login for both):</b></p>
+        <ol className="list-decimal space-y-1.5 pl-5 text-sm">
+          <li>You need a <b>Facebook Page</b>. For Instagram, switch your Instagram to a <b>Business or Creator</b> account and link it to that Page (Instagram → Settings → Account type and tools, then link a Facebook Page).</li>
+          <li>Go to <b>developers.facebook.com</b> → My Apps → Create app → use case <b>"Manage everything on your Page"</b> and add <b>Instagram</b> ("Manage messaging &amp; content on Instagram").</li>
+          <li>In Facebook Login for Business → Settings, add the redirect address <code>https://your-site.netlify.app/api/connect/meta/callback</code>. Add your Terms and Privacy links in App settings → Basic.</li>
+          <li>Put the App ID and App secret (App settings → Basic) as <code>META_APP_ID</code> and <code>META_APP_SECRET</code> in <b>Netlify</b>, redeploy, then tap <b>Connect Facebook &amp; Instagram</b> in Settings and tick your Page and Instagram account.</li>
+          <li>You can leave the Meta app in Development mode: it works for you (the app's owner) without Meta's review. If you have several Pages, the one linked to your Instagram is used.</li>
+        </ol>
+      </Section>
+
       <Section title="Getting the video file from GitHub">
         <p>Every video is also attached to the GitHub run that made it, for 7 days. Handy when the website is down.</p>
         <ol className="list-decimal space-y-1.5 pl-5">
@@ -268,6 +299,8 @@ export function Guide() {
           <Key name="APP_SECRET">a long random text you make up (signs the email links). Put the same value in GitHub.</Key>
           <Key name="GH_DISPATCH_TOKEN">a GitHub fine-grained token for this repository with "Actions: Read and write" (lets the buttons start GitHub jobs).</Key>
           <Key name="TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET">later, once TikTok approves your developer app.</Key>
+          <Key name="GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET">optional, for YouTube Shorts (see "Other platforms").</Key>
+          <Key name="META_APP_ID, META_APP_SECRET">optional, for Facebook and Instagram Reels (see "Other platforms").</Key>
           <Key name="VITE_CONTACT_EMAIL">optional: the email shown on the Terms and Privacy pages (TikTok's reviewers like to see one).</Key>
         </ul>
         <p><b>In GitHub</b> (repository → Settings → Secrets and variables → Actions → New repository secret):</p>
@@ -280,6 +313,7 @@ export function Guide() {
           <Key name="SITE_URL">your site address, e.g. https://your-site.netlify.app</Key>
           <Key name="EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_USER_ID, EMAILJS_PRIVATE_KEY">the same values as the trading app (for the review emails). Then put your email in Settings → Review email.</Key>
           <Key name="TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET">later, same as in Netlify.</Key>
+          <Key name="GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET">optional, same as in Netlify (YouTube uploads run on GitHub).</Key>
         </ul>
         <p><b>TikTok developer app</b> (developers.tiktok.com): create an app, add the products <b>Login Kit</b> and <b>Content Posting API</b>, scopes <code>user.info.basic</code> and <code>video.upload</code>, and the redirect address <code>https://your-site.netlify.app/api/tiktok/callback</code>. TikTok also asks for a Terms of Service and a Privacy Policy link: use <code>https://your-site.netlify.app/terms</code> and <code>https://your-site.netlify.app/privacy</code> (also linked at the bottom of every page). Submit it for review. When approved, add its keys and tap <b>Connect TikTok</b> in Settings.</p>
       </Section>

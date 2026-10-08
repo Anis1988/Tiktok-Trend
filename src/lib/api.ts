@@ -1,10 +1,13 @@
-import type { AppSettings, DraftLine, Extra, MediaItem, VideoRecord } from './types';
+import type { AppSettings, DraftLine, Extra, MediaItem, PlatformId, VideoRecord } from './types';
 
-export type Video = VideoRecord & { sig: string };
+/** sendTo: platforms you can send to (only on the email review page, which has no access code). */
+export type Video = VideoRecord & { sig: string; sendTo?: PlatformId[] };
 
 export interface Status {
-  ready: { secret: boolean; tiktokApp: boolean; dispatch: boolean };
+  ready: { secret: boolean; tiktokApp: boolean; youtubeApp: boolean; metaApp: boolean; dispatch: boolean };
   tiktok: { connected: boolean; name?: string | null; expired?: boolean };
+  youtube: { connected: boolean; name?: string | null };
+  meta: { connected: boolean; page?: string; instagram?: string | null };
   ai: { used: number; limit: number };
 }
 
@@ -131,7 +134,14 @@ export const api = {
   saveSettings: (s: Partial<AppSettings>) => post<AppSettings>('/api/settings', s),
   tiktokStart: () => post<{ url: string; redirectUri: string }>('/api/tiktok/start', {}),
   tiktokDisconnect: () => post<{ ok: boolean }>('/api/tiktok/disconnect', {}),
+  send: (platform: PlatformId, id: string, sig?: string, confirm?: boolean) => post<Video>('/api/videos', { action: 'send', platform, id, sig, confirm }),
+  connectStart: (p: 'youtube' | 'meta') => post<{ url: string; redirectUri: string }>(`/api/connect/${p}/start`, {}),
+  connectDisconnect: (p: 'youtube' | 'meta') => post<{ ok: boolean }>(`/api/connect/${p}/disconnect`, {}),
 };
 
 export const fileUrl = (v: { id: string; sig: string }, kind: 'mp4' | 'jpg', download = false) =>
   `/api/file?id=${encodeURIComponent(v.id)}&kind=${kind}&sig=${encodeURIComponent(v.sig)}${download ? '&dl=1' : ''}`;
+
+/** Which platforms have a Send button, from the connections in /api/status. */
+export const sendTargets = (st: Status | null): PlatformId[] =>
+  !st ? [] : [...(st.youtube?.connected ? ['youtube' as const] : []), ...(st.meta?.connected ? ['facebook' as const] : []), ...(st.meta?.connected && st.meta.instagram ? ['instagram' as const] : [])];

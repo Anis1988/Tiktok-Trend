@@ -1,4 +1,4 @@
-/** Starts a GitHub Actions workflow (make a video / send to TikTok). Needs GH_DISPATCH_TOKEN with Actions: write. */
+/** Starts a GitHub Actions workflow (make a video / send to TikTok, YouTube, Facebook or Instagram). Needs GH_DISPATCH_TOKEN with Actions: write. */
 export const dispatchReady = () => !!process.env.GH_DISPATCH_TOKEN;
 const repo = () => process.env.GH_REPO || 'Anis1988/Tiktok-Trend';
 
