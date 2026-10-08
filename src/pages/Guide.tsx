@@ -167,6 +167,19 @@ export function Guide() {
         </ul>
       </Section>
 
+      <Section title="Extras for one video">
+        <p>Under the subject box, <b>Extras for this video</b> lets you add special touches to the next video. Pick any, or none. Your last choice is remembered on this phone or computer.</p>
+        <Example caption="Made-up example; nothing here does anything.">
+          <MakeNow subject="Attack on Titan characters" onSubject={() => {}} pick="" onPick={() => {}} onIdea={() => {}} ideas={null} onIdeas={() => {}} onMake={() => {}} niche={EXAMPLE_NICHE} extras={['quiz', 'cover']} onExtras={() => {}} />
+        </Example>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>🎯 Guess who?</b> A quiz with 3 to 5 rounds. Each round shows the picture blurred with a giant "?" and a "Guess #1" title while the voice gives clues, then a white flash reveals who it is. People stay to the end and argue in the comments. Works best with a subject like "Attack on Titan characters" or "famous footballers"; a quiz always uses well-known facts (a topic video).</li>
+          <li><b>⚡ Fast pacing:</b> shorter lines (so more pictures), quicker transitions, and a quick zoom-in on each line's key word. The screen never sits still.</li>
+          <li><b>🖼️ Bold cover:</b> the first moment of the video is a poster: 2 to 5 big words (like "STRONGEST IN AOT?") over the first picture. TikTok shows it on your profile and in search. With "Check the script first" on, you can change the words.</li>
+          <li>Extras cost nothing extra: still one AI script per video. Daily scheduled videos don't use extras.</li>
+        </ul>
+      </Section>
+
       <Section title="Topic videos (not news)">
         <p>Some subjects are not news: rankings, "top 10" lists, fun facts, explainers. For those, the AI writes the video from <b>well-known facts</b> about the subject instead of the news.</p>
         <Example caption="Made-up example; nothing here does anything.">

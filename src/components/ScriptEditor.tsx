@@ -11,6 +11,8 @@ export function ScriptEditor({ v, onChange, example = false }: { v: Video; onCha
   const [hook, setHook] = useState(v.hook);
   const [caption, setCaption] = useState(v.caption);
   const [comment, setComment] = useState(v.firstComment ?? '');
+  const [cover, setCover] = useState(v.cover ?? '');
+  const quiz = v.extras?.includes('quiz');
   const [lines, setLines] = useState<Line[]>(v.draft?.lines ?? v.lines.map((text) => ({ text, footage: v.topic.slice(0, 60), keywords: [] })));
   const [busy, setBusy] = useState('');
   const building = v.status === 'building';
@@ -22,7 +24,7 @@ export function ScriptEditor({ v, onChange, example = false }: { v: Video; onCha
 
   const setLine = (i: number, patch: Partial<Line>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const save = async (quiet = false) => {
-    const next = await api.saveScript(v.id, v.sig, { title: title.trim() || v.title, hook: hook.trim() || lines[0]?.text.slice(0, 120) || v.hook, caption, firstComment: comment, lines: lines.filter((l) => l.text.trim()) });
+    const next = await api.saveScript(v.id, v.sig, { title: title.trim() || v.title, hook: hook.trim() || lines[0]?.text.slice(0, 120) || v.hook, caption, firstComment: comment, cover: cover.trim() || undefined, lines: lines.filter((l) => l.text.trim()) });
     onChange?.(next);
     if (!quiet) toast('success', 'Script saved.');
     return next;
@@ -59,6 +61,10 @@ export function ScriptEditor({ v, onChange, example = false }: { v: Video; onCha
         <input className={field} value={title} maxLength={80} disabled={building} onChange={(e) => setTitle(e.target.value)} /></label>
       <label className="block space-y-1"><span className="label">Hook (big text at the start)</span>
         <input className={field} value={hook} maxLength={120} disabled={building} onChange={(e) => setHook(e.target.value)} /></label>
+      {v.extras?.includes('cover') && (
+        <label className="block space-y-1"><span className="label">Cover words (first frame)</span>
+          <input className={field} value={cover} maxLength={40} disabled={building} onChange={(e) => setCover(e.target.value)} placeholder="e.g. STRONGEST IN AOT?" /></label>
+      )}
       <div className="space-y-2">
         <p className="label">What the voice says (one box per scene)</p>
         {lines.map((l, i) => (
@@ -74,6 +80,13 @@ export function ScriptEditor({ v, onChange, example = false }: { v: Video; onCha
               <input className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.character ?? ''} maxLength={100} disabled={building} onChange={(e) => setLine(i, { character: e.target.value })} placeholder="Character, e.g. Levi | Attack on Titan" aria-label={`Character picture for line ${i + 1}`} />
               <input className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.object ?? ''} maxLength={60} disabled={building} onChange={(e) => setLine(i, { object: e.target.value })} placeholder="Photo of a thing, e.g. red apple" aria-label={`Object photo for line ${i + 1}`} />
               <input className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.label ?? ''} maxLength={40} disabled={building} onChange={(e) => setLine(i, { label: e.target.value })} placeholder="Title on screen, e.g. #3 Levi Ackerman" aria-label={`Title on screen for line ${i + 1}`} />
+              {quiz && (
+                <select className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.quiz ?? ''} disabled={building} onChange={(e) => setLine(i, { quiz: (e.target.value || undefined) as Line['quiz'] })} aria-label={`Quiz for line ${i + 1}`}>
+                  <option value="">Quiz: normal line</option>
+                  <option value="hide">Quiz: hide the picture (clue)</option>
+                  <option value="reveal">Quiz: reveal with a flash (answer)</option>
+                </select>
+              )}
               <select className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.media ?? ''} disabled={building} onChange={(e) => setLine(i, { media: e.target.value || undefined })} aria-label={`Picture for line ${i + 1}`}>
                 <option value="">Picture: automatic</option>
                 <option value="stock">Picture: no clip of mine</option>

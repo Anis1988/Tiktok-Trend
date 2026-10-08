@@ -4,7 +4,7 @@
  */
 import { copyFile, mkdir, readFile, rm } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
-import type { AppSettings, DraftLine, VideoRecord } from '../src/lib/types';
+import type { AppSettings, DraftLine, Extra, VideoRecord } from '../src/lib/types';
 import { DEFAULT_SETTINGS } from '../src/lib/types';
 import { getSettings, listVideos, readJson, saveVideo, store, writeJson } from '../netlify/lib/store';
 import { sign } from '../netlify/lib/sign';
@@ -41,7 +41,8 @@ async function sample() {
   const lines: DraftLine[] = [
     { text: 'Your coffee order just got a promotion.', footage: 'coffee cup morning', keywords: ['promotion'], object: 'coffee cup' },
     { text: 'This is a made-up example, so nothing here is real news.', footage: 'city street people walking', keywords: [] },
-    { text: 'Number two: Levi, who would clean the cup before drinking it.', footage: 'anime city', keywords: ['Levi'], character: 'Levi Ackerman | Attack on Titan', label: '#2 Levi Ackerman' },
+    { text: 'Guess who: short, scary fast, and obsessed with cleaning.', footage: 'anime city', keywords: ['cleaning'], character: 'Levi Ackerman | Attack on Titan', label: 'Guess #1', quiz: 'hide' },
+    { text: "It's Levi, who would clean the cup before drinking it.", footage: 'anime city', keywords: ['Levi'], character: 'Levi Ackerman | Attack on Titan', label: 'Levi Ackerman', quiz: 'reveal' },
     { text: 'Number one: LeBron James, who would dunk the sugar cube.', footage: 'basketball court', keywords: ['LeBron'], real: 'LeBron James', label: '#1 LeBron James' },
     { text: 'Picture sipping it right under the Eiffel Tower.', footage: 'paris cafe', real: 'Eiffel Tower', keywords: ['Eiffel Tower'] },
     { text: 'Or floating past Saturn, if space stations had a barista.', footage: 'space stars', real: 'Saturn', keywords: ['Saturn'] },
@@ -56,10 +57,10 @@ async function sample() {
     await speak(l.text, voice, wav, true);
     const v = await visualFor(l, i, dir, { mine: null, real: true, characters: true, used, credits: [] });
     if (v.credit) log(`Sample scene ${i + 1}: ${v.credit}`);
-    scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, ...v });
+    scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, ...v });
   }
   const dur = await renderVideo(scenes, dir, `${dir}/video.mp4`, `${dir}/thumb.jpg`, {
-    ...renderOptions({ ...DEFAULT_SETTINGS, niche: { category: 'food', subs: ['drinks'], focus: [], mix: 'niche' }, endCardName: '@yourname' }, lines[0].text),
+    ...renderOptions({ ...DEFAULT_SETTINGS, niche: { category: 'food', subs: ['drinks'], focus: [], mix: 'niche' }, endCardName: '@yourname' }, lines[0].text, { extras: ['fast', 'cover'], cover: 'Coffee gets promoted?' }),
     music: process.env.SAMPLE_MUSIC !== '0',
   });
   log(`Sample rendered: ${dur.toFixed(1)} s, voice ${voiceUsed()}`);
@@ -95,6 +96,9 @@ async function main() {
   if (process.env.RENDER_ID?.trim()) return buildChecked(process.env.RENDER_ID.trim(), saved);
   // A subject typed for this one video (app box or GitHub "Run workflow") replaces the trend search.
   const subject = (process.env.SUBJECT ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
+  // Extras picked for this one video in the app: quiz, fast pacing, bold cover.
+  const extras = [...new Set((process.env.EXTRAS ?? '').split(',').map((x) => x.trim()))].filter((x): x is Extra => x === 'quiz' || x === 'fast' || x === 'cover');
+  if (extras.length) log(`Extras: ${extras.join(', ')}`);
   const ideaUrl = /^https:\/\/\S+$/.test(process.env.IDEA_URL ?? '') ? process.env.IDEA_URL! : '';
   // A category / subcategory picked for this one video ("Make a video now") replaces "My channel" for this run.
   // A typed subject with no category is free: it does not have to fit "My channel" (ideas from the list come from it anyway).
@@ -122,7 +126,8 @@ async function main() {
     // Otherwise the latest news; an idea from the app's "Ideas" list is a headline, used as is if a fresh search finds nothing more;
     // and a subject that is not in the news becomes a topic video too.
     const topic: Candidate = { topic: subject, headlines: [], evergreen: true };
-    const c = !ideaUrl && LISTY.test(subject)
+    // A quiz is about well-known characters or people, so its subject is always a topic video.
+    const c = !ideaUrl && (LISTY.test(subject) || extras.includes('quiz'))
       ? topic
       : (await subjectNews(subject, s.country)) ?? (ideaUrl ? { topic: subject, headlines: [{ title: subject, url: ideaUrl }] } : topic);
     if (c.evergreen) log('Topic video (not news): written from well-known facts.');
@@ -141,7 +146,7 @@ async function main() {
 
   budget.n++;
   await writeJson('ai', budget);
-  const sc = await writeScript(candidates, s);
+  const sc = await writeScript(candidates, s, extras);
   if (sc.pick < 0 || !candidates[sc.pick]) {
     if (subject) throw new Error(`The AI skipped "${subject}": ${sc.why}`);
     return log('The AI found nothing suitable today:', sc.why);
@@ -159,9 +164,12 @@ async function main() {
     draft: { lines: sc.lines.map((l) => ({
       text: l.text, footage: l.footage, keywords: (l.keywords ?? []).slice(0, 3), real: l.real?.trim().slice(0, 80) || undefined,
       character: l.character?.trim().slice(0, 100) || undefined, object: l.object?.trim().slice(0, 60) || undefined, label: l.label?.trim().slice(0, 40) || undefined,
+      quiz: l.quiz || undefined,
     })) },
     pick: pickRaw || undefined,
     topicVideo: cand.evergreen || undefined,
+    extras: extras.length ? extras : undefined,
+    cover: sc.cover?.trim().slice(0, 40) || undefined,
   };
   if (!base.sources.length) base.sources = cand.headlines;
   // Next video starts with the next subcategory of your channel.
@@ -179,8 +187,9 @@ async function main() {
 }
 
 /** Effects and look from Settings (Videos tab → Video style). */
-function renderOptions(s: AppSettings, hook: string): RenderOptions {
+function renderOptions(s: AppSettings, hook: string, v: Pick<VideoRecord, 'extras' | 'cover'> = {}): RenderOptions {
   const e = s.effects;
+  const x = v.extras ?? [];
   const cat = findCategory(s.niche?.category);
   return {
     music: s.music,
@@ -192,6 +201,8 @@ function renderOptions(s: AppSettings, hook: string): RenderOptions {
     captionColor: CAPTION_HEX[s.captionStyle.color],
     captionSize: s.captionStyle.size,
     endCard: e.endCard ? { title: cat ? cat.label : 'trending news', subtitle: s.endCardName.trim() || undefined } : undefined,
+    fast: x.includes('fast'),
+    cover: x.includes('cover') ? (v.cover || hook) : undefined,
   };
 }
 
@@ -213,11 +224,11 @@ async function build(base: VideoRecord, s: AppSettings) {
       const v = await visualFor(l, i, dir, { mine: mine[i], real: s.effects.realMedia, characters: s.effects.characters, used, credits });
       if (mine[i]) log(`Scene ${i + 1}: your clip "${mine[i]!.name}"`);
       else if (v.credit) log(`Scene ${i + 1}: ${v.credit}`);
-      scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, ...v });
+      scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, ...v });
     }
     const mp4 = `${dir}/video.mp4`;
     const jpg = `${dir}/thumb.jpg`;
-    const dur = await renderVideo(scenes, dir, mp4, jpg, renderOptions(s, base.hook));
+    const dur = await renderVideo(scenes, dir, mp4, jpg, renderOptions(s, base.hook, base));
     const bytes = await readFile(mp4);
     log(`Rendered ${dur.toFixed(1)} s, ${(bytes.length / 1e6).toFixed(1)} MB`);
 

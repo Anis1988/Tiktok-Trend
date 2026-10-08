@@ -15,16 +15,17 @@ const Post = z.discriminatedUnion('action', [
     subject: z.string().trim().max(200).optional(),
     pick: z.string().regex(/^[a-z-]{2,30}(:[a-z0-9-]{2,30})?$/).optional(),
     ideaUrl: z.string().url().startsWith('https://').max(1000).optional(),
+    extras: z.array(z.enum(['quiz', 'fast', 'cover'])).max(3).optional(),
   }),
   z.object({ action: z.enum(['approve', 'reject', 'posted', 'retry', 'build', 'delete']), id: z.string().max(40), sig: z.string().max(64).optional() }),
   z.object({
     action: z.literal('save-script'), id: z.string().max(40), sig: z.string().max(64).optional(),
     title: z.string().trim().min(1).max(80), hook: z.string().trim().min(1).max(120),
-    caption: z.string().trim().max(150), firstComment: z.string().trim().max(150),
+    caption: z.string().trim().max(150), firstComment: z.string().trim().max(150), cover: z.string().trim().max(40).optional(),
     lines: z.array(z.object({
       text: z.string().trim().min(1).max(220), footage: z.string().trim().min(1).max(60), keywords: z.array(z.string().trim().max(30)).max(3),
       real: z.string().trim().max(80).optional(), media: z.string().max(30).optional(),
-      character: z.string().trim().max(100).optional(), object: z.string().trim().max(60).optional(), label: z.string().trim().max(40).optional(),
+      character: z.string().trim().max(100).optional(), object: z.string().trim().max(60).optional(), label: z.string().trim().max(40).optional(), quiz: z.enum(['hide', 'reveal']).optional(),
     })).min(2).max(14),
   }),
 ]);
@@ -66,7 +67,7 @@ export default async (req: Request): Promise<Response> => {
   try {
     if (body.action === 'make-now') {
       const subject = body.subject?.replace(/[\r\n]+/g, ' ') ?? '';
-      await dispatch('generate.yml', { manual: 'true', subject, pick: body.pick ?? '', idea_url: body.ideaUrl ?? '' });
+      await dispatch('generate.yml', { manual: 'true', subject, pick: body.pick ?? '', idea_url: body.ideaUrl ?? '', extras: [...new Set(body.extras ?? [])].join(',') });
       return json({ ok: true, message: `Started${subject ? ` (about "${subject}")` : ''}. A new video takes 2 to 5 minutes; you will get an email.` });
     }
     if (body.action === 'delete') {
@@ -83,7 +84,7 @@ export default async (req: Request): Promise<Response> => {
       // The first line is the hook the voice says first; keep them together.
       const lines = body.lines;
       return json(withSig((await patchVideo(v.id, {
-        title: body.title, hook: body.hook, caption: body.caption, firstComment: body.firstComment || undefined,
+        title: body.title, hook: body.hook, caption: body.caption, firstComment: body.firstComment || undefined, cover: body.cover || v.cover,
         lines: lines.map((l) => l.text), draft: { lines },
       }))!));
     }

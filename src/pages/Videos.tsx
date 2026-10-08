@@ -3,6 +3,7 @@ import { api, fileUrl, type Status, type Video } from '../lib/api';
 import { VideoDetail } from '../components/VideoDetail';
 import { StatusChip, toast, when } from '../components/ui';
 import { CATEGORIES, LISTY, findCategory, type Niche } from '../lib/niches';
+import { EXTRA_LABEL, type Extra } from '../lib/types';
 import { useSettings } from '../lib/useSettings';
 import { NichePicker } from '../components/NichePicker';
 import { Fold, VideoStyle } from '../components/VideoStyle';
@@ -78,6 +79,20 @@ export function Videos() {
   const [idea, setIdea] = useState<Idea | null>(null);
   const [ideas, setIdeas] = useState<Idea[] | null>(null);
   const [ideasBusy, setIdeasBusy] = useState(false);
+  // Extras: remembered on this device for next time.
+  const [extras, setExtrasState] = useState<Extra[]>(() => {
+    try {
+      return (JSON.parse(localStorage.getItem('tt.extras') ?? '[]') as Extra[]).filter((e) => e in EXTRA_LABEL);
+    } catch {
+      return [];
+    }
+  });
+  const setExtras = (e: Extra[]) => {
+    setExtrasState(e);
+    try {
+      localStorage.setItem('tt.extras', JSON.stringify(e));
+    } catch { /* private mode: fine */ }
+  };
   const loadIdeas = async () => {
     setIdeasBusy(true);
     try {
@@ -99,7 +114,7 @@ export function Videos() {
   const makeNow = async () => {
     setBusy(true);
     try {
-      toast('info', (await api.makeNow({ subject, pick, ideaUrl: idea?.url })).message);
+      toast('info', (await api.makeNow({ subject, pick, ideaUrl: idea?.url, extras })).message);
       setWatchFrom(new Date(Date.now() - 60_000).toISOString());
       setWatchUntil(Date.now() + 15 * 60_000);
       setSubject('');
@@ -126,7 +141,7 @@ export function Videos() {
           <button className="btn" onClick={() => void load()}>↻ Refresh</button>
         </div>
       </div>
-      <MakeNow subject={subject} onSubject={setSubject} pick={pick} onPick={choosePick} ideaUrl={idea?.url} onIdea={chooseIdea} ideas={ideas} ideasBusy={ideasBusy} onIdeas={() => void loadIdeas()} busy={busy} onMake={() => void makeNow()} niche={niche} />
+      <MakeNow subject={subject} onSubject={setSubject} pick={pick} onPick={choosePick} ideaUrl={idea?.url} onIdea={chooseIdea} ideas={ideas} ideasBusy={ideasBusy} onIdeas={() => void loadIdeas()} busy={busy} onMake={() => void makeNow()} niche={niche} extras={extras} onExtras={setExtras} />
       {settings && (
         <>
           <Fold id="channel" title="My channel" subtitle={niche ? `${findCategory(niche.category)?.emoji ?? ''} ${findCategory(niche.category)?.label ?? ''} · used for every video` : 'Anything trending · tap to choose your niche'}>
@@ -194,7 +209,11 @@ export function MakeNow(p: {
   ideaUrl?: string; onIdea: (i: Idea | null) => void;
   ideas: Idea[] | null; ideasBusy?: boolean; onIdeas: () => void;
   busy?: boolean; onMake: () => void; niche?: Niche | null;
+  extras?: Extra[]; onExtras?: (e: Extra[]) => void;
 }) {
+  const extras = p.extras ?? [];
+  const topicHint = !p.ideaUrl && (LISTY.test(p.subject) || extras.includes('quiz'));
+  const toggle = (e: Extra) => p.onExtras?.(extras.includes(e) ? extras.filter((x) => x !== e) : [...extras, e]);
   const [catId, subId] = p.pick.split(':');
   const cat = findCategory(catId);
   const where = cat ? `${cat.label}${subId ? ` · ${cat.subs.find((x) => x.id === subId)?.label ?? ''}` : ''}` : p.niche ? 'your channel' : 'today\'s top trends';
@@ -227,7 +246,16 @@ export function MakeNow(p: {
         </div>
         <button type="submit" className="btn-primary shrink-0" disabled={p.busy}>{p.busy ? <><span className="spinner" /> Starting…</> : p.subject.trim() ? '+ Make it about this' : '+ Make a video now'}</button>
       </div>
-      <p className="text-xs text-slate-500">{p.subject.trim() ? `${LISTY.test(p.subject) && !p.ideaUrl ? '📚 Topic video: well-known facts about' : 'Uses the latest news about'} "${p.subject.trim().slice(0, 60)}${p.subject.trim().length > 60 ? '…' : ''}"${!LISTY.test(p.subject) && !p.ideaUrl ? ' (or well-known facts if it\'s not in the news)' : ''}${cat ? `, in the style of ${where}` : p.ideaUrl && p.niche ? ', in the style of your channel' : ', any topic (no need to pick a category)'}.` : `Empty: the app picks the best story from ${where}.`}</p>
+      <div className="space-y-1.5">
+        <p className="text-xs text-slate-400">Extras for this video <span className="text-slate-500">· pick any, or none</span></p>
+        <div className="flex flex-wrap gap-1.5">
+          {(Object.keys(EXTRA_LABEL) as Extra[]).map((e) => (
+            <button key={e} type="button" className={chip(extras.includes(e))} onClick={() => toggle(e)} aria-pressed={extras.includes(e)} title={EXTRA_LABEL[e][1]}>{EXTRA_LABEL[e][0]}</button>
+          ))}
+        </div>
+        {extras.length > 0 && <ul className="space-y-0.5 text-xs text-slate-400">{extras.map((e) => <li key={e}><b className="text-slate-300">{EXTRA_LABEL[e][0].replace(/([^?])$/, '$1:')}</b> {EXTRA_LABEL[e][1]}</li>)}</ul>}
+      </div>
+      <p className="text-xs text-slate-500">{p.subject.trim() ? `${topicHint ? '📚 Topic video: well-known facts about' : 'Uses the latest news about'} "${p.subject.trim().slice(0, 60)}${p.subject.trim().length > 60 ? '…' : ''}"${!topicHint && !p.ideaUrl ? ' (or well-known facts if it\'s not in the news)' : ''}${cat ? `, in the style of ${where}` : p.ideaUrl && p.niche ? ', in the style of your channel' : ', any topic (no need to pick a category)'}.` : `Empty: the app picks the best story from ${where}.`}</p>
 
       <div className="space-y-2 border-t border-white/10 pt-3">
         <div className="flex flex-wrap items-center justify-between gap-2">

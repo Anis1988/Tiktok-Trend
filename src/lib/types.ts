@@ -27,8 +27,17 @@ export interface DraftLine {
   character?: string; // a fictional character to show, "Name | Work", e.g. "Levi Ackerman | Attack on Titan"
   object?: string; // a concrete thing to show a photo of, e.g. "red apple"
   label?: string; // big on-screen title for this scene, e.g. "#3 Levi Ackerman"
+  quiz?: 'hide' | 'reveal'; // "Guess who?" videos: picture hidden (blurred) on this line, then shown sharp with a flash
   media?: string; // a clip from "My clips" chosen for this scene (its id), or "stock" to never use one
 }
+
+/** Extras you pick for one video ("Make a video now"). */
+export type Extra = 'quiz' | 'fast' | 'cover';
+export const EXTRA_LABEL: Record<Extra, [string, string]> = {
+  quiz: ['🎯 Guess who?', 'A quiz: the picture starts blurred with a big "?", then a flash reveals who it is. Best with a subject, e.g. "Attack on Titan characters".'],
+  fast: ['⚡ Fast pacing', 'Shorter lines and a quick zoom on the key word, so the picture changes every 2 to 3 seconds.'],
+  cover: ['🖼️ Bold cover', 'The first frame is a poster with 2 to 5 big words, so it stands out on your profile and in search.'],
+};
 
 /** A clip or picture you uploaded ("My clips"), used when a scene mentions one of its tags. */
 export interface MediaItem {
@@ -67,6 +76,8 @@ export interface VideoRecord {
   draft?: { lines: DraftLine[] };
   pick?: string; // category picked for this one video, e.g. "gaming:nintendo"
   topicVideo?: boolean; // a topic video (ranking, top 10, fun facts): written from well-known facts, not news
+  extras?: Extra[]; // extras picked for this video (quiz, fast pacing, bold cover)
+  cover?: string; // the big words on the cover (first frame), when "Bold cover" is on
   fileRemovedAt?: string; // the video file was deleted by the auto clean-up (the text is kept)
   tiktok?: { publishId?: string; sentAt?: string; status?: string };
 }

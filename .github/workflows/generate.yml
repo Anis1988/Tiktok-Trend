@@ -25,6 +25,10 @@ on:
         description: 'Link of the idea picked in the app (optional, filled in by the app)'
         required: false
         default: ''
+      extras:
+        description: 'Extras for this video (optional, filled in by the app): quiz, fast, cover (comma separated)'
+        required: false
+        default: ''
       render_id:
         description: 'Build the video for a checked script (filled in by the app)'
         required: false
@@ -104,6 +108,7 @@ jobs:
           PIPER_DIR: .piper
           SUBJECT: ${{ inputs.subject }}
           PICK: ${{ inputs.pick }}
+          EXTRAS: ${{ inputs.extras }}
           IDEA_URL: ${{ inputs.idea_url }}
           RENDER_ID: ${{ inputs.render_id }}
           SAMPLE: ${{ inputs.sample && '1' || '0' }}

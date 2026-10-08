@@ -1,4 +1,4 @@
-import type { AppSettings, DraftLine, MediaItem, VideoRecord } from './types';
+import type { AppSettings, DraftLine, Extra, MediaItem, VideoRecord } from './types';
 
 export type Video = VideoRecord & { sig: string };
 
@@ -122,10 +122,10 @@ export const api = {
   video: (id: string, sig?: string) => call<Video>(`/api/videos?id=${encodeURIComponent(id)}${sig ? `&sig=${encodeURIComponent(sig)}` : ''}`),
   act: (action: 'approve' | 'reject' | 'posted' | 'retry' | 'build', id: string, sig?: string) => post<Video>('/api/videos', { action, id, sig }),
   deleteVideo: (id: string, sig?: string) => post<{ ok: boolean }>('/api/videos', { action: 'delete', id, sig }),
-  saveScript: (id: string, sig: string | undefined, s: { title: string; hook: string; caption: string; firstComment: string; lines: DraftLine[] }) =>
+  saveScript: (id: string, sig: string | undefined, s: { title: string; hook: string; caption: string; firstComment: string; cover?: string; lines: DraftLine[] }) =>
     post<Video>('/api/videos', { action: 'save-script', id, sig, ...s }),
-  makeNow: (o: { subject?: string; pick?: string; ideaUrl?: string } = {}) =>
-    post<{ ok: boolean; message: string }>('/api/videos', { action: 'make-now', subject: o.subject?.trim() || undefined, pick: o.pick || undefined, ideaUrl: o.ideaUrl || undefined }),
+  makeNow: (o: { subject?: string; pick?: string; ideaUrl?: string; extras?: Extra[] } = {}) =>
+    post<{ ok: boolean; message: string }>('/api/videos', { action: 'make-now', subject: o.subject?.trim() || undefined, pick: o.pick || undefined, ideaUrl: o.ideaUrl || undefined, extras: o.extras?.length ? o.extras : undefined }),
   ideas: (pick?: string) => call<{ ideas: { title: string; url: string; site?: string; tag: string }[] }>(`/api/ideas${pick ? `?pick=${encodeURIComponent(pick)}` : ''}`),
   settings: () => call<AppSettings>('/api/settings'),
   saveSettings: (s: Partial<AppSettings>) => post<AppSettings>('/api/settings', s),

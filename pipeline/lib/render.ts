@@ -24,6 +24,7 @@ export interface Scene {
   image?: string | null; // a still photo (real photo or your picture), shown as a framed card over a blurred copy
   credit?: string; // small credit line during this scene (free-licence photos and clips)
   label?: string; // big title at the top during this scene, e.g. "#3 Levi Ackerman"
+  quiz?: 'hide' | 'reveal'; // "Guess who?": picture blurred with a big "?", then shown sharp after a white flash
 }
 
 export interface RenderOptions {
@@ -36,6 +37,8 @@ export interface RenderOptions {
   captionColor?: string; // #RRGGBB of the spoken word
   captionSize?: 'medium' | 'big';
   endCard?: { title: string; subtitle?: string }; // "Follow for more <title>" + your name
+  fast?: boolean; // fast pacing: quicker transitions and a punch-in zoom on each line's key word
+  cover?: string; // bold cover: these words big on the first frame (poster for the profile grid and search)
 }
 
 /** "#RRGGBB" -> ASS colour "&H00BBGGRR&". */
@@ -86,7 +89,7 @@ const assTime = (t: number) => {
 };
 const assText = (s: string) => s.toUpperCase().replace(/[{}\\]/g, '');
 
-export interface CaptionLine { text: string; start: number; dur: number; keywords?: string[]; credit?: string; label?: string }
+export interface CaptionLine { text: string; start: number; dur: number; keywords?: string[]; credit?: string; label?: string; quiz?: 'hide' | 'reveal' }
 
 /**
  * ASS subtitle file: 1 to 3 words at a time, white bold with a thick outline; the spoken word in the caption colour,
@@ -106,6 +109,10 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
     'Style: Hook,DejaVu Sans,96,&H00FFFFFF,&H00FFFFFF,&H30000000,&H00000000,-1,0,0,0,100,100,0,0,3,26,0,5,90,90,0,1',
     // Scene title ("#3 Levi Ackerman"): big bold words with a thick outline at the top.
     'Style: Label,DejaVu Sans,74,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,-1,0,0,0,100,100,1,0,1,8,3,5,70,70,0,1',
+    // Cover: huge words in the middle of the first frame.
+    'Style: Cover,DejaVu Sans,124,&H00FFFFFF,&H00FFFFFF,&H00000000,&HA0000000,-1,0,0,0,100,100,0,0,1,11,5,5,70,70,0,1',
+    // Quiz: a giant "?" over the blurred picture.
+    'Style: Quiz,DejaVu Sans,420,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,-1,0,0,0,100,100,0,0,1,14,6,5,60,60,0,1',
     'Style: Credit,DejaVu Sans,28,&H30FFFFFF,&H30FFFFFF,&H80000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,5,60,60,0,1',
     'Style: End,DejaVu Sans,84,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,-1,0,0,0,100,100,1,0,1,8,3,5,90,90,0,1', '',
     '[Events]', 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
@@ -126,7 +133,9 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
           if (key) return `{\\c${accent}\\fscx108\\fscy108}${assText(x.text)}{\\r}`;
           return assText(x.text);
         }).join(' ');
-        events.push(`Dialogue: 0,${assTime(w.from)},${assTime(end)},Cap,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.6)})${pop}}${body}`);
+        // With a cover, the first frames show only the cover (the poster TikTok picks).
+        const from = o.cover ? Math.max(w.from, 0.2) : w.from;
+        if (end > from) events.push(`Dialogue: 0,${assTime(from)},${assTime(end)},Cap,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.6)})${pop}}${body}`);
       });
     });
   }
@@ -144,9 +153,20 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
     const text = m ? `{\\c${accent}\\fs${Math.round(fs * 1.3)}}${m[1].replace(/\s/g, '')}{\\r\\fs${fs}}${m[2] ? ` ${assText(m[2])}` : ''}` : `{\\fs${fs}}${assText(label)}`;
     events.push(`Dialogue: 2,${assTime(l.start)},${assTime(l.start + l.dur + GAP)},Label,,0,0,0,,{\\an8\\pos(${W / 2},${Math.round(H * 0.11)})\\fad(150,150)\\fscx70\\fscy70\\t(0,180,\\fscx100\\fscy100)}${text}`);
   }
+  for (const l of lines) {
+    if (l.quiz !== 'hide') continue;
+    events.push(`Dialogue: 1,${assTime(l.start)},${assTime(l.start + l.dur + GAP)},Quiz,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.4)})\\c${accent}\\fad(120,80)\\t(0,500,\\fscx112\\fscy112)\\t(500,1000,\\fscx100\\fscy100)}?`);
+  }
+  const coverEnd = o.cover ? 1.2 : 0;
+  if (o.cover) {
+    // No fade-in: the very first frame shows the whole cover (TikTok uses it as the poster).
+    const words = assText(o.cover).slice(0, 40).split(/\s+/).filter(Boolean);
+    const cover = words.length > 2 ? `{\\c${accent}}${words.slice(0, 2).join(' ')}{\\r}\\N${words.slice(2).join(' ')}` : `{\\c${accent}}${words.join(' ')}`;
+    events.push(`Dialogue: 3,${assTime(0)},${assTime(coverEnd)},Cover,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.42)})\\fad(0,180)}${cover}`);
+  }
   if (o.hook) {
-    const until = Math.min(2.4, lines[1]?.start ?? 2.4, o.total ?? 2.4);
-    events.push(`Dialogue: 1,${assTime(0)},${assTime(until)},Hook,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.25)})\\fad(120,220)\\fscx70\\fscy70\\t(0,160,\\fscx100\\fscy100)}${assText(o.hook)}`);
+    const until = Math.max(coverEnd + 1.2, Math.min(2.4, lines[1]?.start ?? 2.4, o.total ?? 2.4));
+    events.push(`Dialogue: 1,${assTime(coverEnd)},${assTime(until)},Hook,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.25)})\\fad(120,220)\\fscx70\\fscy70\\t(0,160,\\fscx100\\fscy100)}${assText(o.hook)}`);
   }
   if (o.endCard && o.voiceEnd !== undefined && o.total !== undefined) {
     const sub = o.endCard.subtitle ? `\\N{\\fs56\\c&H00FFFFFF&}${o.endCard.subtitle.replace(/[{}\\]/g, '')}` : '';
@@ -188,21 +208,26 @@ async function cleanLine(wav: string, out: string): Promise<number> {
   return durationOf(out);
 }
 
-/** One scene's picture: cropped to 9:16, a slow zoom (in or out), the niche's picture tone, FADE longer than its sound. */
-async function renderScene(s: Scene, i: number, dur: number, dir: string, tail: number, grade: string): Promise<string> {
-  const len = dur + FADE + tail;
-  const z = i % 2 === 0 ? `(1+0.07*t/${len.toFixed(2)})` : `(1.07-0.07*t/${len.toFixed(2)})`;
+/**
+ * One scene's picture: cropped to 9:16, a slow zoom (in or out), the niche's picture tone, `fade` longer than its sound.
+ * punchAt (fast pacing): a quick zoom-in at that second, on the line's key word. Quiz "hide": the picture is blurred.
+ */
+async function renderScene(s: Scene, i: number, dur: number, dir: string, tail: number, grade: string, fade = FADE, punchAt?: number): Promise<string> {
+  const len = dur + fade + tail;
+  const slow = i % 2 === 0 ? `(1+0.07*t/${len.toFixed(2)})` : `(1.07-0.07*t/${len.toFixed(2)})`;
+  const z = punchAt !== undefined ? `${slow}*if(gte(t,${punchAt.toFixed(2)}),1.14,1)` : slow;
+  const hidden = s.quiz === 'hide' ? 'boxblur=38:6,eq=brightness=-0.12:saturation=0.6,' : '';
   const vf = [
     `scale=${W}:${H}:force_original_aspect_ratio=increase`, `crop=${W}:${H}`, `fps=${FPS}`,
     `scale=w='trunc(${W}*${z}/2)*2':h=-2:eval=frame:flags=bicubic`, `crop=${W}:${H}`, 'setsar=1', grade,
-  ].join(',');
+  ].join(',').replace(/,{2,}/g, ',');
   const video = `${dir}/v${i}.mp4`;
   const enc = ['-t', len.toFixed(3), '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '16', '-pix_fmt', 'yuv420p', video];
   if (s.image) {
     // Photo card: the whole photo, sharp, with a thin white frame, over a blurred and darkened copy filling the screen.
     const card = [
       `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},boxblur=28:4,eq=brightness=-0.22[bg]`,
-      `[1:v]scale=w=${W - 120}:h=${Math.round(H * (s.label ? 0.5 : 0.58))}:force_original_aspect_ratio=decrease,pad=iw+14:ih+14:7:7:color=white@0.92[fg]`,
+      `[1:v]scale=w=${W - 120}:h=${Math.round(H * (s.label ? 0.5 : 0.58))}:force_original_aspect_ratio=decrease,${hidden}pad=iw+14:ih+14:7:7:color=white@0.92[fg]`,
       `[bg][fg]overlay=x=(W-w)/2:y='(H-h)/2-${Math.round(H * (s.label ? 0.03 : 0.07))}+90*pow(max(0,1-t/0.5),3)',${vf.replace(`scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},`, '')}[out]`,
     ].join(';');
     await run('ffmpeg', ['-y', '-v', 'error', '-loop', '1', '-framerate', String(FPS), '-i', s.image, '-loop', '1', '-framerate', String(FPS), '-i', s.image, '-filter_complex', card, '-map', '[out]', ...enc]);
@@ -210,7 +235,7 @@ async function renderScene(s: Scene, i: number, dur: number, dir: string, tail: 
   }
   const [c0, c1] = BACKGROUNDS[i % BACKGROUNDS.length];
   const input = s.clip ? ['-stream_loop', '-1', ...(s.clipStart ? ['-ss', s.clipStart.toFixed(2)] : []), '-i', s.clip] : ['-f', 'lavfi', '-i', `gradients=s=${W}x${H}:c0=${c0}:c1=${c1}:speed=0.008:r=${FPS}`];
-  await run('ffmpeg', ['-y', '-v', 'error', ...input, '-vf', vf, ...enc]);
+  await run('ffmpeg', ['-y', '-v', 'error', ...input, '-vf', `${hidden}${vf}`, ...enc]);
   return video;
 }
 
@@ -247,12 +272,21 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
   const voiceEnd = durs.reduce((a, b) => a + b, 0);
   const total = voiceEnd + tail;
 
+  // Fast pacing: quicker transitions, and a punch-in zoom on each line's key word (or half-way through a long line).
+  const fade = o.fast ? 0.28 : FADE;
+  const punch = scenes.map((s, i) => {
+    if (!o.fast || durs[i] < 2.2 || s.quiz) return undefined;
+    const keys = new Set((s.keywords ?? []).flatMap((k) => k.split(/\s+/)).map(norm).filter(Boolean));
+    const word = timeWords(s.text, 0, durs[i] - GAP).find((w) => keys.has(norm(w.text)));
+    const at = word && word.from > 0.5 ? word.from : durs[i] / 2;
+    return at + fade / 2;
+  });
   const videos: string[] = [];
-  for (const [i, s] of scenes.entries()) videos.push(await renderScene(s, i, durs[i], dir, i === scenes.length - 1 ? tail : 0, look.grade));
+  for (const [i, s] of scenes.entries()) videos.push(await renderScene(s, i, durs[i], dir, i === scenes.length - 1 ? tail : 0, look.grade, fade, punch[i]));
 
   await writeFile(`${dir}/a.txt`, scenes.map((_, i) => `file '${resolve(`${dir}/a${i}.wav`)}'`).join('\n'));
   await run('ffmpeg', ['-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', `${dir}/a.txt`, '-af', `apad=pad_dur=${tail + 1}`, '-c:a', 'pcm_s16le', `${dir}/voice.wav`]);
-  const lines = scenes.map((s, i) => ({ text: s.text, start: starts[i], dur: durs[i] - GAP, keywords: s.keywords, credit: s.credit, label: s.label }));
+  const lines = scenes.map((s, i) => ({ text: s.text, start: starts[i], dur: durs[i] - GAP, keywords: s.keywords, credit: s.credit, label: s.label, quiz: s.quiz }));
   await writeFile(`${dir}/captions.ass`, captionsAss(lines, { ...o, look, voiceEnd, total }));
   if (o.music) await makeMusic(total + 1, `${dir}/music.wav`);
   const sfx = o.sfx ? await makeSfx(starts.slice(1), !!o.hook, total + 1, dir) : null;
@@ -263,12 +297,14 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
   let last = '[s0]';
   for (let i = 1; i < videos.length; i++) {
     const label = `[x${i}]`;
-    const t = TRANSITIONS[(i - 1) % TRANSITIONS.length];
-    graph.push(`${last}[s${i}]xfade=transition=${t}:duration=${FADE}:offset=${(starts[i] - FADE / 2).toFixed(3)}${label}`);
+    // Quiz answer: a white flash into the sharp picture.
+    const t = scenes[i].quiz === 'reveal' ? 'fadewhite' : TRANSITIONS[(i - 1) % TRANSITIONS.length];
+    graph.push(`${last}[s${i}]xfade=transition=${t}:duration=${fade}:offset=${(starts[i] - fade / 2).toFixed(3)}${label}`);
     last = label;
   }
   const accent = `0x${look.accent.replace('#', '')}`;
   const overlays = [
+    ...(o.cover ? ["drawbox=x=0:y=0:w=iw:h=ih:color=black@0.45:t=fill:enable='lt(t,1.2)'"] : []),
     ...(o.endCard ? [`drawbox=x=0:y=0:w=iw:h=ih:color=black@0.55:t=fill:enable='gte(t,${voiceEnd.toFixed(2)})'`] : []),
     ...(o.progress ? [`drawbox=x=0:y=0:w='max(6,iw*t/${total.toFixed(2)})':h=12:color=${accent}@0.95:t=fill`] : []),
   ];
@@ -289,6 +325,7 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
   await run('ffmpeg', ['-y', '-v', 'error', ...inputs, ...audioFiles.flatMap((f) => ['-i', f]), '-filter_complex', graph.join(';'), '-map', '[vout]', '-map', '[aout]',
     '-t', total.toFixed(3), '-r', String(FPS), '-c:v', 'libx264', '-preset', 'medium', '-crf', '21', '-maxrate', '5M', '-bufsize', '10M', '-profile:v', 'high', '-pix_fmt', 'yuv420p',
     '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-ac', '2', '-movflags', '+faststart', out]);
-  await run('ffmpeg', ['-y', '-v', 'error', '-ss', String(Math.min(1, total / 2)), '-i', out, '-frames:v', '1', '-vf', 'scale=540:-2', '-q:v', '3', thumb]);
+  // Thumbnail: the cover itself when there is one.
+  await run('ffmpeg', ['-y', '-v', 'error', '-ss', o.cover ? '0.1' : String(Math.min(1, total / 2)), '-i', out, '-frames:v', '1', '-vf', 'scale=540:-2', '-q:v', '3', thumb]);
   return durationOf(out);
 }
