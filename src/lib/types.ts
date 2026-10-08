@@ -24,6 +24,9 @@ export interface DraftLine {
   footage: string; // stock-footage search words
   keywords: string[]; // words that pop
   real?: string; // a real person / place / event to show (free photos and clips), e.g. "LeBron James"
+  character?: string; // a fictional character to show, "Name | Work", e.g. "Levi Ackerman | Attack on Titan"
+  object?: string; // a concrete thing to show a photo of, e.g. "red apple"
+  label?: string; // big on-screen title for this scene, e.g. "#3 Levi Ackerman"
   media?: string; // a clip from "My clips" chosen for this scene (its id), or "stock" to never use one
 }
 
@@ -77,6 +80,7 @@ export interface VideoEffects {
   endCard: boolean; // "Follow for more ..." at the end
   realMedia: boolean; // real photos and clips (Wikimedia, NASA) with a credit line
   myClips: boolean; // use your own clips when a scene mentions their tags
+  characters: boolean; // official pictures of anime / manga characters (AniList); copyrighted
 }
 
 export type CaptionColor = 'yellow' | 'cyan' | 'green' | 'pink' | 'white';
@@ -90,6 +94,7 @@ export const EFFECT_LABEL: Record<keyof VideoEffects, [string, string]> = {
   endCard: ['End card', '"Follow for more …" for the last 2 seconds, with your name.'],
   realMedia: ['Real photos & clips', 'Free-to-use real photos and clips (Wikimedia, NASA) of the people, places and events mentioned, with a small credit.'],
   myClips: ['Use my clips', 'When a scene mentions a tag of one of your clips (My clips), that clip is shown.'],
+  characters: ['Character pictures (official art, copyrighted)', 'Anime and manga characters are shown with their official picture (from AniList). These pictures belong to the studios: common in ranking videos, but a rights holder could claim one. You decide.'],
 };
 
 export type Tone = 'witty' | 'punchy' | 'explainer' | 'anchor';
@@ -134,7 +139,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   tone: 'witty',
   music: false,
   cleanup: { enabled: true, days: 30 },
-  effects: { hookCard: true, keywords: true, sfx: true, progress: true, nicheLook: true, endCard: true, realMedia: true, myClips: true },
+  effects: { hookCard: true, keywords: true, sfx: true, progress: true, nicheLook: true, endCard: true, realMedia: true, myClips: true, characters: true },
   captionStyle: { color: 'yellow', size: 'big' },
   endCardName: '',
   reviewScript: false,

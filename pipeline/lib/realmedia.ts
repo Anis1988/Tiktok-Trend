@@ -48,7 +48,7 @@ interface CommonsInfo {
   thumburl?: string; url: string; width: number; height: number; mime: string; descriptionurl?: string;
   extmetadata?: Record<string, { value?: string } | undefined>;
 }
-type Pages = { query?: { pages?: Record<string, { title?: string; missing?: string; imageinfo?: CommonsInfo[]; pageimage?: string }> } };
+type Pages = { query?: { pages?: Record<string, { title?: string; missing?: string; imageinfo?: CommonsInfo[]; pageimage?: string; pageprops?: { wikibase_item?: string } }> } };
 
 /** Picks a usable Commons file (free licence, big enough, photo-like) and returns it with its credit. */
 export function pickCommons(pages: Pages, mustContain: string[] = []): { url: string; credit: string; page: string; by: string } | null {
@@ -72,9 +72,18 @@ const commonsInfo = (q: string) =>
 
 /** The main photo of the matching Wikipedia article, if it is a free file on Commons; else a Commons search. */
 async function wikimedia(query: string, out: string): Promise<RealMedia | null> {
-  const wiki = await getJson<Pages>(`https://en.wikipedia.org/w/api.php?action=query&format=json&redirects=1&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=1&prop=pageimages&piprop=name`);
-  const name = Object.values(wiki.query?.pages ?? {})[0]?.pageimage;
+  const wiki = await getJson<Pages>(`https://en.wikipedia.org/w/api.php?action=query&format=json&redirects=1&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=1&prop=pageimages|pageprops&piprop=name&ppprop=wikibase_item`);
+  const page = Object.values(wiki.query?.pages ?? {})[0];
+  const name = page?.pageimage;
   let found = name ? pickCommons(await getJson<Pages>(commonsInfo(`titles=${encodeURIComponent(`File:${name}`)}`))) : null;
+  if (!found && page?.pageprops?.wikibase_item) {
+    // The article's main photo is not free (common for famous people): Wikidata's "image" is always a free Commons file.
+    const claims = await getJson<{ claims?: { P18?: { mainsnak?: { datavalue?: { value?: string } } }[] } }>(
+      `https://www.wikidata.org/w/api.php?action=wbgetclaims&format=json&property=P18&entity=${encodeURIComponent(page.pageprops.wikibase_item)}`,
+    ).catch(() => ({}) as { claims?: undefined });
+    const file = claims.claims?.P18?.[0]?.mainsnak?.datavalue?.value;
+    if (file) found = pickCommons(await getJson<Pages>(commonsInfo(`titles=${encodeURIComponent(`File:${file}`)}`)));
+  }
   if (!found) {
     // Commons search: only files whose name contains every word of the query (so it is really about it).
     const words = query.toLowerCase().split(/\s+/).filter((w) => w.length > 2);

@@ -38,12 +38,14 @@ async function sample() {
     log(`Subject search ${name}: ${r}`);
   }
   const voice = (process.env.SAMPLE_VOICE || 'af_heart') as AppSettings['voice'];
-  const lines: { text: string; footage: string; keywords?: string[]; real?: string }[] = [
-    { text: 'Your coffee order just got a promotion.', footage: 'coffee cup morning', keywords: ['promotion'] },
-    { text: 'This is a made-up example, so nothing here is real news.', footage: 'city street people walking' },
+  const lines: DraftLine[] = [
+    { text: 'Your coffee order just got a promotion.', footage: 'coffee cup morning', keywords: ['promotion'], object: 'coffee cup' },
+    { text: 'This is a made-up example, so nothing here is real news.', footage: 'city street people walking', keywords: [] },
+    { text: 'Number two: Levi, who would clean the cup before drinking it.', footage: 'anime city', keywords: ['Levi'], character: 'Levi Ackerman | Attack on Titan', label: '#2 Levi Ackerman' },
+    { text: 'Number one: LeBron James, who would dunk the sugar cube.', footage: 'basketball court', keywords: ['LeBron'], real: 'LeBron James', label: '#1 LeBron James' },
     { text: 'Picture sipping it right under the Eiffel Tower.', footage: 'paris cafe', real: 'Eiffel Tower', keywords: ['Eiffel Tower'] },
     { text: 'Or floating past Saturn, if space stations had a barista.', footage: 'space stars', real: 'Saturn', keywords: ['Saturn'] },
-    { text: 'Would you let a robot pick your coffee for a week?', footage: 'robot arm technology' },
+    { text: 'Would you let a robot pick your coffee for a week?', footage: 'robot arm technology', keywords: [] },
   ];
   const dir = 'out/sample';
   await mkdir(dir, { recursive: true });
@@ -52,9 +54,9 @@ async function sample() {
   for (const [i, l] of lines.entries()) {
     const wav = `${dir}/l${i}.wav`;
     await speak(l.text, voice, wav, true);
-    const v = await visualFor({ ...l, keywords: l.keywords ?? [] }, i, dir, { mine: null, real: true, used, credits: [] });
+    const v = await visualFor(l, i, dir, { mine: null, real: true, characters: true, used, credits: [] });
     if (v.credit) log(`Sample scene ${i + 1}: ${v.credit}`);
-    scenes.push({ text: l.text, wav, keywords: l.keywords ?? [], ...v });
+    scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, ...v });
   }
   const dur = await renderVideo(scenes, dir, `${dir}/video.mp4`, `${dir}/thumb.jpg`, {
     ...renderOptions({ ...DEFAULT_SETTINGS, niche: { category: 'food', subs: ['drinks'], focus: [], mix: 'niche' }, endCardName: '@yourname' }, lines[0].text),
@@ -154,7 +156,10 @@ async function main() {
     caption: sc.caption.slice(0, 150), firstComment: sc.firstComment.slice(0, 150) || undefined, hashtags: sc.hashtags.map((h) => h.replace(/^#/, '').replace(/\s+/g, '')).filter(Boolean).slice(0, 5),
     sources: sc.sources.map((i) => cand.headlines[i]).filter(Boolean), durationSec: 0, sizeBytes: 0,
     voice: s.voice, footage: [], model: MODEL,
-    draft: { lines: sc.lines.map((l) => ({ text: l.text, footage: l.footage, keywords: (l.keywords ?? []).slice(0, 3), real: l.real?.trim().slice(0, 80) || undefined })) },
+    draft: { lines: sc.lines.map((l) => ({
+      text: l.text, footage: l.footage, keywords: (l.keywords ?? []).slice(0, 3), real: l.real?.trim().slice(0, 80) || undefined,
+      character: l.character?.trim().slice(0, 100) || undefined, object: l.object?.trim().slice(0, 60) || undefined, label: l.label?.trim().slice(0, 40) || undefined,
+    })) },
     pick: pickRaw || undefined,
     topicVideo: cand.evergreen || undefined,
   };
@@ -205,10 +210,10 @@ async function build(base: VideoRecord, s: AppSettings) {
     for (const [i, l] of lines.entries()) {
       const wav = `${dir}/l${i}.wav`;
       await speak(l.text, s.voice, wav, s.tone === 'punchy' || s.tone === 'witty');
-      const v = await visualFor(l, i, dir, { mine: mine[i], real: s.effects.realMedia, used, credits });
+      const v = await visualFor(l, i, dir, { mine: mine[i], real: s.effects.realMedia, characters: s.effects.characters, used, credits });
       if (mine[i]) log(`Scene ${i + 1}: your clip "${mine[i]!.name}"`);
       else if (v.credit) log(`Scene ${i + 1}: ${v.credit}`);
-      scenes.push({ text: l.text, wav, keywords: l.keywords, ...v });
+      scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, ...v });
     }
     const mp4 = `${dir}/video.mp4`;
     const jpg = `${dir}/thumb.jpg`;

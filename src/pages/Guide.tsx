@@ -64,7 +64,7 @@ export function Guide() {
         <ol className="list-decimal space-y-2 pl-5">
           <li><b>Find a topic.</b> If you set up "My channel" (see below), the app reads today's news for your niche. Otherwise it looks at what people are searching for (Google Trends). You can also pick the subject for one video yourself (see "Choosing the subject").</li>
           <li><b>Write the script.</b> Claude picks one good topic and writes a 30 to 60 second script using only facts from the headlines. It tries 3 opening lines and keeps the one most likely to stop someone scrolling, adds a clever line or comparison, and ends with a punchline or a fun question. It also writes the caption and a witty comment for you to pin. It skips sad or risky subjects (deaths, disasters, crimes, elections, medical or money advice), and jokes are never about real people.</li>
-          <li><b>Make the video.</b> A natural-sounding AI voice (Kokoro) reads the script. Sharp stock clips from Pixabay play behind it with a slow zoom and soft fades between them. Captions show 1 to 3 words at a time, with the word being spoken in yellow. The sound is cleaned up and set to TikTok's standard loudness. Full HD vertical video (1080×1920), ready for TikTok.</li>
+          <li><b>Make the video.</b> A natural-sounding AI voice (Kokoro) reads the script. Sharp stock clips from Pixabay play behind it with a slow zoom and smooth transitions between them (glides, zooms, soft fades, taken in turn so the video keeps moving). Captions show 1 to 3 words at a time, with the word being spoken in yellow. The sound is cleaned up and set to TikTok's standard loudness. Full HD vertical video (1080×1920), ready for TikTok.</li>
           <li><b>Email you.</b> You get an email with a link. Watch it, then tap <b>Approve</b> or <b>Reject</b>.</li>
           <li><b>To TikTok.</b> Approved videos go to your TikTok drafts. You get a TikTok notification, add a sound if you like, and tap Post. Until TikTok is connected, you download it and post it yourself.</li>
         </ol>
@@ -102,15 +102,18 @@ export function Guide() {
         </ul>
       </Section>
 
-      <Section title="Real photos & clips">
-        <p>When a sentence is about a real, well-known person, place or event (a player, a stadium, a rocket launch, a planet), the AI notes its name and the app looks for a <b>real photo or clip that is free to use</b>:</p>
+      <Section title="Pictures of what the voice says">
+        <p>Viewers should <b>see</b> what the voice talks about. For each sentence the AI notes who or what it is about, and the app looks for a picture, best first:</p>
         <ul className="list-disc space-y-1.5 pl-5">
-          <li><b>Wikimedia Commons</b> (the photo library behind Wikipedia): people, places, buildings, cars, food, events. Only free licences; the photo shows with a small credit like "Photo: Jane Doe · CC BY-SA 4.0 · Wikimedia Commons".</li>
-          <li><b>NASA</b>: real space and science photos and videos (launches, planets, eclipses, Earth from space). Free for everyone.</li>
-          <li>Photos appear as a framed picture over a blurred copy, with a slow zoom. If nothing free is found, the scene uses stock footage as before.</li>
-          <li>Never used: news-agency photos, TV, film, anime, music or game footage. Those are copyrighted and TikTok mutes or removes them.</li>
-          <li>Wikimedia photos are often a little older (a past season or event), not from last night.</li>
-          <li>Turn it off in <b>Video style &amp; effects → Real photos &amp; clips</b>. The credits are also listed under each video (Footage).</li>
+          <li><b>Your clips</b> (My clips), when a sentence mentions one of their tags.</li>
+          <li><b>Characters</b> (anime, manga): the character's official picture from AniList, like "Levi Ackerman" from Attack on Titan. Shown with "© Attack on Titan". These pictures belong to the studios: very common in ranking videos, but a rights holder could claim one. Turn it off in <b>Video style &amp; effects → Character pictures</b>. Game and movie characters are not always found.</li>
+          <li><b>Real people, places and events</b>: a free photo from Wikimedia Commons (the library behind Wikipedia), or NASA for space. If the Wikipedia photo isn't free, the app tries the person's free photo on Wikidata. Credit like "Photo: Jane Doe · CC BY-SA 4.0 · Wikimedia Commons".</li>
+          <li><b>Things</b> (an apple, a basketball, a controller): a free photo from Pixabay (or Pexels).</li>
+          <li>Otherwise a stock video clip, as before.</li>
+          <li>Pictures appear as a framed card over a blurred copy, sliding gently into place with a slow zoom.</li>
+          <li><b>Titles:</b> in rankings, each place shows a big title at the top, like "<b>#3</b> LEVI ACKERMAN", with the number in your accent colour.</li>
+          <li>Never used: TV, film, anime or game <b>footage</b> (video). TikTok mutes or removes those.</li>
+          <li>Turn real photos off in <b>Video style &amp; effects → Real photos &amp; clips</b>. All credits are listed under each video (Footage).</li>
         </ul>
       </Section>
 
@@ -137,7 +140,7 @@ export function Guide() {
           <ScriptEditor example v={{ ...EXAMPLE, status: 'script', draft: { lines: EXAMPLE.lines.map((text, i) => ({ text, footage: ['night sky moon', 'telescope stars', 'earth from space', 'cloudy night', 'alarm clock'][i] ?? 'night sky', keywords: i === 0 ? ['villain era'] : [] })) } }} />
         </Example>
         <ul className="list-disc space-y-1.5 pl-5">
-          <li>Change any sentence, the hook, the caption or the comment. You can also change the footage search words, the words that pop, the real photo to look for, and pick one of your clips for a line.</li>
+          <li>Change any sentence, the hook, the caption or the comment. You can also change the footage search words, the words that pop, the real photo, character or thing to show, the title on screen (like "#3 Levi Ackerman"), and pick one of your clips for a line.</li>
           <li>Tap <b>Build video</b>: the video is made in 3 to 5 minutes and you get the usual email to approve it. Building uses no extra AI.</li>
           <li><b>Discard</b> if you don't like it: no video is made.</li>
         </ul>
@@ -173,7 +176,7 @@ export function Guide() {
           <li><b>When:</b> the subject has words like "top 10", "ranked", "tier list", "strongest", "of all time", "fun facts", "explained" or "who would win". Any other subject that isn't in the news also becomes a topic video.</li>
           <li><b>Rankings are opinions:</b> the video says so in a fun way ("fans will fight about this one") and counts down to number 1. Long lists go quickly through the lower places, and the top 3 get more time.</li>
           <li><b>Stories and games are fine:</b> anime, manga, games and movies, including their battles. Real-world tragedies are still skipped.</li>
-          <li><b>Pictures:</b> real photos only when a free one exists (no anime or game footage, because of copyright). Add your own clips in "My clips" for the best look.</li>
+          <li><b>Pictures:</b> every place in a ranking gets its own scene with the character's picture and a "#rank Name" title. Characters come from AniList (see "Pictures of what the voice says"); real people from Wikimedia. Add your own clips in "My clips" for even more variety.</li>
           <li><b>Check the facts:</b> topic videos show "📚 Topic video" under the script and have no news sources. Read the script before approving. Same cost as any video: one AI script.</li>
         </ul>
       </Section>

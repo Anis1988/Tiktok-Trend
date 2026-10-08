@@ -24,7 +24,8 @@ const Post = z.discriminatedUnion('action', [
     lines: z.array(z.object({
       text: z.string().trim().min(1).max(220), footage: z.string().trim().min(1).max(60), keywords: z.array(z.string().trim().max(30)).max(3),
       real: z.string().trim().max(80).optional(), media: z.string().max(30).optional(),
-    })).min(2).max(12),
+      character: z.string().trim().max(100).optional(), object: z.string().trim().max(60).optional(), label: z.string().trim().max(40).optional(),
+    })).min(2).max(14),
   }),
 ]);
 

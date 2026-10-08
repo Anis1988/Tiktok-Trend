@@ -7,7 +7,9 @@ export const W = 1080; // TikTok's native size: sharp on phones
 export const H = 1920;
 const FPS = 30;
 const GAP = 0.12; // seconds of silence after each line (tight, like a real voice-over)
-const FADE = 0.3; // crossfade between scenes
+const FADE = 0.4; // transition between scenes
+// Smooth transitions, taken in turn so the video keeps moving (a glide, a zoom, a soft fade…).
+export const TRANSITIONS = ['smoothleft', 'zoomin', 'smoothup', 'fade', 'smoothright', 'circleopen', 'smoothdown'];
 const TAIL = 0.5; // picture stays a moment after the last word
 const END_CARD = 2.2; // seconds of end card after the last word
 const FONT_DIR = process.env.CAPTION_FONT_DIR ?? '/usr/share/fonts/truetype/dejavu';
@@ -21,6 +23,7 @@ export interface Scene {
   keywords?: string[]; // words of this line that pop in colour
   image?: string | null; // a still photo (real photo or your picture), shown as a framed card over a blurred copy
   credit?: string; // small credit line during this scene (free-licence photos and clips)
+  label?: string; // big title at the top during this scene, e.g. "#3 Levi Ackerman"
 }
 
 export interface RenderOptions {
@@ -83,7 +86,7 @@ const assTime = (t: number) => {
 };
 const assText = (s: string) => s.toUpperCase().replace(/[{}\\]/g, '');
 
-export interface CaptionLine { text: string; start: number; dur: number; keywords?: string[]; credit?: string }
+export interface CaptionLine { text: string; start: number; dur: number; keywords?: string[]; credit?: string; label?: string }
 
 /**
  * ASS subtitle file: 1 to 3 words at a time, white bold with a thick outline; the spoken word in the caption colour,
@@ -101,6 +104,8 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
     `Style: Cap,DejaVu Sans,${size},&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,-1,0,0,0,100,100,1,0,1,9,4,5,110,150,0,1`,
     // Hook card: white words on a dark box near the top.
     'Style: Hook,DejaVu Sans,96,&H00FFFFFF,&H00FFFFFF,&H30000000,&H00000000,-1,0,0,0,100,100,0,0,3,26,0,5,90,90,0,1',
+    // Scene title ("#3 Levi Ackerman"): big bold words with a thick outline at the top.
+    'Style: Label,DejaVu Sans,74,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,-1,0,0,0,100,100,1,0,1,8,3,5,70,70,0,1',
     'Style: Credit,DejaVu Sans,28,&H30FFFFFF,&H30FFFFFF,&H80000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,5,60,60,0,1',
     'Style: End,DejaVu Sans,84,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,-1,0,0,0,100,100,1,0,1,8,3,5,90,90,0,1', '',
     '[Events]', 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
@@ -128,6 +133,16 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
   for (const l of lines) {
     if (!l.credit) continue;
     events.push(`Dialogue: 1,${assTime(l.start)},${assTime(l.start + l.dur + GAP)},Credit,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.7)})}${l.credit.replace(/[{}\\]/g, '').slice(0, 90)}`);
+  }
+  for (const l of lines) {
+    const label = l.label?.replace(/[{}\\]/g, '').trim().slice(0, 40);
+    if (!label) continue;
+    // "#3 Name" on one line: the rank bigger and in the accent colour; pops in, fades out with the scene.
+    // Below TikTok's top bar and above the photo card (which is smaller on titled scenes).
+    const m = label.match(/^(#\s?\d+)\s*[:.\-–]?\s*(.*)$/);
+    const fs = label.length > 20 ? 58 : 74;
+    const text = m ? `{\\c${accent}\\fs${Math.round(fs * 1.3)}}${m[1].replace(/\s/g, '')}{\\r\\fs${fs}}${m[2] ? ` ${assText(m[2])}` : ''}` : `{\\fs${fs}}${assText(label)}`;
+    events.push(`Dialogue: 2,${assTime(l.start)},${assTime(l.start + l.dur + GAP)},Label,,0,0,0,,{\\an8\\pos(${W / 2},${Math.round(H * 0.11)})\\fad(150,150)\\fscx70\\fscy70\\t(0,180,\\fscx100\\fscy100)}${text}`);
   }
   if (o.hook) {
     const until = Math.min(2.4, lines[1]?.start ?? 2.4, o.total ?? 2.4);
@@ -187,8 +202,8 @@ async function renderScene(s: Scene, i: number, dur: number, dir: string, tail: 
     // Photo card: the whole photo, sharp, with a thin white frame, over a blurred and darkened copy filling the screen.
     const card = [
       `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},boxblur=28:4,eq=brightness=-0.22[bg]`,
-      `[1:v]scale=w=${W - 120}:h=${Math.round(H * 0.58)}:force_original_aspect_ratio=decrease,pad=iw+14:ih+14:7:7:color=white@0.92[fg]`,
-      `[bg][fg]overlay=(W-w)/2:(H-h)/2-${Math.round(H * 0.07)},${vf.replace(`scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},`, '')}[out]`,
+      `[1:v]scale=w=${W - 120}:h=${Math.round(H * (s.label ? 0.5 : 0.58))}:force_original_aspect_ratio=decrease,pad=iw+14:ih+14:7:7:color=white@0.92[fg]`,
+      `[bg][fg]overlay=x=(W-w)/2:y='(H-h)/2-${Math.round(H * (s.label ? 0.03 : 0.07))}+90*pow(max(0,1-t/0.5),3)',${vf.replace(`scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},`, '')}[out]`,
     ].join(';');
     await run('ffmpeg', ['-y', '-v', 'error', '-loop', '1', '-framerate', String(FPS), '-i', s.image, '-loop', '1', '-framerate', String(FPS), '-i', s.image, '-filter_complex', card, '-map', '[out]', ...enc]);
     return video;
@@ -237,7 +252,7 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
 
   await writeFile(`${dir}/a.txt`, scenes.map((_, i) => `file '${resolve(`${dir}/a${i}.wav`)}'`).join('\n'));
   await run('ffmpeg', ['-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', `${dir}/a.txt`, '-af', `apad=pad_dur=${tail + 1}`, '-c:a', 'pcm_s16le', `${dir}/voice.wav`]);
-  const lines = scenes.map((s, i) => ({ text: s.text, start: starts[i], dur: durs[i] - GAP, keywords: s.keywords, credit: s.credit }));
+  const lines = scenes.map((s, i) => ({ text: s.text, start: starts[i], dur: durs[i] - GAP, keywords: s.keywords, credit: s.credit, label: s.label }));
   await writeFile(`${dir}/captions.ass`, captionsAss(lines, { ...o, look, voiceEnd, total }));
   if (o.music) await makeMusic(total + 1, `${dir}/music.wav`);
   const sfx = o.sfx ? await makeSfx(starts.slice(1), !!o.hook, total + 1, dir) : null;
@@ -248,7 +263,8 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
   let last = '[s0]';
   for (let i = 1; i < videos.length; i++) {
     const label = `[x${i}]`;
-    graph.push(`${last}[s${i}]xfade=transition=fade:duration=${FADE}:offset=${(starts[i] - FADE / 2).toFixed(3)}${label}`);
+    const t = TRANSITIONS[(i - 1) % TRANSITIONS.length];
+    graph.push(`${last}[s${i}]xfade=transition=${t}:duration=${FADE}:offset=${(starts[i] - FADE / 2).toFixed(3)}${label}`);
     last = label;
   }
   const accent = `0x${look.accent.replace('#', '')}`;
