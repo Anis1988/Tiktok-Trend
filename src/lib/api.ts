@@ -121,6 +121,7 @@ export const api = {
   videos: () => call<Video[]>('/api/videos'),
   video: (id: string, sig?: string) => call<Video>(`/api/videos?id=${encodeURIComponent(id)}${sig ? `&sig=${encodeURIComponent(sig)}` : ''}`),
   act: (action: 'approve' | 'reject' | 'posted' | 'retry' | 'build', id: string, sig?: string) => post<Video>('/api/videos', { action, id, sig }),
+  deleteVideo: (id: string) => post<{ ok: boolean }>('/api/videos', { action: 'delete', id }),
   saveScript: (id: string, sig: string | undefined, s: { title: string; hook: string; caption: string; firstComment: string; lines: DraftLine[] }) =>
     post<Video>('/api/videos', { action: 'save-script', id, sig, ...s }),
   makeNow: (o: { subject?: string; pick?: string; ideaUrl?: string } = {}) =>

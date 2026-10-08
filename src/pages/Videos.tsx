@@ -33,8 +33,10 @@ export function Videos() {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (quick = false) => {
     try {
+      // Quick (auto-refresh): only the video list, to keep server calls low.
+      if (quick) return setList(await api.videos());
       const [v, s] = await Promise.all([api.videos(), api.status()]);
       api.settings().then(setSettings, () => undefined);
       setList(v);
@@ -45,6 +47,31 @@ export function Videos() {
     }
   }, []);
   useEffect(() => void load(), [load]);
+
+  // Fresh list when you come back to the app (phone unlocked, tab switched back).
+  useEffect(() => {
+    const onShow = () => document.visibilityState === 'visible' && void load();
+    document.addEventListener('visibilitychange', onShow);
+    return () => document.removeEventListener('visibilitychange', onShow);
+  }, [load]);
+
+  // While a video is being made (after "Make a video now", or one is building), check every 20 seconds, up to 15 minutes.
+  const [watchUntil, setWatchUntil] = useState(0);
+  const [watchFrom, setWatchFrom] = useState('');
+  const building = list?.some((v) => v.status === 'building') ?? false;
+  const arrived = !!watchFrom && (list?.some((v) => v.createdAt > watchFrom && v.status !== 'building') ?? false);
+  useEffect(() => {
+    if (arrived) setWatchUntil(0);
+  }, [arrived]);
+  const watching = (watchUntil > 0 && !arrived) || building;
+  useEffect(() => {
+    if (!watching) return;
+    const t = window.setInterval(() => {
+      if (!building && Date.now() > watchUntil) return setWatchUntil(0);
+      if (document.visibilityState === 'visible') void load(true);
+    }, 20_000);
+    return () => window.clearInterval(t);
+  }, [watching, building, watchUntil, load]);
 
   const [subject, setSubject] = useState('');
   const [pick, setPick] = useState('');
@@ -73,6 +100,8 @@ export function Videos() {
     setBusy(true);
     try {
       toast('info', (await api.makeNow({ subject, pick, ideaUrl: idea?.url })).message);
+      setWatchFrom(new Date(Date.now() - 60_000).toISOString());
+      setWatchUntil(Date.now() + 15 * 60_000);
       setSubject('');
       setIdea(null);
     } catch (e) {
@@ -91,6 +120,7 @@ export function Videos() {
         <div>
           <h2 className="text-2xl font-semibold">Videos</h2>
           <p className="text-sm text-slate-400">{list ? `${waiting} waiting for you · ${list.length} in total` : 'Loading…'}{status ? ` · AI today ${status.ai.used}/${status.ai.limit}` : ''}</p>
+          {watching && <p className="text-xs text-violet-200"><span className="spinner" /> A video is being made (3 to 5 minutes). This list updates by itself.</p>}
         </div>
         <div className="flex gap-2">
           <button className="btn" onClick={() => void load()}>↻ Refresh</button>
@@ -117,7 +147,7 @@ export function Videos() {
       {selected && (
         <section className="card space-y-3">
           <button className="btn-ghost !px-0" onClick={() => setOpen(null)}>← All videos</button>
-          <VideoDetail v={selected} tiktokConnected={!!status?.tiktok.connected && !status.tiktok.expired} onChange={(n) => setList((l) => l?.map((x) => (x.id === n.id ? n : x)) ?? null)} />
+          <VideoDetail v={selected} tiktokConnected={!!status?.tiktok.connected && !status.tiktok.expired} onChange={(n) => setList((l) => l?.map((x) => (x.id === n.id ? n : x)) ?? null)} onDeleted={(id) => (setOpen(null), setList((l) => l?.filter((x) => x.id !== id) ?? null))} />
         </section>
       )}
 

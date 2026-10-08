@@ -9,7 +9,10 @@ import { DEFAULT_SETTINGS } from '../../src/lib/types';
 export function store(name: 'tt' | 'tt-files' | 'tt-media') {
   const siteID = process.env.NETLIFY_SITE_ID;
   const token = process.env.NETLIFY_AUTH_TOKEN;
-  return siteID && token ? getStore({ name, siteID, token }) : getStore(name);
+  if (siteID && token) return getStore({ name, siteID, token });
+  // In the website's functions, reads of the small data store are "strong": a video saved by GitHub a second ago
+  // shows at once (the default can be up to a minute old), and a save never starts from an old list.
+  return name === 'tt' ? getStore({ name, consistency: 'strong' }) : getStore(name);
 }
 
 export async function readJson<T>(key: string, fallback: T): Promise<T> {
@@ -42,6 +45,13 @@ export async function saveVideo(v: VideoRecord): Promise<void> {
   const all = await listVideos();
   const rest = all.filter((x) => x.id !== v.id);
   await writeJson('videos', [{ ...v, updatedAt: new Date().toISOString() }, ...rest].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 200));
+}
+
+/** Remove a video for good: its entry, the video file and the thumbnail. */
+export async function deleteVideo(id: string): Promise<void> {
+  const files = store('tt-files');
+  await Promise.all([files.delete(`${id}.mp4`), files.delete(`${id}.jpg`)]);
+  await writeJson('videos', (await listVideos()).filter((x) => x.id !== id));
 }
 
 export async function patchVideo(id: string, patch: Partial<VideoRecord>): Promise<VideoRecord | undefined> {

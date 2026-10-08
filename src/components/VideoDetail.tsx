@@ -8,7 +8,7 @@ import { VOICE_LABEL } from '../lib/types';
 const voiceText = (v: string) => VOICE_LABEL[v.replace(/^Kokoro /, '') as keyof typeof VOICE_LABEL] ?? v;
 
 /** Everything about one video, with the buttons that fit its status. Used in the app and on the email review page. */
-export function VideoDetail({ v, onChange, tiktokConnected, example = false }: { v: Video; onChange?: (v: Video) => void; tiktokConnected?: boolean; example?: boolean }) {
+export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, example = false }: { v: Video; onChange?: (v: Video) => void; onDeleted?: (id: string) => void; tiktokConnected?: boolean; example?: boolean }) {
   const [busy, setBusy] = useState('');
   const hasFile = v.sizeBytes > 0;
   const fullCaption = `${v.caption} ${v.hashtags.map((h) => `#${h}`).join(' ')}`.trim();
@@ -26,6 +26,23 @@ export function VideoDetail({ v, onChange, tiktokConnected, example = false }: {
       setBusy('');
     }
   };
+  // In the app only (not on the email review page): delete the video, its file and thumbnail for good.
+  const remove = async () => {
+    if (example || !window.confirm(`Delete "${v.title}" for good? The video file is removed too.${v.status === 'sent' ? ' (A copy already in your TikTok drafts stays there.)' : ''}`)) return;
+    setBusy('delete');
+    try {
+      await api.deleteVideo(v.id);
+      onDeleted?.(v.id);
+      toast('success', 'Video deleted.');
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy('');
+    }
+  };
+  const del = onDeleted && v.status !== 'building' && v.status !== 'publishing' && (
+    <button className="btn !border-red-300/30 text-red-200 hover:!border-red-300/60" disabled={!!busy} onClick={() => void remove()}>{busy === 'delete' ? <><span className="spinner" /> Deleting…</> : '🗑 Delete'}</button>
+  );
   const copy = async (text = fullCaption, what = 'Caption') => {
     try {
       await navigator.clipboard.writeText(text);
@@ -44,6 +61,7 @@ export function VideoDetail({ v, onChange, tiktokConnected, example = false }: {
         </div>
         {v.error && <p className="rounded-lg border border-red-300/40 bg-red-500/10 px-2 py-1.5 text-sm text-red-100">Last build failed: {v.error}</p>}
         <ScriptEditor key={`${v.id}:${v.updatedAt}`} v={v} onChange={onChange} example={example} />
+        {del && <div className="border-t border-white/10 pt-3">{del}</div>}
       </div>
     );
   }
@@ -83,6 +101,7 @@ export function VideoDetail({ v, onChange, tiktokConnected, example = false }: {
           )}
           {hasFile && <a className="btn" href={example ? undefined : fileUrl(v, 'mp4', true)} download>↓ Download</a>}
           <button className="btn" onClick={() => void copy()}>Copy caption</button>
+          {del}
         </div>
         {v.status === 'approved' && <p className="text-sm text-sky-100">{tiktokConnected ? 'Tap "Send to TikTok drafts", or ' : ''}Download it, then post it in the TikTok app. Paste the caption, add a sound if you like, and turn on <b>"AI-generated content"</b>.</p>}
         {v.status === 'sent' && <p className="text-sm text-emerald-100">It's in TikTok: open the TikTok app, check your notifications or inbox, then edit and post. Turn on <b>"AI-generated content"</b> before posting.</p>}

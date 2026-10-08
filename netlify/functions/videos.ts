@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { guard, json, linkGuard } from '../lib/guard';
-import { getTikTok, getVideo, listVideos, patchVideo } from '../lib/store';
+import { deleteVideo, getTikTok, getVideo, listVideos, patchVideo } from '../lib/store';
 import { sign, verify } from '../lib/sign';
 import { dispatch, dispatchReady } from '../lib/github';
 import type { VideoRecord } from '../../src/lib/types';
@@ -16,7 +16,7 @@ const Post = z.discriminatedUnion('action', [
     pick: z.string().regex(/^[a-z-]{2,30}(:[a-z0-9-]{2,30})?$/).optional(),
     ideaUrl: z.string().url().startsWith('https://').max(1000).optional(),
   }),
-  z.object({ action: z.enum(['approve', 'reject', 'posted', 'retry', 'build']), id: z.string().max(40), sig: z.string().max(64).optional() }),
+  z.object({ action: z.enum(['approve', 'reject', 'posted', 'retry', 'build', 'delete']), id: z.string().max(40), sig: z.string().max(64).optional() }),
   z.object({
     action: z.literal('save-script'), id: z.string().max(40), sig: z.string().max(64).optional(),
     title: z.string().trim().min(1).max(80), hook: z.string().trim().min(1).max(120),
@@ -35,6 +35,7 @@ const Post = z.discriminatedUnion('action', [
  * POST {action:'make-now', subject?} -> start a new video now, optionally about one subject (access code)
  * POST {action:'save-script'|'build', id, sig?} -> edit a script waiting to be checked / build its video
  * POST {action, id, sig?}       -> approve / reject / posted / retry (access code OR signed link)
+ * POST {action:'delete', id}    -> delete the video and its files for good (access code only, never the email link)
  */
 export default async (req: Request): Promise<Response> => {
   const url = new URL(req.url);
@@ -67,6 +68,15 @@ export default async (req: Request): Promise<Response> => {
       const subject = body.subject?.replace(/[\r\n]+/g, ' ') ?? '';
       await dispatch('generate.yml', { manual: 'true', subject, pick: body.pick ?? '', idea_url: body.ideaUrl ?? '' });
       return json({ ok: true, message: `Started${subject ? ` (about "${subject}")` : ''}. A new video takes 2 to 5 minutes; you will get an email.` });
+    }
+    if (body.action === 'delete') {
+      const noCode = guard(req, 'videos', 60);
+      if (noCode) return noCode;
+      const v = await getVideo(body.id);
+      if (!v) return json({ ok: true }); // already gone
+      if (v.status === 'building' || v.status === 'publishing') return json({ error: `This video is being ${v.status === 'building' ? 'built' : 'sent to TikTok'}. Try again in a few minutes.` }, 409);
+      await deleteVideo(v.id);
+      return json({ ok: true });
     }
     const v = await getVideo(body.id);
     if (!v) return json({ error: 'Video not found.' }, 404);
