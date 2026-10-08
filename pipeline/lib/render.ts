@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { durationOf, run } from './sh';
 import { DEFAULT_LOOK, type Look } from '../../src/lib/niches';
+import { alignLines, type Timing } from './align';
 
 export const W = 1080; // TikTok's native size: sharp on phones
 export const H = 1920;
@@ -90,7 +91,14 @@ const assTime = (t: number) => {
 };
 const assText = (s: string) => s.toUpperCase().replace(/[{}\\]/g, '');
 
-export interface CaptionLine { text: string; start: number; dur: number; keywords?: string[]; credit?: string; label?: string; quiz?: 'hide' | 'reveal'; countdown?: number }
+/** The words of a line with their times (absolute seconds). */
+function wordsOf(l: { text: string; start: number; dur: number; times?: Timing[] }): Word[] {
+  const words = l.text.split(/\s+/).filter(Boolean);
+  if (l.times?.length === words.length) return words.map((w, k) => ({ text: w, from: l.start + l.times![k].from, to: l.start + l.times![k].to }));
+  return timeWords(l.text, l.start, l.dur);
+}
+
+export interface CaptionLine { text: string; start: number; dur: number; times?: Timing[]; keywords?: string[]; credit?: string; label?: string; quiz?: 'hide' | 'reveal'; countdown?: number }
 
 /**
  * ASS subtitle file: 1 to 3 words at a time, white bold with a thick outline; the spoken word in the caption colour,
@@ -121,7 +129,8 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
   const events: string[] = [];
   for (const l of lines) {
     const keys = new Set(o.keywords ? (l.keywords ?? []).flatMap((k) => k.split(/\s+/)).map(norm).filter(Boolean) : []);
-    const groups = groupWords(timeWords(l.text, l.start, l.dur));
+    // Real word timings from the voice when available; otherwise timed by word length.
+    const groups = groupWords(wordsOf(l));
     groups.forEach((g, gi) => {
       // A chunk never outlives the next one, so two chunks are never on screen together.
       const nextStart = groups[gi + 1]?.[0].from ?? l.start + l.dur + GAP;
@@ -285,6 +294,9 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
   const extra = scenes.map((s) => (s.quiz === 'hide' ? COUNTDOWN : 0));
   for (const [i, s] of scenes.entries()) durs.push(await cleanLine(s.wav, `${dir}/a${i}.wav`, extra[i]));
   const starts = durs.map((_, i) => durs.slice(0, i).reduce((a, b) => a + b, 0));
+  // When each word is really said (speech recognition), so captions and the punch-in zoom land on the word.
+  const times = await alignLines(scenes.map((s, i) => ({ wav: `${dir}/a${i}.wav`, text: s.text, dur: durs[i] - GAP - extra[i] })));
+  console.log(`Word timing from the voice: ${times.filter(Boolean).length} of ${scenes.length} lines`);
   const voiceEnd = durs.reduce((a, b) => a + b, 0);
   const total = voiceEnd + tail;
 
@@ -293,7 +305,7 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
   const punch = scenes.map((s, i) => {
     if (!o.fast || durs[i] < 2.2 || s.quiz) return undefined;
     const keys = new Set((s.keywords ?? []).flatMap((k) => k.split(/\s+/)).map(norm).filter(Boolean));
-    const word = timeWords(s.text, 0, durs[i] - GAP).find((w) => keys.has(norm(w.text)));
+    const word = wordsOf({ text: s.text, start: 0, dur: durs[i] - GAP, times: times[i] ?? undefined }).find((w) => keys.has(norm(w.text)));
     const at = word && word.from > 0.5 ? word.from : durs[i] / 2;
     return at + fade / 2;
   });
@@ -302,7 +314,7 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
 
   await writeFile(`${dir}/a.txt`, scenes.map((_, i) => `file '${resolve(`${dir}/a${i}.wav`)}'`).join('\n'));
   await run('ffmpeg', ['-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', `${dir}/a.txt`, '-af', `apad=pad_dur=${tail + 1}`, '-c:a', 'pcm_s16le', `${dir}/voice.wav`]);
-  const lines = scenes.map((s, i) => ({ text: s.text, start: starts[i], dur: durs[i] - GAP - extra[i], keywords: s.keywords, credit: s.credit, label: s.label, quiz: s.quiz, countdown: extra[i] }));
+  const lines = scenes.map((s, i) => ({ text: s.text, start: starts[i], dur: durs[i] - GAP - extra[i], times: times[i] ?? undefined, keywords: s.keywords, credit: s.credit, label: s.label, quiz: s.quiz, countdown: extra[i] }));
   const ticks = scenes.flatMap((_, i) => (extra[i] ? Array.from({ length: COUNTDOWN }, (_, k) => starts[i] + durs[i] - extra[i] + k) : []));
   await writeFile(`${dir}/captions.ass`, captionsAss(lines, { ...o, look, voiceEnd, total }));
   if (o.music) await makeMusic(total + 1, `${dir}/music.wav`);

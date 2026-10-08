@@ -6,7 +6,7 @@ import { durationOf } from './sh';
 import { findClip } from './footage';
 import { findReal } from './realmedia';
 import { characterPicture, objectPhoto } from './pictures';
-import { chartClip, mapClip } from './graphics';
+import { chartClip, headlineClip, mapClip } from './graphics';
 import type { Scene } from './render';
 
 export interface Credit { by: string; url: string; site?: string }
@@ -34,7 +34,7 @@ const EXT: Record<string, string> = { 'video/mp4': 'mp4', 'video/quicktime': 'mo
  */
 export async function visualFor(
   l: DraftLine, i: number, dir: string,
-  o: { mine: MediaItem | null; real: boolean; characters: boolean; charts?: boolean; accent?: string; used: Set<string>; credits: Credit[] },
+  o: { mine: MediaItem | null; real: boolean; characters: boolean; charts?: boolean; headlines?: boolean; accent?: string; used: Set<string>; credits: Credit[] },
 ): Promise<Pick<Scene, 'clip' | 'clipStart' | 'image' | 'credit'>> {
   if (o.mine) {
     const out = `${dir}/mine${i}.${EXT[o.mine.type] ?? 'bin'}`;
@@ -43,6 +43,12 @@ export async function visualFor(
       // Long clips: start somewhere random, so the same clip looks different from video to video.
       const d = await durationOf(out).catch(() => 0);
       return { clip: out, clipStart: d > 12 ? Math.random() * (d - 10) : 0 };
+    }
+  }
+  if (o.headlines !== false && l.headline?.title) {
+    const out = `${dir}/head${i}.mp4`;
+    if (await headlineClip(l.headline, out, o.accent ?? '#22D3EE').catch((e) => (console.log('Headline card failed:', e instanceof Error ? e.message : e), false))) {
+      return { clip: out }; // the card itself names the source
     }
   }
   if (o.charts !== false && l.chart && l.chart.bars.length >= 2) {

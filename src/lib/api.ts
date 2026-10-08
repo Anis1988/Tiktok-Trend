@@ -134,6 +134,7 @@ export const api = {
   saveSettings: (s: Partial<AppSettings>) => post<AppSettings>('/api/settings', s),
   tiktokStart: () => post<{ url: string; redirectUri: string }>('/api/tiktok/start', {}),
   tiktokDisconnect: () => post<{ ok: boolean }>('/api/tiktok/disconnect', {}),
+  saveStats: (id: string, sig: string | undefined, views?: number, likes?: number) => post<Video>('/api/videos', { action: 'stats', id, sig, views, likes }),
   send: (platform: PlatformId, id: string, sig?: string, confirm?: boolean) => post<Video>('/api/videos', { action: 'send', platform, id, sig, confirm }),
   connectStart: (p: 'youtube' | 'meta') => post<{ url: string; redirectUri: string }>(`/api/connect/${p}/start`, {}),
   connectDisconnect: (p: 'youtube' | 'meta') => post<{ ok: boolean }>(`/api/connect/${p}/disconnect`, {}),

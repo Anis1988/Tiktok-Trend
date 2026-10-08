@@ -13,6 +13,7 @@ import { LISTY, bingNews, feedNews, findCandidates, nicheCandidates, subjectNews
 import { CATEGORIES, DEFAULT_LOOK, findCategory, subsOf, type Niche } from '../src/lib/niches';
 import { cleanUp } from '../netlify/lib/cleanup';
 import { MODEL, writeScript } from './lib/script';
+import { refreshStats, resultsNote } from '../netlify/lib/stats';
 import { speak, voiceUsed } from './lib/tts';
 import { footageReady } from './lib/footage';
 import { renderVideo, type RenderOptions, type Scene } from './lib/render';
@@ -48,6 +49,7 @@ async function sample() {
     { text: 'Or floating past Saturn, if space stations had a barista.', footage: 'space stars', real: 'Saturn', keywords: ['Saturn'] },
     { text: 'Made-up numbers: espresso beats latte, and tea is crying.', footage: 'coffee shop', keywords: ['espresso'], chart: { title: 'Made-up coffee poll', unit: '%', bars: [{ label: 'Espresso', value: 46 }, { label: 'Latte', value: 31 }, { label: 'Tea', value: 23 }] } },
     { text: 'And the best beans? Reports say they grow in Colombia.', footage: 'coffee beans', keywords: ['Colombia'], map: 'Colombia' },
+    { text: 'Even the headlines agree, and this one is made up too.', footage: 'newspaper', keywords: ['headlines'], headline: { title: 'Made-up example: coffee named the official drink of Mondays', site: 'Sample News' } },
     { text: 'Would you let a robot pick your coffee for a week?', footage: 'robot arm technology', keywords: [] },
   ];
   const dir = 'out/sample';
@@ -146,9 +148,14 @@ async function main() {
   }
   log(`${candidates.length} candidates`);
 
+  // Learn from your results: fresh YouTube / Instagram numbers, then your best and weakest videos for the AI.
+  await refreshStats(log);
+  const results = resultsNote(await listVideos());
+  if (results) log('Using your recent results to guide the script.');
+
   budget.n++;
   await writeJson('ai', budget);
-  const sc = await writeScript(candidates, s, extras, !!subject); // your own subject: only legal limits apply
+  const sc = await writeScript(candidates, s, extras, !!subject, results); // your own subject: only legal limits apply
   if (sc.pick < 0 || !candidates[sc.pick]) {
     if (subject) throw new Error(`The AI skipped "${subject}": ${sc.why}`);
     return log('The AI found nothing suitable today:', sc.why);
@@ -169,6 +176,7 @@ async function main() {
       quiz: l.quiz || undefined,
       chart: l.chartBars.length >= 2 ? { title: (l.chartTitle || sc.title).slice(0, 40), unit: l.chartUnit?.trim().slice(0, 12) || undefined, bars: l.chartBars.slice(0, 6).map((b) => ({ label: b.label.slice(0, 24), value: b.value })) } : undefined,
       map: l.map?.trim().slice(0, 60) || undefined,
+      headline: headlineOf(cand.headlines[l.headline]),
     })) },
     pick: pickRaw || undefined,
     topicVideo: cand.evergreen || undefined,
@@ -188,6 +196,13 @@ async function main() {
     return;
   }
   await build(base, s);
+}
+
+/** A headline for the card: Google News titles end in " - Site", which is shown separately. */
+function headlineOf(h: Candidate['headlines'][number] | undefined): DraftLine['headline'] {
+  if (!h?.title || h.site === 'Wikipedia' || h.site === 'YouTube') return undefined;
+  const title = h.site ? (h.title.endsWith(` - ${h.site}`) ? h.title.slice(0, -(h.site.length + 3)) : h.title) : h.title.replace(/\s+-\s+[^-]{2,40}$/, '');
+  return { title: title.trim().slice(0, 200), site: h.site?.slice(0, 60) };
 }
 
 /** The accent colour of the video's look (charts and maps use it too). */
@@ -228,7 +243,7 @@ async function build(base: VideoRecord, s: AppSettings) {
     for (const [i, l] of lines.entries()) {
       const wav = `${dir}/l${i}.wav`;
       await speak(l.text, s.voice, wav, s.tone === 'punchy' || s.tone === 'witty');
-      const v = await visualFor(l, i, dir, { mine: mine[i], real: s.effects.realMedia, characters: s.effects.characters, charts: s.effects.charts, accent: accentOf(s), used, credits });
+      const v = await visualFor(l, i, dir, { mine: mine[i], real: s.effects.realMedia, characters: s.effects.characters, charts: s.effects.charts, headlines: s.effects.headlines, accent: accentOf(s), used, credits });
       if (mine[i]) log(`Scene ${i + 1}: your clip "${mine[i]!.name}"`);
       else if (v.credit) log(`Scene ${i + 1}: ${v.credit}`);
       scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, ...v });

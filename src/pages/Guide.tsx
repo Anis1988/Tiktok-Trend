@@ -65,7 +65,7 @@ export function Guide() {
           <li><b>Find a topic.</b> If you set up "My channel" (see below), the app reads today's news for your niche, plus what's trending in that category on YouTube. Otherwise it mixes three free signals of what people care about right now: what they search (Google Trends), what they suddenly read on Wikipedia (articles read at least twice as much as usual, and Wikipedia's "In the news"), and YouTube's trending chart. You can also pick the subject for one video yourself (see "Choosing the subject").</li>
           <li><b>YouTube trending</b> needs YouTube connected in Settings (or a free <code>YOUTUBE_API_KEY</code>, see "Setting it up"); without it, the other sources are used.</li>
           <li><b>Write the script.</b> Claude picks one good topic and writes a 30 to 60 second script using only facts from the headlines. It tries 3 opening lines and keeps the one most likely to stop someone scrolling, adds a clever line or comparison, and ends with a punchline or a fun question. It also writes the caption and a witty comment for you to pin. No subject is skipped, on daily videos or ones you start (politics and politicians included). Only the legal limits stay: no false claims about real people, no copied lyrics or text, no private people, no hate. When <b>you</b> type or pick the subject, it always makes it.</li>
-          <li><b>Make the video.</b> A natural-sounding AI voice (Kokoro) reads the script. Sharp stock clips from Pixabay play behind it with a slow zoom and smooth transitions between them (glides, zooms, soft fades, taken in turn so the video keeps moving). Captions show 1 to 3 words at a time, with the word being spoken in yellow. The sound is cleaned up and set to TikTok's standard loudness. Full HD vertical video (1080×1920), ready for TikTok.</li>
+          <li><b>Make the video.</b> A natural-sounding AI voice (Kokoro) reads the script. Sharp stock clips from Pixabay play behind it with a slow zoom and smooth transitions between them (glides, zooms, soft fades, taken in turn so the video keeps moving). Captions show 1 to 3 words at a time, with the word being spoken in yellow, timed to the real voice (free speech recognition hears when each word is said). The sound is cleaned up and set to TikTok's standard loudness. Full HD vertical video (1080×1920), ready for TikTok.</li>
           <li><b>Email you.</b> You get an email with a link. Watch it, then tap <b>Approve</b> or <b>Reject</b>.</li>
           <li><b>To TikTok.</b> Approved videos go to your TikTok drafts. You get a TikTok notification, add a sound if you like, and tap Post. Until TikTok is connected, you download it and post it yourself.</li>
           <li><b>To other platforms (if you want).</b> Approved videos also get a separate Send button for each platform you connected: YouTube Shorts, Facebook Reels and Instagram Reels. See "Other platforms" below.</li>
@@ -101,6 +101,8 @@ export function Guide() {
           <li><b>Progress bar:</b> a thin line at the top fills up as the video plays, so people watch to the end.</li>
           <li><b>Niche look:</b> colours and picture tone that fit your category (for example neon green for Gaming, orange for Sports, warm for Food).</li>
           <li><b>End card:</b> for the last 2 seconds, "Follow for more Gaming" (your category) and your name.</li>
+          <li><b>Headline cards:</b> news videos show the real headline once, early on, as a clean white card with the source ("IN THE NEWS · Reuters") and today's date. It shows the story is real. Only the headline's words are used, never the article's photo.</li>
+          <li><b>Loop ending:</b> the last line leads straight back into the first, so when TikTok replays the video it feels like one sentence and people watch twice. For the smoothest loop, turn off the End card.</li>
         </ul>
       </Section>
 
@@ -205,6 +207,15 @@ export function Guide() {
         <ul className="list-disc space-y-1.5 pl-5">
           <li><b>🗑 Delete</b> removes a video for good: its entry, the video file and the picture. It asks you first. It's on the video in the app and on the page the email opens. A copy already sent to your TikTok drafts stays in TikTok, and the backup copy on the GitHub run page disappears by itself after 7 days.</li>
           <li>After "Make a video now", the list updates by itself every 20 seconds until the new video shows up (no need to tap Refresh). It also refreshes when you come back to the app.</li>
+        </ul>
+      </Section>
+
+      <Section title="Learning from your results">
+        <p>The app learns what works on <b>your</b> channel. Before writing each new script, it tells the AI which of your recent videos did best and worst (their topics, hooks and extras), so new videos lean toward what your viewers like.</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>TikTok:</b> a day or two after posting, open the video in the app and type its views (and likes, if you like) in <b>Results</b>, then tap Save. TikTok doesn't share numbers with small apps, so this is the only step you do by hand.</li>
+          <li><b>YouTube</b> views, likes and comments, and <b>Instagram</b> likes and comments, are read by themselves for videos sent there.</li>
+          <li>It starts once 3 videos have numbers, and looks at the last 60 days. It never copies a title or repeats a topic.</li>
         </ul>
       </Section>
 

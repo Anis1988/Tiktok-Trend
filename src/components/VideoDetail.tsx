@@ -87,6 +87,36 @@ export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, sendTo = 
       })}
     </div>
   );
+  // Results: YouTube / Instagram numbers come in by themselves; TikTok's are typed here (the AI learns from them).
+  const [views, setViews] = useState(v.stats?.tiktok?.views?.toString() ?? '');
+  const [likes, setLikes] = useState(v.stats?.tiktok?.likes?.toString() ?? '');
+  const num = (x: string) => (x.trim() === '' ? undefined : Math.max(0, Math.round(Number(x.replace(/[,\s]/g, '')) || 0)));
+  const saveStats = async () => {
+    if (example) return;
+    setBusy('stats');
+    try {
+      onChange?.(await api.saveStats(v.id, v.sig, num(views), num(likes)));
+      toast('success', 'Saved. The next videos learn from it.');
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy('');
+    }
+  };
+  const short = (x: number) => (x >= 1e6 ? `${(x / 1e6).toFixed(1)}M` : x >= 1e3 ? `${(x / 1e3).toFixed(1)}K` : String(x));
+  const statsBlock = (v.status === 'sent' || v.status === 'posted' || !!v.stats) && (
+    <div className="panel space-y-2">
+      <p className="label">Results</p>
+      {v.stats?.youtube && <p className="text-sm text-slate-300">▶ YouTube: {short(v.stats.youtube.views)} views · {short(v.stats.youtube.likes)} likes · {short(v.stats.youtube.comments)} comments</p>}
+      {v.stats?.instagram && <p className="text-sm text-slate-300">◎ Instagram: {short(v.stats.instagram.likes)} likes · {short(v.stats.instagram.comments)} comments</p>}
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="min-w-0 flex-1 basis-28 text-xs text-slate-400">TikTok views<input className="input mt-1 w-full" inputMode="numeric" placeholder="e.g. 12400" value={views} onChange={(e) => setViews(e.target.value)} /></label>
+        <label className="min-w-0 flex-1 basis-28 text-xs text-slate-400">TikTok likes<input className="input mt-1 w-full" inputMode="numeric" placeholder="optional" value={likes} onChange={(e) => setLikes(e.target.value)} /></label>
+        <button className="btn" disabled={!!busy} onClick={() => void saveStats()}>{busy === 'stats' ? <><span className="spinner" /> Saving…</> : 'Save'}</button>
+      </div>
+      <p className="text-xs text-slate-500">A day or two after posting, type the numbers from TikTok. New videos copy what works on your channel.</p>
+    </div>
+  );
   const del = onDeleted && v.status !== 'building' && v.status !== 'publishing' && !Object.values(v.platforms ?? {}).some((x) => x?.state === 'sending' && Date.now() - Date.parse(x.at) < 15 * 60_000) && (
     <button className="btn !border-red-300/30 text-red-200 hover:!border-red-300/60" disabled={!!busy} onClick={() => void remove()}>{busy === 'delete' ? <><span className="spinner" /> Deleting…</> : '🗑 Delete'}</button>
   );
@@ -154,6 +184,7 @@ export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, sendTo = 
         {v.status === 'sent' && <p className="text-sm text-emerald-100">It's in TikTok: open the TikTok app, check your notifications or inbox, then edit and post. Turn on <b>"AI-generated content"</b> before posting.</p>}
         {v.status === 'publishing' && <p className="text-sm text-violet-100">Sending to TikTok. This takes about a minute; refresh to see the result.</p>}
         {sendBlock}
+        {statsBlock}
 
         <div className="panel space-y-1">
           <p className="label">Caption</p>

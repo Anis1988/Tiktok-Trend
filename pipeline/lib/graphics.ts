@@ -104,6 +104,44 @@ export async function chartClip(c: ChartSpec, out: string, accent: string): Prom
   return true;
 }
 
+// ---------- headline cards ----------
+
+export interface HeadlineSpec { title: string; site?: string }
+
+/** One frame of the headline card: "IN THE NEWS", then a white card with the source and the headline slides up. */
+function headlineFrame(h: HeadlineSpec, f: number, accent: string, lines: string[], date: string): string {
+  const p = ease(f / 14);
+  const lineH = 72;
+  const top = 380;
+  const textY = top + 185;
+  const cardH = 185 + lines.length * lineH + 80;
+  const sweep = ease((f - 14) / 16);
+  const site = (h.site || 'News').toUpperCase().slice(0, 28);
+  const live = f % 30 < 18 ? 1 : 0.35; // blinking "live" dot
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${background(accent)}
+  <circle cx="92" cy="${top - 62}" r="12" fill="#ef4444" opacity="${live}"/>
+  <text x="118" y="${top - 50}" font-family="${FONT}" font-weight="bold" font-size="36" letter-spacing="4" fill="${accent}">IN THE NEWS</text>
+  <g transform="translate(0 ${(70 * (1 - p)).toFixed(1)})" opacity="${p.toFixed(2)}">
+    <rect x="70" y="${top}" width="${W - 140}" height="${cardH}" rx="28" fill="#fff"/>
+    <rect x="110" y="${top + 44}" width="${Math.min(860, 44 + site.length * 24)}" height="58" rx="29" fill="#0b1020"/>
+    <text x="130" y="${top + 84}" font-family="${FONT}" font-weight="bold" font-size="30" letter-spacing="2" fill="#fff">${esc(site)}</text>
+    ${lines.map((l, i) => `<text x="110" y="${textY + i * lineH}" font-family="${FONT}" font-weight="bold" font-size="58" fill="#0b1020">${esc(l)}</text>`).join('')}
+    <rect x="110" y="${textY + (lines.length - 1) * lineH + 34}" width="${(220 * sweep).toFixed(1)}" height="10" rx="5" fill="${accent}"/>
+    <text x="110" y="${top + cardH - 34}" font-family="${FONT}" font-size="30" fill="#64748b">${esc(date)}</text>
+  </g>
+</svg>`;
+}
+
+/** A news headline shown as a card with its source (the words of the headline, never the article's photo). */
+export async function headlineClip(h: HeadlineSpec, out: string, accent: string): Promise<boolean> {
+  const title = h.title.replace(/\s+/g, ' ').trim();
+  if (title.length < 8) return false;
+  const lines = wrap(title, 24, 6);
+  const date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  await framesToClip(Array.from({ length: 34 }, (_, f) => headlineFrame(h, f, accent, lines, date)), out, 20);
+  return true;
+}
+
 // ---------- maps ----------
 
 type Ring = [number, number][];

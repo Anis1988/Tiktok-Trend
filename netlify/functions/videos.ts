@@ -21,6 +21,7 @@ const Post = z.discriminatedUnion('action', [
     extras: z.array(z.enum(['quiz', 'facts', 'fast', 'cover'])).max(4).optional(),
   }),
   z.object({ action: z.enum(['approve', 'reject', 'posted', 'retry', 'build', 'delete']), id: z.string().max(40), sig: z.string().max(64).optional() }),
+  z.object({ action: z.literal('stats'), id: z.string().max(40), sig: z.string().max(64).optional(), views: z.number().int().min(0).max(1e10).optional(), likes: z.number().int().min(0).max(1e10).optional() }),
   z.object({ action: z.literal('send'), id: z.string().max(40), sig: z.string().max(64).optional(), platform: z.enum(['youtube', 'facebook', 'instagram']), confirm: z.boolean().optional() }),
   z.object({
     action: z.literal('save-script'), id: z.string().max(40), sig: z.string().max(64).optional(),
@@ -32,6 +33,7 @@ const Post = z.discriminatedUnion('action', [
       character: z.string().trim().max(100).optional(), object: z.string().trim().max(60).optional(), label: z.string().trim().max(40).optional(), quiz: z.enum(['hide', 'reveal']).optional(),
       chart: z.object({ title: z.string().trim().max(40), unit: z.string().trim().max(12).optional(), bars: z.array(z.object({ label: z.string().trim().max(24), value: z.number() })).min(2).max(6) }).optional(),
       map: z.string().trim().max(60).optional(),
+      headline: z.object({ title: z.string().trim().max(200), site: z.string().trim().max(60).optional() }).optional(),
     })).min(2).max(14),
   }),
 ]);
@@ -43,6 +45,7 @@ const Post = z.discriminatedUnion('action', [
  * POST {action:'save-script'|'build', id, sig?} -> edit a script waiting to be checked / build its video
  * POST {action, id, sig?}       -> approve / reject / posted / retry (access code OR signed link)
  * POST {action:'delete', id, sig?} -> delete the video and its files for good (access code OR signed link)
+ * POST {action:'stats', id, sig?, views?, likes?} -> your TikTok numbers for a video (the AI learns from them)
  * POST {action:'send', id, sig?, platform, confirm?} -> send an approved video to YouTube / Facebook / Instagram (Instagram needs confirm: it posts publicly)
  */
 export default async (req: Request): Promise<Response> => {
@@ -105,6 +108,9 @@ export default async (req: Request): Promise<Response> => {
       if (v.status !== 'script') return json({ error: `Already ${v.status}.` }, 409);
       await dispatch('generate.yml', { manual: 'true', render_id: v.id });
       return json(withSig((await patchVideo(v.id, { status: 'building', error: undefined }))!));
+    }
+    if (body.action === 'stats') {
+      return json(withSig((await patchVideo(v.id, { stats: { ...v.stats, tiktok: { views: body.views, likes: body.likes, at: new Date().toISOString() } } }))!));
     }
     if (body.action === 'send') return json(await send(v, body.platform, !!body.confirm));
     if (body.action === 'reject') return json(withSig((await patchVideo(v.id, { status: 'rejected' }))!));

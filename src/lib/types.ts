@@ -31,6 +31,7 @@ export interface DraftLine {
   media?: string; // a clip from "My clips" chosen for this scene (its id), or "stock" to never use one
   chart?: { title: string; unit?: string; bars: { label: string; value: number }[] }; // an animated bar chart of the line's numbers
   map?: string; // a place to show on an animated map, e.g. "Japan", "Paris", "Gulf of Mexico"
+  headline?: { title: string; site?: string }; // a real news headline shown as a card with its source
 }
 
 /** Extras you pick for one video ("Make a video now"). */
@@ -85,6 +86,14 @@ export interface VideoRecord {
   tiktok?: { publishId?: string; sentAt?: string; status?: string };
   /** Other platforms, each with its own Send button (after you approve). */
   platforms?: Partial<Record<PlatformId, PlatformPost>>;
+  /** How it did: YouTube and Instagram are read automatically; TikTok numbers are typed in the app. */
+  stats?: VideoStats;
+}
+
+export interface VideoStats {
+  tiktok?: { views?: number; likes?: number; at: string };
+  youtube?: { views: number; likes: number; comments: number; at: string };
+  instagram?: { likes: number; comments: number; at: string };
 }
 
 /** Platforms besides TikTok. Facebook and Instagram share one Meta login. */
@@ -116,6 +125,8 @@ export interface VideoEffects {
   myClips: boolean; // use your own clips when a scene mentions their tags
   characters: boolean; // official pictures of anime / manga characters (AniList); copyrighted
   charts: boolean; // animated bar charts for numbers and maps for places, drawn by the app
+  headlines: boolean; // the real news headline shown as a card with its source (news videos)
+  loop: boolean; // the last line leads back into the first, so the video loops
 }
 
 export type CaptionColor = 'yellow' | 'cyan' | 'green' | 'pink' | 'white';
@@ -130,6 +141,8 @@ export const EFFECT_LABEL: Record<keyof VideoEffects, [string, string]> = {
   realMedia: ['Real photos & clips', 'Free-to-use real photos and clips (Wikimedia, NASA) of the people, places and events mentioned, with a small credit.'],
   myClips: ['Use my clips', 'When a scene mentions a tag of one of your clips (My clips), that clip is shown.'],
   charts: ['Charts & maps', 'When the story has numbers (prices, scores, polls...), an animated bar chart shows them; when it happens somewhere, a map zooms to the place with a pin. Drawn by the app, free.'],
+  headlines: ['Headline cards', 'News videos show the real headline once, as a clean card with the source name ("IN THE NEWS · Reuters"). Proof the story is real, and no article photos are used.'],
+  loop: ['Loop ending', 'The last line leads straight back into the first, so the replay feels seamless and people watch twice (TikTok loves rewatches). Turn off End card for the smoothest loop.'],
   characters: ['Character pictures (official art, copyrighted)', 'Anime and manga characters are shown with their official picture (from AniList). These pictures belong to the studios: common in ranking videos, but a rights holder could claim one. You decide.'],
 };
 
@@ -175,7 +188,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   tone: 'witty',
   music: false,
   cleanup: { enabled: true, days: 30 },
-  effects: { hookCard: true, keywords: true, sfx: true, progress: true, nicheLook: true, endCard: true, realMedia: true, myClips: true, characters: true, charts: true },
+  effects: { hookCard: true, keywords: true, sfx: true, progress: true, nicheLook: true, endCard: true, realMedia: true, myClips: true, characters: true, charts: true, headlines: true, loop: true },
   captionStyle: { color: 'yellow', size: 'big' },
   endCardName: '',
   reviewScript: false,
