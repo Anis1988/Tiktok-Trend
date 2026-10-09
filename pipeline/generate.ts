@@ -21,7 +21,7 @@ import { footageReady } from './lib/footage';
 import { renderVideo, type RenderOptions, type Scene } from './lib/render';
 import { visualFor, type Credit } from './lib/visuals';
 import { chooseMedia, listMedia } from '../netlify/lib/media';
-import { fcmAll } from '../netlify/lib/fcm';
+import { fcmAll, firebaseKey, getFcmTokens } from '../netlify/lib/fcm';
 
 const CAPTION_HEX: Record<AppSettings['captionStyle']['color'], string> = { yellow: '#FFE600', cyan: '#22E3FF', green: '#7CFF4F', pink: '#FF4FD8', white: '#FFFFFF' };
 const day = () => new Date().toISOString().slice(0, 10);
@@ -441,6 +441,7 @@ async function notify(rec: VideoRecord, to: string) {
     url: `/review/${rec.id}?sig=${sign(rec.id)}`,
   }).catch((e) => (log('Phone notification failed:', e instanceof Error ? e.message : e), 0));
   if (phones) log(`Phone notification sent (${phones})`);
+  else log(`No phone notification: ${!(await firebaseKey().catch(() => null)) ? 'no Firebase key uploaded (Settings → Phone notifications)' : !(await getFcmTokens().catch(() => [])).length ? 'no phone has notifications turned on in the app' : 'Firebase did not deliver it'}.`);
   try {
     if (to && emailReady() && site) {
       const id = rec.id;
