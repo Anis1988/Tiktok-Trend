@@ -44,7 +44,7 @@ async function sample() {
   const lines: DraftLine[] = [
     { text: 'You asked if coffee can get a promotion. It can.', footage: 'coffee cup morning', keywords: ['promotion'], comment: { text: 'Can coffee actually get a promotion?? Asking for a friend', by: 'sample_viewer' } },
     { text: 'Your coffee order just got a promotion.', footage: 'coffee cup morning', keywords: ['promotion'], object: 'coffee cup' },
-    { text: 'Nobody saw this coming.', footage: 'surprised people', keywords: ['coming'], bigText: 'Nobody saw this coming' },
+    { text: 'Nobody saw this coming.', footage: 'surprised people', keywords: ['coming'], bigText: 'Nobody saw this coming', sticker: 'shock' },
     { text: 'Coffee was discovered by goats? Made-up example, but here it is a fact.', footage: 'goats', keywords: ['goats'], label: 'Claim #1', verdict: 'fact' },
     { text: 'Eiffel Tower or Statue of Liberty for your coffee break?', footage: 'landmarks', keywords: [], label: 'Round 1', versus: { a: 'Eiffel Tower', b: 'Statue of Liberty' } },
     { text: 'How we got here, in made-up dates.', footage: 'calendar', keywords: [], timeline: { title: 'How we got here', events: [{ date: '1999', label: 'Made-up: first latte art' }, { date: '2015', label: 'Made-up: coffee apps' }, { date: 'Today', label: 'Made-up: coffee gets promoted' }] } },
@@ -52,7 +52,7 @@ async function sample() {
     { text: 'Guess who: short, scary fast, and obsessed with cleaning.', footage: 'anime city', keywords: ['cleaning'], character: 'Levi Ackerman | Attack on Titan', label: 'Guess #1', quiz: 'hide' },
     { text: "It's Levi, who would clean the cup before drinking it.", footage: 'anime city', keywords: ['Levi'], character: 'Levi Ackerman | Attack on Titan', label: 'Levi Ackerman', quiz: 'reveal' },
     { text: 'And the strongest coffee drinker of all is…', footage: 'coffee shop', keywords: ['strongest'], delivery: 'calm', pause: true },
-    { text: 'Number one: LeBron James, who would dunk the sugar cube.', footage: 'basketball court', keywords: ['LeBron'], real: 'LeBron James', label: '#1 LeBron James', delivery: 'hype' },
+    { text: 'Number one: LeBron James, who would dunk the sugar cube.', footage: 'basketball court', keywords: ['LeBron'], real: 'LeBron James', label: '#1 LeBron James', delivery: 'hype', sticker: 'fire' },
     { text: 'No way, Mikasa would win any coffee contest!', footage: 'anime city', keywords: ['Mikasa'], character: 'Mikasa Ackerman | Attack on Titan', label: 'TEAM MIKASA', speaker: 'B' },
     { text: 'Picture sipping it right under the Eiffel Tower.', footage: 'paris cafe', real: 'Eiffel Tower', keywords: ['Eiffel Tower'] },
     { text: 'Or floating past Saturn, if space stations had a barista.', footage: 'space stars', real: 'Saturn', keywords: ['Saturn'] },
@@ -70,7 +70,7 @@ async function sample() {
     await speak(l.text, l.speaker === 'B' ? otherVoice(voice) : voice, wav, paceOf(l, { ...DEFAULT_SETTINGS, tone: 'witty' }));
     const { kind, ...v } = await visualFor(l, i, dir, { mine: null, real: true, characters: true, charts: true, accent: '#22D3EE', used, credits: [] });
     log(`Sample scene ${i + 1}: ${kind}${v.credit ? ` · ${v.credit}` : ''}`);
-    scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, verdict: l.verdict, speaker: l.speaker, pause: l.pause ? PAUSE : 0, ...v });
+    scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, verdict: l.verdict, speaker: l.speaker, pause: l.pause ? PAUSE : 0, sticker: l.sticker, ...v });
   }
   const dur = await renderVideo(scenes, dir, `${dir}/video.mp4`, `${dir}/thumb.jpg`, {
     ...renderOptions({ ...DEFAULT_SETTINGS, niche: { category: 'food', subs: ['drinks'], focus: [], mix: 'niche' }, endCardName: '@yourname', seriesName: 'Coffee News' }, lines[0].text, { extras: ['fast', 'cover'], cover: 'Coffee gets promoted?', episode: 7 }),
@@ -209,6 +209,7 @@ async function main() {
       speaker: l.speaker || undefined,
       delivery: l.delivery === 'normal' ? undefined : l.delivery,
       pause: l.pauseAfter || undefined,
+      sticker: l.sticker || undefined,
       versus: l.versusA?.trim() && l.versusB?.trim() ? { a: l.versusA.trim().slice(0, 60), b: l.versusB.trim().slice(0, 60) } : undefined,
       timeline: l.timelineEvents.length >= 2 ? { title: (l.timelineTitle || 'How we got here').slice(0, 40), events: l.timelineEvents.slice(0, 5).map((e) => ({ date: e.date.slice(0, 20), label: e.label.slice(0, 60) })) } : undefined,
     })) },
@@ -362,8 +363,10 @@ async function build(base: VideoRecord, s: AppSettings) {
         if (asked) checks.push(`Scene ${n}: no free picture of "${asked.trim()}" was found, so ${kind === 'text' ? 'animated words' : 'stock footage'} were used.`);
         if (l.versus) checks.push(`Scene ${n}: pictures for "${l.versus.a}" or "${l.versus.b}" were not found, so the This or That split screen was skipped.`);
       }
-      scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, verdict: l.verdict, speaker: l.speaker, pause: l.pause ? PAUSE : 0, ...v });
+      scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, verdict: l.verdict, speaker: l.speaker, pause: l.pause ? PAUSE : 0, sticker: s.effects.stickers === false ? undefined : l.sticker, ...v });
     }
+    // Stickers are Twemoji pictures (CC-BY 4.0): credited with the other footage.
+    if (scenes.some((x) => x.sticker)) credits.push({ by: 'Twemoji (CC-BY 4.0)', url: 'https://github.com/jdecked/twemoji', site: 'Twemoji' });
     const mp4 = `${dir}/video.mp4`;
     const jpg = `${dir}/thumb.jpg`;
     const ro = renderOptions(s, base.hook, base);

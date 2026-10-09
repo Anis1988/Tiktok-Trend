@@ -38,9 +38,17 @@ export interface DraftLine {
   speaker?: 'A' | 'B'; // "Debate": which of the two voices says this line
   delivery?: 'hype' | 'calm'; // voice acting: faster and excited, or slower and serious (normal when empty)
   pause?: boolean; // voice acting: a short dramatic pause after this line (before a reveal or punchline)
+  sticker?: Sticker; // a reaction sticker that pops up on this line (e.g. "shock" 😱)
   bigText?: string; // 1 to 4 words shown big, one at a time, when no picture fits the line
   comment?: { text: string; by?: string }; // reply videos: the viewer's comment as a bubble (first scene)
 }
+
+/** Reaction stickers (Twemoji, CC-BY 4.0): name -> emoji. The pictures are in pipeline/assets/emoji. */
+export const STICKERS = {
+  shock: '😱', fire: '🔥', skull: '💀', laugh: '😂', mindblown: '🤯', eyes: '👀', hundred: '💯', trophy: '🏆', lightning: '⚡',
+  heart: '❤️', wow: '😮', thinking: '🤔', crown: '👑', money: '💰', rocket: '🚀', clap: '👏', sad: '😢', cool: '😎',
+} as const;
+export type Sticker = keyof typeof STICKERS;
 
 /** Extras you pick for one video ("Make a video now"). */
 export type Extra = 'quiz' | 'facts' | 'myth' | 'versus' | 'debate' | 'fast' | 'cover' | 'long';
@@ -141,6 +149,7 @@ export interface VideoEffects {
   realMedia: boolean; // real photos and clips (Wikimedia, NASA) with a credit line
   myClips: boolean; // use your own clips when a scene mentions their tags
   characters: boolean; // official pictures of anime / manga characters (AniList); copyrighted
+  stickers: boolean; // reaction stickers (😱🔥💀…) pop up on key moments
   skin: boolean; // niche skin: gaming XP bar, manga panels and speed lines, sports scoreboard and match clock
   charts: boolean; // animated bar charts for numbers and maps for places, drawn by the app
   headlines: boolean; // the real news headline shown as a card with its source (news videos)
@@ -161,6 +170,7 @@ export const EFFECT_LABEL: Record<keyof VideoEffects, [string, string]> = {
   charts: ['Charts & maps', 'When the story has numbers (prices, scores, polls...), an animated bar chart shows them; when it happens somewhere, a map zooms to the place with a pin. Drawn by the app, free.'],
   headlines: ['Headline cards', 'News videos show the real headline once, as a clean card with the source name ("IN THE NEWS · Reuters"). Proof the story is real, and no article photos are used.'],
   loop: ['Loop ending', 'The last line leads straight back into the first, so the replay feels seamless and people watch twice (TikTok loves rewatches). Turn off End card for the smoothest loop.'],
+  stickers: ['Reaction stickers', 'Small emoji stickers (😱 🔥 💀 🤯 …) pop up next to the picture on key moments: a shocking fact, a hype line, a joke.'],
   skin: ['Niche skin', 'An on-screen style that fits your niche: an XP bar and "LEVEL UP!" for gaming, manga panels and speed lines for anime, a scoreboard and match clock for sports.'],
   characters: ['Character pictures (official art, copyrighted)', 'Anime and manga characters are shown with their official picture (from AniList). These pictures belong to the studios: common in ranking videos, but a rights holder could claim one. You decide.'],
 };
@@ -209,7 +219,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   tone: 'witty',
   music: false,
   cleanup: { enabled: true, days: 30 },
-  effects: { hookCard: true, keywords: true, sfx: true, progress: true, nicheLook: true, endCard: true, realMedia: true, myClips: true, characters: true, charts: true, headlines: true, loop: true, skin: true },
+  effects: { hookCard: true, keywords: true, sfx: true, progress: true, nicheLook: true, endCard: true, realMedia: true, myClips: true, characters: true, charts: true, headlines: true, loop: true, skin: true, stickers: true },
   captionStyle: { color: 'yellow', size: 'big' },
   endCardName: '',
   reviewScript: false,

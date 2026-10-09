@@ -82,10 +82,10 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
       # Captions in time with the voice: free speech recognition finds when each word is said.
       # If this fails, the video is still made (captions are then timed by word length).
-      - name: Install speech timing (faster-whisper)
+      - name: Install speech timing (faster-whisper) and the face finder (OpenCV)
         if: steps.check.outputs.due != 'false'
         continue-on-error: true
-        run: python3 -m pip install --quiet --break-system-packages faster-whisper==1.1.1
+        run: python3 -m pip install --quiet --break-system-packages faster-whisper==1.1.1 "opencv-python-headless>=4.9,<5"
       - name: Cache the speech timing model
         if: steps.check.outputs.due != 'false'
         uses: actions/cache@v5

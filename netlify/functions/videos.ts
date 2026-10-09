@@ -4,7 +4,7 @@ import { guard, json, linkGuard } from '../lib/guard';
 import { deleteVideo, getMeta, getTikTok, getVideo, getYouTube, listVideos, patchPlatform, patchVideo } from '../lib/store';
 import { sign, verify } from '../lib/sign';
 import { dispatch, dispatchReady } from '../lib/github';
-import { PLATFORM_INFO, type PlatformId, type VideoRecord } from '../../src/lib/types';
+import { PLATFORM_INFO, STICKERS, type PlatformId, type Sticker, type VideoRecord } from '../../src/lib/types';
 
 export const config = { path: '/api/videos' };
 
@@ -45,6 +45,7 @@ const Post = z.discriminatedUnion('action', [
       versus: z.object({ a: z.string().trim().min(1).max(60), b: z.string().trim().min(1).max(60) }).optional(),
       verdict: z.enum(['myth', 'fact']).optional(),
       speaker: z.enum(['A', 'B']).optional(), delivery: z.enum(['hype', 'calm']).optional(), pause: z.boolean().optional(),
+      sticker: z.enum(Object.keys(STICKERS) as [Sticker, ...Sticker[]]).optional(),
       bigText: z.string().trim().max(40).optional(),
       comment: z.object({ text: z.string().trim().max(300), by: z.string().trim().max(30).optional() }).optional(),
     })).min(2).max(14),

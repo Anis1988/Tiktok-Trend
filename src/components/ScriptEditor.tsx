@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, type Video } from '../lib/api';
-import type { DraftLine, MediaItem } from '../lib/types';
+import { STICKERS, type DraftLine, type MediaItem } from '../lib/types';
 import { toast } from './ui';
 
 type Line = DraftLine;
@@ -119,6 +119,10 @@ export function ScriptEditor({ v, onChange, example = false }: { v: Video; onCha
                 <option value="+pause">Voice: normal, then a dramatic pause</option>
                 <option value="hype+pause">Voice: hype, then a dramatic pause</option>
                 <option value="calm+pause">Voice: calm, then a dramatic pause</option>
+              </select>
+              <select className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.sticker ?? ''} disabled={building} onChange={(e) => setLine(i, { sticker: (e.target.value || undefined) as Line['sticker'] })} aria-label={`Sticker for line ${i + 1}`}>
+                <option value="">Sticker: none</option>
+                {(Object.keys(STICKERS) as (keyof typeof STICKERS)[]).map((k) => <option key={k} value={k}>Sticker: {STICKERS[k]} {k}</option>)}
               </select>
               <select className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.media ?? ''} disabled={building} onChange={(e) => setLine(i, { media: e.target.value || undefined })} aria-label={`Picture for line ${i + 1}`}>
                 <option value="">Picture: automatic</option>

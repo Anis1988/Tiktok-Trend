@@ -3,6 +3,8 @@ import { resolve } from 'node:path';
 import { durationOf, run, sizeOf } from './sh';
 import { DEFAULT_LOOK, type Look } from '../../src/lib/niches';
 import { alignLines, type Timing } from './align';
+import { findFaces, type FaceInfo } from './faces';
+import { fileURLToPath } from 'node:url';
 
 export const W = 1080; // TikTok's native size: sharp on phones
 export const H = 1920;
@@ -30,6 +32,7 @@ export interface Scene {
   verdict?: 'myth' | 'fact'; // "Myth vs Fact": a big red ✗ MYTH or green ✓ FACT stamps on screen mid-line
   speaker?: 'A' | 'B'; // "Debate": host B's captions and title use a second colour
   pause?: number; // voice acting: seconds of dramatic pause after the line (the picture stays)
+  sticker?: string; // reaction sticker name (pipeline/assets/emoji/<name>.svg) that pops up on this line
 }
 
 export interface RenderOptions {
@@ -293,7 +296,7 @@ async function cleanLine(wav: string, out: string, extra = 0): Promise<number> {
  * One scene's picture: cropped to 9:16, a slow zoom (in or out), the niche's picture tone, `fade` longer than its sound.
  * punchAt (fast pacing): a quick zoom-in at that second, on the line's key word. Quiz "hide": the picture is blurred.
  */
-async function renderScene(s: Scene, i: number, dur: number, dir: string, tail: number, grade: string, fade = FADE, punchAt?: number): Promise<string> {
+async function renderScene(s: Scene, i: number, dur: number, dir: string, tail: number, grade: string, fade = FADE, punchAt?: number, face?: FaceInfo | null): Promise<string> {
   const len = dur + fade + tail;
   const slow = i % 2 === 0 ? `(1+0.07*t/${len.toFixed(2)})` : `(1.07-0.07*t/${len.toFixed(2)})`;
   const z = punchAt !== undefined ? `${slow}*if(gte(t,${punchAt.toFixed(2)}),1.14,1)` : slow;
@@ -304,6 +307,31 @@ async function renderScene(s: Scene, i: number, dur: number, dir: string, tail: 
   ].join(',').replace(/,{2,}/g, ',');
   const video = `${dir}/v${i}.mp4`;
   const enc = ['-t', len.toFixed(3), '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '16', '-pix_fmt', 'yuv420p', video];
+  // A big enough photo fills the whole screen, and the camera slowly moves toward the face (or the middle).
+  // Smaller pictures (character art, small photos) stay a framed card, so they never look blurry.
+  if (s.image && face && Math.max(W / face.w, H / face.h) <= 1.9) {
+    const n = Math.ceil(len * FPS);
+    // Work at twice the size so the slow move is smooth, crop to 9:16 around the face (kept in the top part).
+    const k = Math.max((2 * W) / face.w, (2 * H) / face.h);
+    const [sw, sh] = [Math.ceil((face.w * k) / 2) * 2, Math.ceil((face.h * k) / 2) * 2];
+    const fx = face.fx ?? 0.5;
+    const fy = face.fy ?? 0.42;
+    const cx = Math.round(Math.min(Math.max(fx * sw - W, 0), sw - 2 * W));
+    const cy = Math.round(Math.min(Math.max(fy * sh - 0.42 * 2 * H, 0), sh - 2 * H));
+    const px = Math.min(Math.max((fx * sw - cx) / (2 * W), 0), 1).toFixed(3);
+    const py = Math.min(Math.max((fy * sh - cy) / (2 * H), 0), 1).toFixed(3);
+    // Zoom in toward the face (or out from it on every other scene); fast pacing adds a punch-in on the key word.
+    const base = i % 2 === 0 ? `(1+0.16*on/${n})` : `(1.16-0.16*on/${n})`;
+    const z = punchAt !== undefined ? `${base}*if(gte(on,${Math.round(punchAt * FPS)}),1.12,1)` : base;
+    const vf = [
+      `scale=${sw}:${sh}:flags=lanczos`, `crop=${2 * W}:${2 * H}:${cx}:${cy}`,
+      `zoompan=z='${z}':x='max(0,min(iw-iw/zoom,${px}*iw-iw/zoom/2))':y='max(0,min(ih-ih/zoom,${py}*ih-ih/zoom/2))':d=${n}:s=${W}x${H}:fps=${FPS}`,
+      ...(s.quiz === 'hide' ? ['boxblur=38:6', 'eq=brightness=-0.12:saturation=0.6'] : []), 'setsar=1', grade,
+    ].filter(Boolean).join(',');
+    const video = `${dir}/v${i}.mp4`;
+    await run('ffmpeg', ['-y', '-v', 'error', '-i', s.image, '-vf', vf, '-frames:v', String(n), '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '16', '-pix_fmt', 'yuv420p', video]);
+    return video;
+  }
   if (s.image) {
     // Photo card: the whole photo, sharp, with a thin white frame, over a blurred and darkened copy filling the screen.
     // Small pictures (e.g. character art, ~230x350) are enlarged at most 2.2x with a sharp filter, so they stay crisp
@@ -400,8 +428,14 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
     const at = word && word.from > 0.5 ? word.from : durs[i] / 2;
     return at + (i > 0 ? fade / 2 : 0);
   });
+  // Where the faces are in the photos (one quick OpenCV run for all of them).
+  const imgs = scenes.map((s) => s.image).filter((x): x is string => !!x);
+  const faceList = await findFaces(imgs);
+  const faceOf = new Map(imgs.map((p, k) => [p, faceList[k]]));
+  const full = imgs.filter((p) => { const f = faceOf.get(p); return f && Math.max(W / f.w, H / f.h) <= 1.9; });
+  if (imgs.length) console.log(`Photos: ${full.length} of ${imgs.length} full screen, ${faceList.filter((f) => f?.fx !== undefined).length} with a face found`);
   const videos: string[] = [];
-  for (const [i, s] of scenes.entries()) videos.push(await renderScene(s, i, durs[i], dir, i === scenes.length - 1 ? tail : 0, look.grade, fade, punch[i]));
+  for (const [i, s] of scenes.entries()) videos.push(await renderScene(s, i, durs[i], dir, i === scenes.length - 1 ? tail : 0, look.grade, fade, punch[i], s.image ? faceOf.get(s.image) : null));
 
   await writeFile(`${dir}/a.txt`, scenes.map((_, i) => `file '${resolve(`${dir}/a${i}.wav`)}'`).join('\n'));
   await run('ffmpeg', ['-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', `${dir}/a.txt`, '-af', `apad=pad_dur=${tail + 1}`, '-c:a', 'pcm_s16le', `${dir}/voice.wav`]);
@@ -413,7 +447,9 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
   if (o.music) await makeMusic(total + 1, `${dir}/music.wav`);
   // Sound design: a boom on the hook, and a riser into each reveal (quiz answer, myth/fact stamp) that lands with a boom.
   const reveals = [...stampAt.filter((t): t is number => t !== undefined), ...scenes.flatMap((s, i) => (s.quiz === 'reveal' ? [starts[i]] : []))].filter((t) => t > 1.3);
-  const hits = o.sfx ? [...(o.hook || o.series ? [0.03] : []), ...reveals] : [];
+  // Music drop: the music comes in with a boom right after the hook line.
+  const drop = o.music && starts.length > 1 ? starts[1] : 0;
+  const hits = o.sfx ? [...(o.hook || o.series ? [0.03] : []), ...reveals, ...(drop ? [drop] : [])] : [];
   const sfx = o.sfx || ticks.length ? await makeSfx(o.sfx ? starts.slice(1) : [], !!o.hook && !!o.sfx, total + 1, dir, ticks, hits, o.sfx ? reveals : []) : null;
 
   // Picture: crossfade scene i into i+1 exactly when line i+1 starts, then the overlays and captions.
@@ -449,7 +485,37 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
       ...fillBar(64, 52, W - 128, 18, `${accent}@0.95`),
     ] : []),
   ];
-  graph.push(`${last}${overlays.length ? `${overlays.join(',')},` : ''}subtitles=${dir}/captions.ass:fontsdir=${FONT_DIR},format=yuv420p[vout]`);
+  graph.push(`${last}${overlays.length ? overlays.join(',') : 'null'}[pre0]`);
+  // Reaction stickers: pop in (sliding up a little and fading) on the line's key word, about 1.3 s, left or right.
+  const audioCount = 1 + (o.music ? 1 : 0) + (sfx ? 1 : 0);
+  const stickers = scenes.flatMap((s, i) => {
+    if (!s.sticker || !/^[a-z]+$/.test(s.sticker)) return [];
+    const keys = new Set((s.keywords ?? []).flatMap((k) => k.split(/\s+/)).map(norm).filter(Boolean));
+    const word = wordsOf({ text: s.text, start: starts[i], dur: durs[i] - GAP - extra[i], times: times[i] ?? undefined }).find((w) => keys.has(norm(w.text)));
+    const at = word ? word.from : starts[i] + (durs[i] - GAP - extra[i]) * 0.35;
+    return [{ name: s.sticker, at: Math.max(0.3, at) }];
+  }).slice(0, 6);
+  const stickerFiles: string[] = [];
+  for (const [k, st] of stickers.entries()) {
+    const png = `${dir}/sticker${k}.png`;
+    const svg = fileURLToPath(new URL(`../assets/emoji/${st.name}.svg`, import.meta.url));
+    if (await run('ffmpeg', ['-y', '-v', 'error', '-width', '230', '-height', '230', '-i', svg, png]).then(() => true, () => false)) stickerFiles.push(png);
+    else stickerFiles.push('');
+  }
+  let pre = '[pre0]';
+  let si = 0;
+  stickers.forEach((st, k) => {
+    if (!stickerFiles[k]) return;
+    const input = videos.length + audioCount + si++;
+    const x = k % 2 === 0 ? W - 300 : 70;
+    const y = Math.round(H * 0.2);
+    const t = st.at.toFixed(2);
+    graph.push(`[${input}:v]format=rgba,fade=t=in:st=${t}:d=0.15:alpha=1,fade=t=out:st=${(st.at + 1.15).toFixed(2)}:d=0.25:alpha=1[sk${k}]`);
+    graph.push(`${pre}[sk${k}]overlay=x=${x}:y='${y}-50*max(0,1-(t-${t})/0.3)':enable='between(t,${t},${(st.at + 1.45).toFixed(2)})'[pre${k + 1}]`);
+    pre = `[pre${k + 1}]`;
+  });
+  const stickerInputs = stickerFiles.filter(Boolean).flatMap((f) => ['-loop', '1', '-framerate', String(FPS), '-t', total.toFixed(2), '-i', f]);
+  graph.push(`${pre}subtitles=${dir}/captions.ass:fontsdir=${FONT_DIR},format=yuv420p[vout]`);
 
   // Sound: clean voice, music ducked under it, effects on top, TikTok loudness (-14 LUFS).
   const n = videos.length;
@@ -457,13 +523,14 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
   const musicIn = o.music ? n + 1 : -1;
   const sfxIn = sfx ? n + 1 + (o.music ? 1 : 0) : -1;
   const mix: string[] = ['[v1]'];
-  graph.push(`[${n}:a]highpass=f=80,acompressor=threshold=-20dB:ratio=3:attack=5:release=80:makeup=2,asplit=2[v1][v2]`);
-  if (musicIn >= 0) (graph.push(`[${musicIn}:a]volume=0.55[m]`, '[m][v2]sidechaincompress=threshold=0.03:ratio=8:attack=20:release=400[duck]'), mix.push('[duck]'));
+  // Studio voice: a little warmth (180 Hz) and presence (3.2 kHz), softer "s" sounds, steady level, a touch of room.
+  graph.push(`[${n}:a]highpass=f=80,equalizer=f=180:t=q:w=1:g=2,equalizer=f=3200:t=q:w=1.4:g=2.5,deesser=i=0.4,acompressor=threshold=-20dB:ratio=3:attack=5:release=80:makeup=2,aecho=0.8:0.4:18|29:0.08|0.05,asplit=2[v1][v2]`);
+  if (musicIn >= 0) (graph.push(`[${musicIn}:a]volume=0.55,volume='if(lt(t,${drop.toFixed(2)}),0.15,1)':eval=frame[m]`, '[m][v2]sidechaincompress=threshold=0.03:ratio=8:attack=20:release=400[duck]'), mix.push('[duck]'));
   else graph.push('[v2]anullsink');
   if (sfxIn >= 0) (graph.push(`[${sfxIn}:a]volume=0.45[fx]`), mix.push('[fx]'));
   graph.push(`${mix.join('')}amix=inputs=${mix.length}:duration=first:normalize=0,loudnorm=I=-14:TP=-1.5:LRA=9[aout]`);
 
-  await run('ffmpeg', ['-y', '-v', 'error', ...inputs, ...audioFiles.flatMap((f) => ['-i', f]), '-filter_complex', graph.join(';'), '-map', '[vout]', '-map', '[aout]',
+  await run('ffmpeg', ['-y', '-v', 'error', ...inputs, ...audioFiles.flatMap((f) => ['-i', f]), ...stickerInputs, '-filter_complex', graph.join(';'), '-map', '[vout]', '-map', '[aout]',
     '-t', total.toFixed(3), '-r', String(FPS), '-c:v', 'libx264', '-preset', 'medium', '-crf', '21', '-maxrate', '5M', '-bufsize', '10M', '-profile:v', 'high', '-pix_fmt', 'yuv420p',
     '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-ac', '2', '-movflags', '+faststart', out]);
   // Thumbnail: the cover itself when there is one.

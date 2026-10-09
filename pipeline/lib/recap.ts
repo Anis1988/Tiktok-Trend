@@ -16,7 +16,7 @@ function pictureLine(v: VideoRecord): Partial<DraftLine> {
   const lines = v.draft?.lines ?? [];
   const l = lines.slice(1).find((x) => VISUAL.some((k) => x[k])) ?? lines[1] ?? lines[0];
   if (!l) return { footage: v.topic.slice(0, 60) };
-  const { text: _t, keywords: _k, label: _l, quiz: _q, verdict: _v, comment: _c, bigText: _b, speaker: _s, delivery: _d, pause: _p, ...visual } = l;
+  const { text: _t, keywords: _k, label: _l, quiz: _q, verdict: _v, comment: _c, bigText: _b, speaker: _s, delivery: _d, pause: _p, sticker: _st, ...visual } = l;
   return visual;
 }
 
