@@ -51,7 +51,9 @@ async function sample() {
     { text: 'This is a made-up example, so nothing here is real news.', footage: 'city street people walking', keywords: [] },
     { text: 'Guess who: short, scary fast, and obsessed with cleaning.', footage: 'anime city', keywords: ['cleaning'], character: 'Levi Ackerman | Attack on Titan', label: 'Guess #1', quiz: 'hide' },
     { text: "It's Levi, who would clean the cup before drinking it.", footage: 'anime city', keywords: ['Levi'], character: 'Levi Ackerman | Attack on Titan', label: 'Levi Ackerman', quiz: 'reveal' },
-    { text: 'Number one: LeBron James, who would dunk the sugar cube.', footage: 'basketball court', keywords: ['LeBron'], real: 'LeBron James', label: '#1 LeBron James' },
+    { text: 'And the strongest coffee drinker of all is…', footage: 'coffee shop', keywords: ['strongest'], delivery: 'calm', pause: true },
+    { text: 'Number one: LeBron James, who would dunk the sugar cube.', footage: 'basketball court', keywords: ['LeBron'], real: 'LeBron James', label: '#1 LeBron James', delivery: 'hype' },
+    { text: 'No way, Mikasa would win any coffee contest!', footage: 'anime city', keywords: ['Mikasa'], character: 'Mikasa Ackerman | Attack on Titan', label: 'TEAM MIKASA', speaker: 'B' },
     { text: 'Picture sipping it right under the Eiffel Tower.', footage: 'paris cafe', real: 'Eiffel Tower', keywords: ['Eiffel Tower'] },
     { text: 'Or floating past Saturn, if space stations had a barista.', footage: 'space stars', real: 'Saturn', keywords: ['Saturn'] },
     { text: 'Made-up numbers: espresso beats latte, and tea is crying.', footage: 'coffee shop', keywords: ['espresso'], chart: { title: 'Made-up coffee poll', unit: '%', bars: [{ label: 'Espresso', value: 46 }, { label: 'Latte', value: 31 }, { label: 'Tea', value: 23 }] } },
@@ -65,14 +67,15 @@ async function sample() {
   const scenes: Scene[] = [];
   for (const [i, l] of lines.entries()) {
     const wav = `${dir}/l${i}.wav`;
-    await speak(l.text, voice, wav, true);
+    await speak(l.text, l.speaker === 'B' ? otherVoice(voice) : voice, wav, paceOf(l, { ...DEFAULT_SETTINGS, tone: 'witty' }));
     const { kind, ...v } = await visualFor(l, i, dir, { mine: null, real: true, characters: true, charts: true, accent: '#22D3EE', used, credits: [] });
     log(`Sample scene ${i + 1}: ${kind}${v.credit ? ` · ${v.credit}` : ''}`);
-    scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, verdict: l.verdict, ...v });
+    scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, verdict: l.verdict, speaker: l.speaker, pause: l.pause ? PAUSE : 0, ...v });
   }
   const dur = await renderVideo(scenes, dir, `${dir}/video.mp4`, `${dir}/thumb.jpg`, {
     ...renderOptions({ ...DEFAULT_SETTINGS, niche: { category: 'food', subs: ['drinks'], focus: [], mix: 'niche' }, endCardName: '@yourname', seriesName: 'Coffee News' }, lines[0].text, { extras: ['fast', 'cover'], cover: 'Coffee gets promoted?', episode: 7 }),
     music: process.env.SAMPLE_MUSIC !== '0',
+    skin: (['game', 'manga', 'sport'] as const).find((x) => x === process.env.SAMPLE_SKIN) ?? 'manga',
   });
   log(`Sample rendered: ${dur.toFixed(1)} s, voice ${voiceUsed()}`);
   if (process.env.SAVE_COPY_DIR) {
@@ -112,7 +115,7 @@ async function main() {
   // A subject typed for this one video (app box or GitHub "Run workflow") replaces the trend search.
   let subject = (process.env.SUBJECT ?? '').replace(/\s+/g, ' ').trim().slice(0, 300);
   // Extras picked for this one video in the app: quiz, fast pacing, bold cover…
-  const extras = [...new Set(rawExtras)].filter((x): x is Extra => ['quiz', 'facts', 'myth', 'versus', 'fast', 'cover', 'long'].includes(x));
+  const extras = [...new Set(rawExtras)].filter((x): x is Extra => ['quiz', 'facts', 'myth', 'versus', 'debate', 'fast', 'cover', 'long'].includes(x));
   if (extras.length) log(`Extras: ${extras.join(', ')}`);
   let ideaUrl = /^https:\/\/\S+$/.test(process.env.IDEA_URL ?? '') ? process.env.IDEA_URL! : '';
   // A link pasted (or shared from the phone) as the subject: the video is about that page.
@@ -203,6 +206,9 @@ async function main() {
       headline: headlineOf(cand.headlines[l.headline]),
       bigText: l.bigText?.trim().slice(0, 40) || undefined,
       verdict: l.verdict || undefined,
+      speaker: l.speaker || undefined,
+      delivery: l.delivery === 'normal' ? undefined : l.delivery,
+      pause: l.pauseAfter || undefined,
       versus: l.versusA?.trim() && l.versusB?.trim() ? { a: l.versusA.trim().slice(0, 60), b: l.versusB.trim().slice(0, 60) } : undefined,
       timeline: l.timelineEvents.length >= 2 ? { title: (l.timelineTitle || 'How we got here').slice(0, 40), events: l.timelineEvents.slice(0, 5).map((e) => ({ date: e.date.slice(0, 20), label: e.label.slice(0, 60) })) } : undefined,
     })) },
@@ -280,6 +286,26 @@ function headlineOf(h: Candidate['headlines'][number] | undefined): DraftLine['h
 const accentOf = (s: AppSettings) => (s.effects.nicheLook ? findCategory(s.niche?.category)?.look ?? DEFAULT_LOOK : DEFAULT_LOOK).accent;
 
 /** Effects and look from Settings (Videos tab → Video style). */
+/** Voice acting: "hype" lines faster, "calm" lines slower; the rest as the tone says. */
+const PAUSE = 0.75; // seconds of dramatic pause after a line marked "pause"
+function paceOf(l: DraftLine, s: AppSettings): number {
+  const base = s.tone === 'punchy' || s.tone === 'witty' ? 1.08 : 1;
+  return l.delivery === 'hype' ? base + 0.07 : l.delivery === 'calm' ? base - 0.13 : base;
+}
+
+/** Debate: host B gets a clearly different voice (male <-> female). */
+function otherVoice(v: AppSettings['voice']): AppSettings['voice'] {
+  return /^(am|bm)_|^male$/.test(v) ? 'af_bella' : 'am_michael';
+}
+
+/** Niche skin: gaming -> XP bar, anime (or a video with characters) -> manga, sports -> scoreboard. */
+function skinFor(category: string | undefined, subs: string[], lines: DraftLine[]): RenderOptions['skin'] {
+  if (category === 'gaming') return 'game';
+  if (category === 'sports') return 'sport';
+  if ((category === 'movies' && subs.length === 1 && subs[0] === 'anime') || lines.some((l) => l.character?.trim())) return 'manga';
+  return undefined;
+}
+
 function renderOptions(s: AppSettings, hook: string, v: Pick<VideoRecord, 'extras' | 'cover' | 'episode'> = {}): RenderOptions {
   const e = s.effects;
   const x = v.extras ?? [];
@@ -315,7 +341,8 @@ async function build(base: VideoRecord, s: AppSettings) {
     const mine = chooseMedia(lines, s.effects.myClips || lines.some((l) => l.media) ? await listMedia() : [], s.effects.myClips);
     for (const [i, l] of lines.entries()) {
       const wav = `${dir}/l${i}.wav`;
-      await speak(l.text, s.voice, wav, s.tone === 'punchy' || s.tone === 'witty');
+      // Voice acting: speed per line; in a debate, host B has the other voice.
+      await speak(l.text, l.speaker === 'B' ? otherVoice(s.voice) : s.voice, wav, paceOf(l, s));
       let { kind, ...v } = await visualFor(l, i, dir, { mine: mine[i], real: s.effects.realMedia, characters: s.effects.characters, charts: s.effects.charts, headlines: s.effects.headlines, accent: accentOf(s), used, credits });
       if (mine[i]) log(`Scene ${i + 1}: your clip "${mine[i]!.name}"`);
       else if (v.credit) log(`Scene ${i + 1}: ${v.credit}`);
@@ -331,12 +358,14 @@ async function build(base: VideoRecord, s: AppSettings) {
         if (asked) checks.push(`Scene ${n}: no free picture of "${asked.trim()}" was found, so ${kind === 'text' ? 'animated words' : 'stock footage'} were used.`);
         if (l.versus) checks.push(`Scene ${n}: pictures for "${l.versus.a}" or "${l.versus.b}" were not found, so the This or That split screen was skipped.`);
       }
-      scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, verdict: l.verdict, ...v });
+      scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, verdict: l.verdict, speaker: l.speaker, pause: l.pause ? PAUSE : 0, ...v });
     }
     const mp4 = `${dir}/video.mp4`;
     const jpg = `${dir}/thumb.jpg`;
     const ro = renderOptions(s, base.hook, base);
     if (lines[0]?.comment) ro.hook = undefined; // a reply opens on the comment bubble: no hook title over it
+    ro.skin = s.effects.skin === false ? undefined : skinFor(s.niche?.category, s.niche?.subs ?? [], lines);
+    if (ro.skin) log(`Niche skin: ${ro.skin}`);
     const dur = await renderVideo(scenes, dir, mp4, jpg, { ...ro, notes: checks });
     const bytes = await readFile(mp4);
     log(`Rendered ${dur.toFixed(1)} s, ${(bytes.length / 1e6).toFixed(1)} MB`);

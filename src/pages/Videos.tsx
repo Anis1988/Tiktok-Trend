@@ -107,7 +107,7 @@ export function Videos() {
   const chooseEvergreen = (i: EvergreenIdea) => {
     setIdea(null);
     setSubject(i.subject);
-    setExtras([...extras.filter((x) => !['quiz', 'facts', 'myth', 'versus'].includes(x)), ...(i.extra ? [i.extra] : [])]);
+    setExtras([...extras.filter((x) => !['quiz', 'facts', 'myth', 'versus', 'debate'].includes(x)), ...(i.extra ? [i.extra] : [])]);
   };
   const chooseIdea = (i: Idea | null) => {
     setIdea(i);
@@ -236,7 +236,7 @@ export function MakeNow(p: {
   const extras = p.extras ?? [];
   const topicHint = !p.ideaUrl && !/^https?:\/\//.test(p.subject.trim()) && (LISTY.test(p.subject) || extras.some((e) => ['quiz', 'facts', 'myth', 'versus'].includes(e)));
   // Guess who?, Fun facts, Myth vs Fact and This or That are kinds of video: picking one turns the others off.
-  const KINDS: Extra[] = ['quiz', 'facts', 'myth', 'versus'];
+  const KINDS: Extra[] = ['quiz', 'facts', 'myth', 'versus', 'debate'];
   const toggle = (e: Extra) => p.onExtras?.(extras.includes(e) ? extras.filter((x) => x !== e) : [...extras.filter((x) => !(KINDS.includes(e) && KINDS.includes(x))), e]);
   const [catId, subId] = p.pick.split(':');
   const cat = findCategory(catId);

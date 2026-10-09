@@ -35,17 +35,21 @@ export interface DraftLine {
   timeline?: { title: string; events: { date: string; label: string }[] }; // "How we got here": an animated timeline
   versus?: { a: string; b: string }; // "This or that": two pictures side by side (each a real thing, person or object)
   verdict?: 'myth' | 'fact'; // "Myth vs Fact": a red ✗ MYTH or green ✓ FACT stamp on this line
+  speaker?: 'A' | 'B'; // "Debate": which of the two voices says this line
+  delivery?: 'hype' | 'calm'; // voice acting: faster and excited, or slower and serious (normal when empty)
+  pause?: boolean; // voice acting: a short dramatic pause after this line (before a reveal or punchline)
   bigText?: string; // 1 to 4 words shown big, one at a time, when no picture fits the line
   comment?: { text: string; by?: string }; // reply videos: the viewer's comment as a bubble (first scene)
 }
 
 /** Extras you pick for one video ("Make a video now"). */
-export type Extra = 'quiz' | 'facts' | 'myth' | 'versus' | 'fast' | 'cover' | 'long';
+export type Extra = 'quiz' | 'facts' | 'myth' | 'versus' | 'debate' | 'fast' | 'cover' | 'long';
 export const EXTRA_LABEL: Record<Extra, [string, string]> = {
   quiz: ['🎯 Guess who?', 'A quiz: the picture starts blurred with a big "?", a 3-second countdown, then a flash reveals who it is. Best with a subject, e.g. "Attack on Titan characters".'],
   facts: ['💡 Fun facts', 'Up to 10 surprising fun facts about your subject (someone or something), each with its picture and a "Fact #3" title.'],
   myth: ['✗✓ Myth vs Fact', '3 to 5 popular beliefs about the subject; each gets a big red ✗ MYTH or green ✓ FACT stamp with a boom, then the real answer. People love to argue in the comments.'],
   versus: ['🆚 This or That', 'Rounds of two pictures side by side ("A or B?"), with a fun reason for each. Ends asking viewers to comment A or B. Great for comments.'],
+  debate: ['🗣️ Debate', 'Two different voices argue about your subject ("Levi is stronger!" "No way, Mikasa…"), each with their colour and their side\'s picture. Ends by asking viewers to pick a side.'],
   long: ['⏱️ Over 1 minute', 'Makes this video 65 to 75 seconds, still fast-paced. TikTok\'s Creator Rewards only pay for videos over 1 minute (check TikTok\'s current rules).'],
   fast: ['⚡ Fast pacing', 'Shorter lines and a quick zoom on the key word, so the picture changes every 2 to 3 seconds.'],
   cover: ['🖼️ Bold cover', 'The first frame is a poster with 2 to 5 big words, so it stands out on your profile and in search.'],
@@ -137,6 +141,7 @@ export interface VideoEffects {
   realMedia: boolean; // real photos and clips (Wikimedia, NASA) with a credit line
   myClips: boolean; // use your own clips when a scene mentions their tags
   characters: boolean; // official pictures of anime / manga characters (AniList); copyrighted
+  skin: boolean; // niche skin: gaming XP bar, manga panels and speed lines, sports scoreboard and match clock
   charts: boolean; // animated bar charts for numbers and maps for places, drawn by the app
   headlines: boolean; // the real news headline shown as a card with its source (news videos)
   loop: boolean; // the last line leads back into the first, so the video loops
@@ -156,6 +161,7 @@ export const EFFECT_LABEL: Record<keyof VideoEffects, [string, string]> = {
   charts: ['Charts & maps', 'When the story has numbers (prices, scores, polls...), an animated bar chart shows them; when it happens somewhere, a map zooms to the place with a pin. Drawn by the app, free.'],
   headlines: ['Headline cards', 'News videos show the real headline once, as a clean card with the source name ("IN THE NEWS · Reuters"). Proof the story is real, and no article photos are used.'],
   loop: ['Loop ending', 'The last line leads straight back into the first, so the replay feels seamless and people watch twice (TikTok loves rewatches). Turn off End card for the smoothest loop.'],
+  skin: ['Niche skin', 'An on-screen style that fits your niche: an XP bar and "LEVEL UP!" for gaming, manga panels and speed lines for anime, a scoreboard and match clock for sports.'],
   characters: ['Character pictures (official art, copyrighted)', 'Anime and manga characters are shown with their official picture (from AniList). These pictures belong to the studios: common in ranking videos, but a rights holder could claim one. You decide.'],
 };
 
@@ -203,7 +209,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   tone: 'witty',
   music: false,
   cleanup: { enabled: true, days: 30 },
-  effects: { hookCard: true, keywords: true, sfx: true, progress: true, nicheLook: true, endCard: true, realMedia: true, myClips: true, characters: true, charts: true, headlines: true, loop: true },
+  effects: { hookCard: true, keywords: true, sfx: true, progress: true, nicheLook: true, endCard: true, realMedia: true, myClips: true, characters: true, charts: true, headlines: true, loop: true, skin: true },
   captionStyle: { color: 'yellow', size: 'big' },
   endCardName: '',
   reviewScript: false,

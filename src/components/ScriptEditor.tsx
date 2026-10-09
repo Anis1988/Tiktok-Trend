@@ -13,6 +13,7 @@ export function ScriptEditor({ v, onChange, example = false }: { v: Video; onCha
   const [comment, setComment] = useState(v.firstComment ?? '');
   const [cover, setCover] = useState(v.cover ?? '');
   const quiz = v.extras?.includes('quiz');
+  const debate = v.extras?.includes('debate');
   const [lines, setLines] = useState<Line[]>(v.draft?.lines ?? v.lines.map((text) => ({ text, footage: v.topic.slice(0, 60), keywords: [] })));
   const [busy, setBusy] = useState('');
   const building = v.status === 'building';
@@ -87,6 +88,20 @@ export function ScriptEditor({ v, onChange, example = false }: { v: Video; onCha
                   <option value="reveal">Quiz: reveal with a flash (answer)</option>
                 </select>
               )}
+              {debate && (
+                <select className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.speaker ?? 'A'} disabled={building} onChange={(e) => setLine(i, { speaker: e.target.value as 'A' | 'B' })} aria-label={`Speaker for line ${i + 1}`}>
+                  <option value="A">Debate: host A (your voice)</option>
+                  <option value="B">Debate: host B (other voice)</option>
+                </select>
+              )}
+              <select className={`${field} !min-h-[34px] !py-1 text-xs`} value={`${l.delivery ?? ''}${l.pause ? '+pause' : ''}`} disabled={building} onChange={(e) => { const [d, p] = e.target.value.split('+'); setLine(i, { delivery: (d || undefined) as Line['delivery'], pause: p === 'pause' || undefined }); }} aria-label={`Voice for line ${i + 1}`}>
+                <option value="">Voice: normal</option>
+                <option value="hype">Voice: hype (faster, excited)</option>
+                <option value="calm">Voice: calm (slower, serious)</option>
+                <option value="+pause">Voice: normal, then a dramatic pause</option>
+                <option value="hype+pause">Voice: hype, then a dramatic pause</option>
+                <option value="calm+pause">Voice: calm, then a dramatic pause</option>
+              </select>
               <select className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.media ?? ''} disabled={building} onChange={(e) => setLine(i, { media: e.target.value || undefined })} aria-label={`Picture for line ${i + 1}`}>
                 <option value="">Picture: automatic</option>
                 <option value="stock">Picture: no clip of mine</option>

@@ -28,6 +28,8 @@ export interface Scene {
   label?: string; // big title at the top during this scene, e.g. "#3 Levi Ackerman"
   quiz?: 'hide' | 'reveal'; // "Guess who?": picture blurred with a big "?", then shown sharp after a white flash
   verdict?: 'myth' | 'fact'; // "Myth vs Fact": a big red ✗ MYTH or green ✓ FACT stamps on screen mid-line
+  speaker?: 'A' | 'B'; // "Debate": host B's captions and title use a second colour
+  pause?: number; // voice acting: seconds of dramatic pause after the line (the picture stays)
 }
 
 export interface RenderOptions {
@@ -44,6 +46,7 @@ export interface RenderOptions {
   cover?: string; // bold cover: these words big on the first frame (poster for the profile grid and search)
   series?: string; // episode tag shown with the hook, e.g. "DAILY TECH DROP #14"
   notes?: string[]; // quality check notes are added here (e.g. captions not timed to the voice)
+  skin?: 'game' | 'manga' | 'sport'; // niche skin: XP bar + LEVEL UP, manga panels + speed lines, scoreboard + match clock
 }
 
 /** "#RRGGBB" -> ASS colour "&H00BBGGRR&". */
@@ -101,7 +104,21 @@ function wordsOf(l: { text: string; start: number; dur: number; times?: Timing[]
   return timeWords(l.text, l.start, l.dur);
 }
 
-export interface CaptionLine { text: string; start: number; dur: number; times?: Timing[]; keywords?: string[]; credit?: string; label?: string; quiz?: 'hide' | 'reveal'; countdown?: number; verdict?: 'myth' | 'fact'; stampAt?: number }
+export interface CaptionLine { text: string; start: number; dur: number; times?: Timing[]; keywords?: string[]; credit?: string; label?: string; quiz?: 'hide' | 'reveal'; countdown?: number; verdict?: 'myth' | 'fact'; stampAt?: number; speaker?: 'A' | 'B'; scene?: number }
+
+/** Manga speed lines: thin white spikes from the screen edges toward the middle (an ASS vector drawing). */
+export function speedLines(cx = W / 2, cy = Math.round(H * 0.42), n = 56): string {
+  const parts: string[] = [];
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * Math.PI * 2 + ((k * 7) % 5) * 0.01;
+    const inner = 470 + ((k * 37) % 9) * 22;
+    const outer = 1500;
+    const w = 0.011 + ((k * 13) % 4) * 0.003;
+    const p = (r: number, d: number) => `${Math.round(cx + Math.cos(a + d) * r)} ${Math.round(cy + Math.sin(a + d) * r)}`;
+    parts.push(`m ${p(inner, 0)} l ${p(outer, -w)} ${p(outer, w)}`);
+  }
+  return parts.join(' ');
+}
 
 /**
  * ASS subtitle file: 1 to 3 words at a time, white bold with a thick outline; the spoken word in the caption colour,
@@ -110,6 +127,8 @@ export interface CaptionLine { text: string; start: number; dur: number; times?:
 export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?: number; total?: number } = {}): string {
   const size = o.captionSize === 'medium' ? 80 : 92;
   const hi = assColor(o.captionColor ?? '#FFE600');
+  // Debate: host B's words light up in a second colour (cyan, or pink when your caption colour is already cyan).
+  const hiB = assColor(/22E3FF/i.test(o.captionColor ?? '') ? '#FF4FD8' : '#22E3FF');
   const accent = assColor((o.look ?? DEFAULT_LOOK).accent);
   const head = [
     '[Script Info]', 'ScriptType: v4.00+', `PlayResX: ${W}`, `PlayResY: ${H}`, 'WrapStyle: 0', 'ScaledBorderAndShadow: yes', '',
@@ -129,6 +148,12 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
     'Style: Stamp,DejaVu Sans,176,&H00FFFFFF,&H00FFFFFF,&H00FFFFFF,&H96000000,-1,0,0,0,100,100,4,0,1,11,6,5,40,40,0,1',
     // Series tag ("DAILY TECH DROP #14"): dark words on an accent box.
     `Style: Series,DejaVu Sans,40,&H00140B0B,&H00140B0B,${accent},&H00000000,-1,0,0,0,100,100,2,0,3,14,0,5,60,60,0,1`,
+    // Skins: manga panel (black words on a white box with a hard shadow), sports scoreboard (white on navy), clock, game pops.
+    'Style: Panel,DejaVu Sans,64,&H00000000,&H00000000,&H00FFFFFF,&H00000000,-1,0,0,0,100,100,1,0,3,18,9,5,70,70,0,1',
+    'Style: Score,DejaVu Sans,60,&H00FFFFFF,&H00FFFFFF,&H00401E0F,&H00000000,-1,0,0,0,100,100,1,0,3,16,0,5,70,70,0,1',
+    'Style: Clock,DejaVu Sans,46,&H00FFFFFF,&H00FFFFFF,&H00401E0F,&H00000000,-1,0,0,0,100,100,2,0,3,12,0,9,40,40,0,1',
+    `Style: Pop,DejaVu Sans,44,${accent},${accent},&H00000000,&H96000000,-1,0,0,0,100,100,1,0,1,5,2,5,40,40,0,1`,
+    'Style: Speed,DejaVu Sans,20,&H40FFFFFF,&H40FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1',
     'Style: Credit,DejaVu Sans,28,&H30FFFFFF,&H30FFFFFF,&H80000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,5,60,60,0,1',
     'Style: End,DejaVu Sans,84,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,-1,0,0,0,100,100,1,0,1,8,3,5,90,90,0,1', '',
     '[Events]', 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
@@ -146,7 +171,7 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
         const pop = i === 0 ? '\\fscx82\\fscy82\\t(0,90,\\fscx100\\fscy100)' : '';
         const body = g.map((x, j) => {
           const key = keys.has(norm(x.text));
-          if (j === i) return `{\\c${hi}\\fscx${key ? 118 : 108}\\fscy${key ? 118 : 108}}${assText(x.text)}{\\r}`;
+          if (j === i) return `{\\c${l.speaker === 'B' ? hiB : hi}\\fscx${key ? 118 : 108}\\fscy${key ? 118 : 108}}${assText(x.text)}{\\r}`;
           if (key) return `{\\c${accent}\\fscx108\\fscy108}${assText(x.text)}{\\r}`;
           return assText(x.text);
         }).join(' ');
@@ -167,8 +192,12 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
     // Below TikTok's top bar and above the photo card (which is smaller on titled scenes).
     const m = label.match(/^(#\s?\d+)\s*[:.\-–]?\s*(.*)$/);
     const fs = label.length > 20 ? 58 : 74;
-    const text = m ? `{\\c${accent}\\fs${Math.round(fs * 1.3)}}${m[1].replace(/\s/g, '')}{\\r\\fs${fs}}${m[2] ? ` ${assText(m[2])}` : ''}` : `{\\fs${fs}}${assText(label)}`;
-    events.push(`Dialogue: 2,${assTime(l.start)},${assTime(l.start + l.dur + GAP)},Label,,0,0,0,,{\\an8\\pos(${W / 2},${Math.round(H * 0.11)})\\fad(150,150)\\fscx70\\fscy70\\t(0,180,\\fscx100\\fscy100)}${text}`);
+    const style = o.skin === 'manga' ? 'Panel' : o.skin === 'sport' ? 'Score' : 'Label';
+    const rank = o.skin === 'manga' ? '&H00481DE1&' : accent; // manga: red rank on the white panel
+    const who = l.speaker ? `\\c${l.speaker === 'B' ? hiB : hi}` : '';
+    const stripe = o.skin === 'sport' ? `{\\c${accent}}▌{\\r} ` : '';
+    const text = stripe + (m ? `{\\c${rank}\\fs${Math.round(fs * 1.3)}}${m[1].replace(/\s/g, '')}{\\r\\fs${fs}${who}}${m[2] ? ` ${assText(m[2])}` : ''}` : `{\\fs${fs}${who}}${assText(label)}`);
+    events.push(`Dialogue: 2,${assTime(l.start)},${assTime(l.start + l.dur + GAP)},${style},,0,0,0,,{\\an8\\pos(${W / 2},${Math.round(H * 0.11)})\\fad(150,150)\\fscx70\\fscy70\\t(0,180,\\fscx100\\fscy100)}${text}`);
   }
   for (const l of lines) {
     if (l.quiz !== 'hide') continue;
@@ -184,6 +213,26 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
     if (!l.verdict || l.stampAt === undefined) continue;
     const [mark, word, col] = l.verdict === 'myth' ? ['✗', 'MYTH', '&H004444EF&'] : ['✓', 'FACT', '&H005EC522&'];
     events.push(`Dialogue: 3,${assTime(l.stampAt)},${assTime(l.start + l.dur + GAP)},Stamp,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.33)})\\c${col}\\frz8\\fscx190\\fscy190\\t(0,130,\\fscx100\\fscy100)\\fad(0,120)}${mark} ${word}`);
+  }
+  // ---- niche skins ----
+  // Big moments: a quiz answer, a #1, a myth/fact stamp.
+  const big = lines.flatMap((l) => (l.quiz === 'reveal' || /^#\s?1\b/.test(l.label ?? '') ? [l.start] : l.stampAt !== undefined ? [l.stampAt] : []));
+  if (o.skin === 'game') {
+    // "+100 XP" floats up next to the XP bar at each new scene; "LEVEL UP!" on big moments.
+    for (const l of lines.slice(1)) events.push(`Dialogue: 3,${assTime(l.start)},${assTime(l.start + 1.1)},Pop,,0,0,0,,{\\an6\\move(${W - 70},92,${W - 70},40)\\fad(80,300)}+100 XP`);
+    for (const t of big) events.push(`Dialogue: 4,${assTime(t)},${assTime(t + 1.3)},Stamp,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.3)})\\c${hi}\\fs120\\frz-6\\fscx160\\fscy160\\t(0,150,\\fscx100\\fscy100)\\fad(0,250)}★ LEVEL UP! ★`);
+  }
+  if (o.skin === 'manga') {
+    // Speed lines burst behind the picture's middle on big moments (and on the hook).
+    for (const t of [0.05, ...big]) events.push(`Dialogue: 1,${assTime(t)},${assTime(t + 0.75)},Speed,,0,0,0,,{\\an7\\pos(0,0)\\fad(0,350)\\p1}${speedLines()}{\\p0}`);
+  }
+  if (o.skin === 'sport' && o.voiceEnd) {
+    // Match clock: seconds left, top right, under TikTok's icons.
+    const end = o.voiceEnd;
+    for (let t = 0; t < end; t += 1) {
+      const left = Math.max(0, Math.ceil(end - t));
+      events.push(`Dialogue: 3,${assTime(t)},${assTime(Math.min(end, t + 1))},Clock,,0,0,0,,{\\an9\\pos(${W - 40},${Math.round(H * 0.165)})}◷ ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`);
+    }
   }
   const coverEnd = o.cover ? 1.2 : 0;
   if (o.cover) {
@@ -328,8 +377,10 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
   const look = o.look ?? DEFAULT_LOOK;
   const tail = o.endCard ? END_CARD : TAIL;
   const durs: number[] = [];
-  // A quiz clue line gets COUNTDOWN quiet seconds after the voice (the 3-2-1 before the answer).
-  const extra = scenes.map((s) => (s.quiz === 'hide' ? COUNTDOWN : 0));
+  // A quiz clue line gets COUNTDOWN quiet seconds after the voice (the 3-2-1 before the answer);
+  // voice acting adds a short dramatic pause after some lines.
+  const cd = scenes.map((s) => (s.quiz === 'hide' ? COUNTDOWN : 0));
+  const extra = scenes.map((s, i) => cd[i] + (s.quiz ? 0 : Math.min(1.5, Math.max(0, s.pause ?? 0))));
   for (const [i, s] of scenes.entries()) durs.push(await cleanLine(s.wav, `${dir}/a${i}.wav`, extra[i]));
   const starts = durs.map((_, i) => durs.slice(0, i).reduce((a, b) => a + b, 0));
   // When each word is really said (speech recognition), so captions and the punch-in zoom land on the word.
@@ -356,8 +407,8 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
   await run('ffmpeg', ['-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', `${dir}/a.txt`, '-af', `apad=pad_dur=${tail + 1}`, '-c:a', 'pcm_s16le', `${dir}/voice.wav`]);
   // Myth vs Fact: the stamp lands a bit past the middle of the line (on the word nearest that moment).
   const stampAt = scenes.map((s, i) => (s.verdict ? starts[i] + (durs[i] - GAP - extra[i]) * 0.55 : undefined));
-  const lines = scenes.map((s, i) => ({ text: s.text, start: starts[i], dur: durs[i] - GAP - extra[i], times: times[i] ?? undefined, verdict: s.verdict, stampAt: stampAt[i], keywords: s.keywords, credit: s.credit, label: s.label, quiz: s.quiz, countdown: extra[i] }));
-  const ticks = scenes.flatMap((_, i) => (extra[i] ? Array.from({ length: COUNTDOWN }, (_, k) => starts[i] + durs[i] - extra[i] + k) : []));
+  const lines = scenes.map((s, i) => ({ text: s.text, start: starts[i], dur: durs[i] - GAP - extra[i], times: times[i] ?? undefined, verdict: s.verdict, stampAt: stampAt[i], keywords: s.keywords, credit: s.credit, label: s.label, quiz: s.quiz, countdown: cd[i], speaker: s.speaker }));
+  const ticks = scenes.flatMap((_, i) => (cd[i] ? Array.from({ length: COUNTDOWN }, (_, k) => starts[i] + durs[i] - extra[i] + k) : []));
   await writeFile(`${dir}/captions.ass`, captionsAss(lines, { ...o, look, voiceEnd, total }));
   if (o.music) await makeMusic(total + 1, `${dir}/music.wav`);
   // Sound design: a boom on the hook, and a riser into each reveal (quiz answer, myth/fact stamp) that lands with a boom.
@@ -380,7 +431,13 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
   const overlays = [
     ...(o.cover ? ["drawbox=x=0:y=0:w=iw:h=ih:color=black@0.45:t=fill:enable='lt(t,1.2)'"] : []),
     ...(o.endCard ? [`drawbox=x=0:y=0:w=iw:h=ih:color=black@0.55:t=fill:enable='gte(t,${voiceEnd.toFixed(2)})'`] : []),
-    ...(o.progress ? [`drawbox=x=0:y=0:w='max(6,iw*t/${total.toFixed(2)})':h=12:color=${accent}@0.95:t=fill`] : []),
+    ...(o.progress && o.skin !== 'game' ? [`drawbox=x=0:y=0:w='max(6,iw*t/${total.toFixed(2)})':h=12:color=${accent}@0.95:t=fill`] : []),
+    // Gaming skin: an XP bar (frame + filling bar) instead of the thin progress bar.
+    ...(o.skin === 'game' ? [
+      `drawbox=x=56:y=44:w=${W - 112}:h=34:color=black@0.55:t=fill`,
+      `drawbox=x=56:y=44:w=${W - 112}:h=34:color=white@0.9:t=4`,
+      `drawbox=x=64:y=52:w='max(4,(${W - 128})*t/${total.toFixed(2)})':h=18:color=${accent}@0.95:t=fill`,
+    ] : []),
   ];
   graph.push(`${last}${overlays.length ? `${overlays.join(',')},` : ''}subtitles=${dir}/captions.ass:fontsdir=${FONT_DIR},format=yuv420p[vout]`);
 

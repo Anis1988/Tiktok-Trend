@@ -30,10 +30,12 @@ async function loadKokoro(): Promise<Kokoro> {
 /** The voice actually used for this video (shown in the app). */
 export const voiceUsed = () => used;
 
-export async function speak(text: string, voice: VoiceId, outWav: string, fast: boolean): Promise<void> {
+/** `pace`: true = a bit lively (1.08x), false = normal, or an exact speed (voice acting: 0.9 calm … 1.15 hype). */
+export async function speak(text: string, voice: VoiceId, outWav: string, pace: boolean | number): Promise<void> {
+  const speed = typeof pace === 'number' ? Math.min(1.25, Math.max(0.8, pace)) : pace ? 1.08 : 1;
   if (process.env.TTS_FAKE === '1') {
     // Local test only: a quiet tone as long as the line would take to read.
-    const secs = Math.max(1.2, text.split(/\s+/).length / 2.6);
+    const secs = Math.max(1.2, text.split(/\s+/).length / 2.6 / speed);
     await run('ffmpeg', ['-y', '-v', 'error', '-f', 'lavfi', '-i', `sine=frequency=220:duration=${secs.toFixed(2)}`, '-af', 'volume=1.5', '-ar', '24000', '-ac', '1', outWav]);
     used = 'test tone';
     return;
@@ -42,7 +44,7 @@ export async function speak(text: string, voice: VoiceId, outWav: string, fast: 
     try {
       kokoro ??= loadKokoro();
       const v = kokoroVoice(voice);
-      const audio = await (await kokoro).generate(text, { voice: v, speed: fast ? 1.08 : 1 });
+      const audio = await (await kokoro).generate(text, { voice: v, speed });
       await audio.save(outWav);
       used = `Kokoro ${v}`;
       return;
@@ -55,6 +57,6 @@ export async function speak(text: string, voice: VoiceId, outWav: string, fast: 
   const bin = `${dir}/piper/piper`;
   if (!existsSync(bin)) throw new Error(`No voice available (Kokoro: ${kokoroBroken}; Piper not found at ${bin}).`);
   const model = piperFor(voice);
-  await run(bin, ['-m', `${dir}/${model}.onnx`, '-f', outWav, '--length_scale', fast ? '0.88' : '0.97', '--sentence_silence', '0.1'], text);
+  await run(bin, ['-m', `${dir}/${model}.onnx`, '-f', outWav, '--length_scale', (0.97 / speed).toFixed(2), '--sentence_silence', '0.1'], text);
   used = `Piper ${model}`;
 }
