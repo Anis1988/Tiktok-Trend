@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
 import { call } from '../lib/api';
-import { Card, Field, toast } from './ui';
+import { Card, Field, Toggle, toast } from './ui';
+import { isNative } from '../lib/native';
+import { appPushOn, appPushReady, disableAppPush, enableAppPush, pushAction } from '../lib/appPush';
 
 interface PushStatus { firebase: string | null; phones: number }
-export const pushAction = <T,>(body: Record<string, unknown>) => call<T>('/api/push', { method: 'POST', body: JSON.stringify(body) });
 
 /** Settings → Phone notifications: the Firebase key (uploaded once, from a computer) for the Android app's alerts. */
 export function PhonePush() {
   const [st, setSt] = useState<PushStatus | null>(null);
   const [busy, setBusy] = useState('');
+  const [on, setOn] = useState(appPushOn());
   const load = () => call<PushStatus>('/api/push').then(setSt, () => undefined);
   useEffect(() => void load(), []);
   const run = async (what: string, f: () => Promise<void>) => {
@@ -24,6 +26,20 @@ export function PhonePush() {
 
   return (
     <Card title="Phone notifications" subtitle="For the Android app: 'New video to review' on your phone">
+      {isNative() && (
+        <Field label="Notifications on this phone" hint={!appPushReady() ? 'This version was built without Firebase, so phone notifications are not available yet.' : !st?.firebase ? 'Upload the Firebase key first (below, or on the website).' : 'New videos, TikTok drafts and failures. Tap one to open the video.'}>
+          <Toggle on={on} label="Notifications on this phone" onChange={(v) => !busy && appPushReady() && void run('on', async () => {
+            if (v) await enableAppPush();
+            else await disableAppPush();
+            setOn(v);
+            toast(v ? 'success' : 'info', v ? 'Notifications are on for this phone.' : 'Notifications are off on this phone.');
+            await load();
+          })} />
+        </Field>
+      )}
+      {isNative() && on && (
+        <button className="btn" disabled={!!busy} onClick={() => void run('test', async () => { await pushAction({ action: 'test' }); toast('success', 'Test notification sent.'); })}>Send test notification</button>
+      )}
       <Field label="Firebase key" hint={st?.firebase ? `Saved (project ${st.firebase}). ${st.phones} phone(s) get notifications.` : 'Upload your Firebase key file once (from your computer). See the Guide: Android app.'}>
         <div className="flex flex-wrap gap-2">
           <label className={`btn ${busy ? 'pointer-events-none opacity-50' : 'cursor-pointer'}`}>

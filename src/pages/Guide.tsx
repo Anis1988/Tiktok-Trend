@@ -13,6 +13,7 @@ import { StatusChip } from '../components/ui';
 import type { Video } from '../lib/api';
 import type { VideoStatus } from '../lib/types';
 import { STATUS_LABEL } from '../lib/types';
+import { UpdateBanner } from '../components/AppUpdate';
 
 /* made-up example, only for this guide */
 const EXAMPLE: Video = {
@@ -72,6 +73,21 @@ export function Guide() {
           <li><b>To other platforms (if you want).</b> Approved videos also get a separate Send button for each platform you connected: YouTube Shorts, Facebook Reels and Instagram Reels. See "Other platforms" below.</li>
         </ol>
         <p>Nothing is ever posted without your OK.</p>
+      </Section>
+
+      <Section title="Android app">
+        <p>There is also an Android app: the same screens, using the same server, so your videos, settings and AI limit are shared with the website. Nothing is ever posted without your OK.</p>
+        <UpdateBanner have={4} next={5} />
+        <p className="text-xs text-slate-500">Example: the banner you see when a new version is ready (made-up numbers).</p>
+        <ul className="list-disc space-y-1 pl-5">
+          <li><b>Install:</b> on your phone, open the GitHub page <b>Tiktok-Trend → Releases → android-latest</b> and tap <b>TrendVideos.apk</b>. The first time, Android asks to allow installing apps from your browser: allow it once. Then enter your access code.</li>
+          <li><b>Updates:</b> a banner shows at the top of the app. Tap <b>Update</b>, then <b>Install</b>; your data stays. <b>Later</b> hides it until the next version. Or check in <b>Settings → App version</b>.</li>
+          <li><b>Download</b> on a video opens the phone's Share menu: save it to the phone, or send it straight to TikTok, WhatsApp…</li>
+          <li><b>Connect TikTok / YouTube / Facebook</b> opens the phone's browser for the login, then come back to the app.</li>
+          <li><b>Phone notifications:</b> turn on <b>Settings → Phone notifications</b> in the app. Tapping "New video to review" opens that video.</li>
+          <li><b>One-time Firebase setup</b> (Google's free notification service, the same project as your Trading app): in Firebase, add an <b>Android</b> app named <b>app.tiktoktrend</b> and give the new <b>google-services.json</b> to Claude (it is not a password). Then upload your Firebase <b>private key</b> file in <b>Settings → Phone notifications</b> on the website (never send that one to anyone).</li>
+          <li>The phone's back button goes back to Videos, then closes the app.</li>
+        </ul>
       </Section>
 
       <Section title="My channel (your niche)">

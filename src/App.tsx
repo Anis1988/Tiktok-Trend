@@ -1,4 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { App as NativeApp } from '@capacitor/app';
+import { isNative } from './lib/native';
+import { startAppPush } from './lib/appPush';
+import { AppUpdateCheck } from './components/AppUpdate';
 import { Toasts, toast } from './components/ui';
 import { Videos } from './pages/Videos';
 import { Settings } from './pages/Settings';
@@ -73,10 +77,25 @@ export default function App() {
     window.history.replaceState(null, '', t === 'Videos' ? '/' : `/${t.toLowerCase()}`);
   };
 
+  // Android app: notifications (shown at the top while the app is open), and the phone's back button:
+  // a video page or another tab goes back to Videos, then the app goes to the background.
+  useEffect(() => startAppPush((title, body) => toast('info', body ? `${title}: ${body}` : title)), []);
+  const where = useRef({ tab, page: !!(review || legal) });
+  where.current = { tab, page: !!(review || legal) };
+  useEffect(() => {
+    if (!isNative()) return;
+    const h = NativeApp.addListener('backButton', () => {
+      if (where.current.page) window.location.href = '/';
+      else if (where.current.tab !== 'Videos') go('Videos');
+      else void NativeApp.minimizeApp();
+    });
+    return () => void h.then((x) => x.remove());
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="min-h-screen">
       <Toasts />
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-ink-950/75 backdrop-blur-xl" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-ink-950/75 backdrop-blur-xl" style={{ paddingTop: 'var(--safe-area-inset-top, env(safe-area-inset-top))' }}>
         <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-3 px-3 sm:px-4">
           <Logo />
           <span className="hidden whitespace-nowrap font-display text-lg font-semibold tracking-tight min-[400px]:inline">Trend Videos</span>
@@ -92,6 +111,7 @@ export default function App() {
         </div>
       </header>
       <main className="mx-auto max-w-[1400px] px-3 pb-12 pt-4 sm:px-4 lg:px-6">
+        <AppUpdateCheck />
         {legal ? (
           legal === 'terms' ? <Terms /> : <Privacy />
         ) : review ? (
@@ -106,7 +126,7 @@ export default function App() {
           <Settings />
         )}
       </main>
-      <footer className="pb-8 text-center text-xs text-slate-500">
+      <footer className="pb-8 text-center text-xs text-slate-500" style={{ paddingBottom: 'calc(2rem + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))' }}>
         <a className="hover:text-slate-300" href="/terms">Terms of Service</a> · <a className="hover:text-slate-300" href="/privacy">Privacy Policy</a>
         {legal && <> · <a className="hover:text-slate-300" href="/">Back to the app</a></>}
       </footer>

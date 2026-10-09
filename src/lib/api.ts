@@ -1,4 +1,8 @@
 import type { AppSettings, DraftLine, Extra, MediaItem, PlatformId, VideoRecord } from './types';
+import { CapacitorHttp } from '@capacitor/core';
+import { Directory, Filesystem } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+import { apiUrl, isNative } from './native';
 
 /** sendTo: platforms you can send to (only on the email review page, which has no access code). */
 export type Video = VideoRecord & { sig: string; sendTo?: PlatformId[]; tiktokConnected?: boolean };
@@ -38,7 +42,7 @@ export async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const code = getCode();
   let res: Response;
   try {
-    res = await fetch(path, { ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}), ...(code ? { 'X-Access-Token': code } : {}) } });
+    res = await fetch(apiUrl(path), { ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}), ...(code ? { 'X-Access-Token': code } : {}) } });
   } catch {
     throw new ApiError('Could not reach the server.', 0);
   }
@@ -146,6 +150,7 @@ export const api = {
  * fetched in 4 MB pieces and put back together here. Falls back to the plain link if that fails.
  */
 export async function downloadVideo(v: { id: string; sig: string; sizeBytes?: number }, onProgress?: (share: number) => void): Promise<void> {
+  if (isNative()) return shareVideo(v, onProgress);
   const url = fileUrl(v, 'mp4');
   try {
     const parts: ArrayBuffer[] = [];
@@ -172,9 +177,34 @@ export async function downloadVideo(v: { id: string; sig: string; sizeBytes?: nu
   }
 }
 
+/**
+ * Android app: the video is fetched in 4 MB pieces into the phone's cache, then the Share menu opens
+ * (Save to the phone, TikTok, WhatsApp…). A browser-style download doesn't exist inside an app.
+ */
+async function shareVideo(v: { id: string; sig: string; sizeBytes?: number }, onProgress?: (share: number) => void): Promise<void> {
+  const url = fileUrl(v, 'mp4');
+  const path = `${v.id}.mp4`;
+  let start = 0;
+  let size = Infinity;
+  while (start < size) {
+    const res = await CapacitorHttp.request({ url, method: 'GET', headers: { Range: `bytes=${start}-${start + 4 * 1024 * 1024 - 1}` }, responseType: 'blob' });
+    if (res.status !== 206 || typeof res.data !== 'string') throw new Error(`The video could not be downloaded (HTTP ${res.status}).`);
+    const range = Object.entries(res.headers).find(([k]) => k.toLowerCase() === 'content-range')?.[1] ?? '';
+    size = Number(String(range).split('/')[1]) || 0;
+    const got = Math.floor((res.data.replace(/=+$/, '').length * 3) / 4); // bytes in this piece (base64)
+    if (!got) break;
+    if (start === 0) await Filesystem.writeFile({ path, data: res.data, directory: Directory.Cache });
+    else await Filesystem.appendFile({ path, data: res.data, directory: Directory.Cache });
+    start += got;
+    onProgress?.(size ? start / size : 0);
+  }
+  const { uri } = await Filesystem.getUri({ path, directory: Directory.Cache });
+  await Share.share({ title: 'Your video', files: [uri], dialogTitle: 'Save or share the video' });
+}
+
 // "v" (the file size) changes when a video is rebuilt, so the phone's week-long copy is never an old version.
 export const fileUrl = (v: { id: string; sig: string; sizeBytes?: number }, kind: 'mp4' | 'jpg', download = false) =>
-  `/api/file?id=${encodeURIComponent(v.id)}&kind=${kind}&sig=${encodeURIComponent(v.sig)}${v.sizeBytes ? `&v=${v.sizeBytes}` : ''}${download ? '&dl=1' : ''}`;
+  apiUrl('/api/file?id=') + `${encodeURIComponent(v.id)}&kind=${kind}&sig=${encodeURIComponent(v.sig)}${v.sizeBytes ? `&v=${v.sizeBytes}` : ''}${download ? '&dl=1' : ''}`;
 
 /** Which platforms have a Send button, from the connections in /api/status. */
 export const sendTargets = (st: Status | null): PlatformId[] =>

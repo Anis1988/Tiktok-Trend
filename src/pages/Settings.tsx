@@ -3,6 +3,8 @@ import { api, setCode, type Status } from '../lib/api';
 import { Card, Field, Toggle, toast } from '../components/ui';
 import { useSettings } from '../lib/useSettings';
 import { PhonePush } from '../components/PhonePush';
+import { isNative, openExternal } from '../lib/native';
+import { APP_BUILD, downloadApp, latestApp } from '../components/AppUpdate';
 
 export function Settings() {
   const { settings: s, setSettings: setS, save } = useSettings();
@@ -15,7 +17,7 @@ export function Settings() {
 
   const connect = async () => {
     try {
-      window.location.href = (await api.tiktokStart()).url;
+      openExternal((await api.tiktokStart()).url);
     } catch (e) {
       toast('error', e instanceof Error ? e.message : String(e));
     }
@@ -33,7 +35,7 @@ export function Settings() {
   // YouTube (Google login) and Facebook & Instagram (one Meta login).
   const connectOther = async (p: 'youtube' | 'meta') => {
     try {
-      window.location.href = (await api.connectStart(p)).url;
+      openExternal((await api.connectStart(p)).url);
     } catch (e) {
       toast('error', e instanceof Error ? e.message : String(e));
     }
@@ -148,6 +150,15 @@ export function Settings() {
       <PhonePush />
 
       <Card title="This device">
+        {isNative() && (
+          <Field label="App version" hint={`1.0.${APP_BUILD}. New versions are also offered at the top of the app when you open it.`}>
+            <button className="btn" onClick={() => void latestApp().then((r) => {
+              if (!r) toast('error', 'Could not reach the download page. Try again in a minute.');
+              else if (r.build <= APP_BUILD) toast('success', 'You have the latest version.');
+              else void downloadApp(r.url);
+            }, () => toast('error', 'Could not reach the download page. Try again in a minute.'))}>Check for updates</button>
+          </Field>
+        )}
         <Field label="Access code" hint="Saved on this device only.">
           <button className="btn" onClick={() => (setCode(''), window.location.reload())}>Forget it</button>
         </Field>

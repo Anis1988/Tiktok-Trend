@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Trend Videos</string>
+    <string name="title_activity_main">Trend Videos</string>
+    <string name="package_name">app.tiktoktrend</string>
+    <string name="custom_url_scheme">app.tiktoktrend</string>
+</resources>
