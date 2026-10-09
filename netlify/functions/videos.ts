@@ -9,6 +9,9 @@ export const config = { path: '/api/videos' };
 
 const withSig = (v: VideoRecord) => ({ ...v, sig: sign(v.id) });
 
+/** "building" or "publishing" for more than 20 minutes: the GitHub job died or was cancelled, so it can be retried or deleted. */
+const stuck = (v: VideoRecord) => (v.status === 'building' || v.status === 'publishing') && Date.now() - Date.parse(v.updatedAt) > 20 * 60_000;
+
 /** A send that started less than 15 minutes ago is still running (after that it is treated as stuck, so you can retry). */
 const sendingNow = (v: VideoRecord) => Object.values(v.platforms ?? {}).some((x) => x?.state === 'sending' && Date.now() - Date.parse(x.at) < 15 * 60_000);
 
@@ -64,13 +67,17 @@ export default async (req: Request): Promise<Response> => {
   if (req.method === 'POST') {
     try {
       body = Post.parse(await req.json());
-    } catch {
-      return json({ error: 'Invalid request.' }, 400);
+    } catch (e) {
+      // Say which field is wrong (e.g. "lines.3.footage: too short"), so a failed save is understandable.
+      const issue = e instanceof z.ZodError ? e.issues[0] : undefined;
+      return json({ error: issue ? `Invalid request: ${issue.path.join('.') || 'body'}: ${issue.message}` : 'Invalid request.' }, 400);
     }
   }
-  const linkId = id ?? (body && 'id' in body ? body.id : null);
-  const linkSig = url.searchParams.get('sig') ?? (body && 'sig' in body ? body.sig : null);
-  const byLink = !!linkId && verify(linkId, linkSig);
+  // A signed email link unlocks only the one video it was signed for (GET ?id=&sig= or the POST body's id), never
+  // "make a video" or any other video: the id it is checked against is exactly the id the action works on.
+  const target = req.method === 'GET' ? id : body && 'id' in body ? body.id : null;
+  const linkSig = (body && 'sig' in body ? body.sig : null) ?? url.searchParams.get('sig');
+  const byLink = !!target && (!id || id === target) && verify(target, linkSig);
   const blocked = byLink ? linkGuard(req, 'videos-link', 30) : guard(req, 'videos', 60);
   if (blocked) return blocked;
 
@@ -80,9 +87,9 @@ export default async (req: Request): Promise<Response> => {
       if (!v) return json({ error: 'Video not found.' }, 404);
       if (!byLink) return json(withSig(v));
       // The email review page has no access code, so it learns here which Send buttons to show.
-      const [yt, meta] = await Promise.all([getYouTube(), getMeta()]);
+      const [yt, meta, tt] = await Promise.all([getYouTube(), getMeta(), getTikTok()]);
       const sendTo: PlatformId[] = [...(yt ? ['youtube' as const] : []), ...(meta ? ['facebook' as const] : []), ...(meta?.igUserId ? ['instagram' as const] : [])];
-      return json({ ...withSig(v), sendTo });
+      return json({ ...withSig(v), sendTo, tiktokConnected: !!tt && dispatchReady() });
     }
     return json((await listVideos()).map(withSig));
   }
@@ -105,7 +112,7 @@ export default async (req: Request): Promise<Response> => {
     if (body.action === 'delete') {
       const v = await getVideo(body.id);
       if (!v) return json({ ok: true }); // already gone
-      if (v.status === 'building' || v.status === 'publishing') return json({ error: `This video is being ${v.status === 'building' ? 'built' : 'sent to TikTok'}. Try again in a few minutes.` }, 409);
+      if ((v.status === 'building' || v.status === 'publishing') && !stuck(v)) return json({ error: `This video is being ${v.status === 'building' ? 'built' : 'sent to TikTok'}. Try again in a few minutes.` }, 409);
       if (sendingNow(v)) return json({ error: 'This video is being sent to another platform. Try again in a few minutes.' }, 409);
       await deleteVideo(v.id);
       return json({ ok: true });
@@ -117,12 +124,13 @@ export default async (req: Request): Promise<Response> => {
       // The first line is the hook the voice says first; keep them together.
       const lines = body.lines;
       return json(withSig((await patchVideo(v.id, {
-        title: body.title, hook: body.hook, caption: body.caption, firstComment: body.firstComment || undefined, cover: body.cover || v.cover,
+        title: body.title, hook: body.hook, caption: body.caption, firstComment: body.firstComment || undefined,
+        cover: body.cover === undefined ? v.cover : body.cover || undefined, // an emptied box removes the cover words
         lines: lines.map((l) => l.text), draft: { lines },
       }))!));
     }
     if (body.action === 'build') {
-      if (v.status !== 'script') return json({ error: `Already ${v.status}.` }, 409);
+      if (v.status !== 'script' && !(v.status === 'building' && stuck(v))) return json({ error: `Already ${v.status}.` }, 409);
       await dispatch('generate.yml', { manual: 'true', render_id: v.id });
       return json(withSig((await patchVideo(v.id, { status: 'building', error: undefined }))!));
     }
@@ -130,10 +138,17 @@ export default async (req: Request): Promise<Response> => {
       return json(withSig((await patchVideo(v.id, { stats: { ...v.stats, tiktok: { views: body.views, likes: body.likes, at: new Date().toISOString() } } }))!));
     }
     if (body.action === 'send') return json(await send(v, body.platform, !!body.confirm));
-    if (body.action === 'reject') return json(withSig((await patchVideo(v.id, { status: 'rejected' }))!));
-    if (body.action === 'posted') return json(withSig((await patchVideo(v.id, { status: 'posted' }))!));
+    if (body.action === 'reject') {
+      if (!['pending', 'script', 'approved', 'failed'].includes(v.status)) return json({ error: `This video is ${v.status}, so it can't be rejected now.` }, 409);
+      return json(withSig((await patchVideo(v.id, { status: 'rejected' }))!));
+    }
+    if (body.action === 'posted') {
+      if (!['approved', 'sent', 'failed', 'pending'].includes(v.status) && !stuck(v)) return json({ error: `This video is ${v.status}.` }, 409);
+      return json(withSig((await patchVideo(v.id, { status: 'posted' }))!));
+    }
     // approve / retry: send to TikTok drafts when connected, otherwise it is yours to download and post.
-    if (!['pending', 'approved', 'failed'].includes(v.status)) return json({ error: `Already ${v.status}.` }, 409);
+    if (!['pending', 'approved', 'failed'].includes(v.status) && !(v.status === 'publishing' && stuck(v))) return json({ error: `Already ${v.status}.` }, 409);
+    if (v.tiktok?.publishId && (v.status === 'publishing' || v.tiktok.sentAt)) return json({ error: 'This video was already sent to your TikTok drafts.' }, 409);
     if (v.status === 'failed' && !v.sizeBytes) return json({ error: 'This video was never made, so there is nothing to send.' }, 409);
     const tt = await getTikTok();
     if (!tt || !dispatchReady()) return json(withSig((await patchVideo(v.id, { status: 'approved', error: undefined }))!));

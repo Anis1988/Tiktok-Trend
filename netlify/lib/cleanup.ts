@@ -14,16 +14,16 @@ export async function cleanUp(s: AppSettings, log: (...a: unknown[]) => void): P
   const files = store('tt-files');
   const videos = await listVideos();
   let removed = 0;
-  let changed = false;
+  const gone = new Map<string, string>(); // id -> time its file was removed
   for (const v of videos) {
     if (!FINISHED.has(v.status) || v.fileRemovedAt || Date.parse(v.createdAt) > cutoff) continue;
     if (Object.values(v.platforms ?? {}).some((x) => x?.state === 'sending')) continue; // being sent to YouTube / Facebook / Instagram
     await Promise.all([files.delete(`${v.id}.mp4`), files.delete(`${v.id}.jpg`)]);
-    Object.assign(v, { fileRemovedAt: new Date().toISOString(), sizeBytes: 0 });
+    gone.set(v.id, new Date().toISOString());
     removed++;
-    changed = true;
   }
-  if (changed) await writeJson('videos', videos);
+  // Re-read just before writing: an approve, reject or send that happened meanwhile is kept.
+  if (gone.size) await writeJson('videos', (await listVideos()).map((v) => (gone.has(v.id) ? { ...v, fileRemovedAt: gone.get(v.id), sizeBytes: 0 } : v)));
   // Files of videos that dropped off the list (it keeps the latest 200).
   const known = new Set(videos.map((v) => v.id));
   const { blobs } = await files.list();

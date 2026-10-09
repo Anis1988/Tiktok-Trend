@@ -21,8 +21,12 @@ export function Settings() {
   };
   const disconnect = async () => {
     if (!window.confirm('Disconnect TikTok? Approved videos will then be yours to download and post.')) return;
-    await api.tiktokDisconnect().catch(() => undefined);
-    setSt((x) => (x ? { ...x, tiktok: { connected: false } } : x));
+    try {
+      await api.tiktokDisconnect();
+      setSt((x) => (x ? { ...x, tiktok: { connected: false } } : x));
+    } catch (e) {
+      toast('error', `Could not disconnect: ${e instanceof Error ? e.message : e}`);
+    }
   };
 
   // YouTube (Google login) and Facebook & Instagram (one Meta login).
@@ -35,8 +39,12 @@ export function Settings() {
   };
   const disconnectOther = async (p: 'youtube' | 'meta') => {
     if (!window.confirm(`Disconnect ${p === 'youtube' ? 'YouTube' : 'Facebook & Instagram'}? Videos already sent there stay there.`)) return;
-    await api.connectDisconnect(p).catch(() => undefined);
-    setSt((x) => (!x ? x : p === 'youtube' ? { ...x, youtube: { connected: false } } : { ...x, meta: { connected: false } }));
+    try {
+      await api.connectDisconnect(p);
+      setSt((x) => (!x ? x : p === 'youtube' ? { ...x, youtube: { connected: false } } : { ...x, meta: { connected: false } }));
+    } catch (e) {
+      toast('error', `Could not disconnect: ${e instanceof Error ? e.message : e}`);
+    }
   };
 
   if (err) return <p className="card text-red-200">{err}</p>;
@@ -130,7 +138,9 @@ export function Settings() {
 
       <Card title="Cost control">
         <Field label="Most AI scripts per day" hint={`Each video uses 1 AI call (about 2 to 5 cents). Used today: ${st.ai.used}.`}>
-          <input className="input w-24" type="number" min={1} max={30} value={s.aiDailyLimit} onChange={(e) => void save({ aiDailyLimit: Math.min(30, Math.max(1, Number(e.target.value) || 1)) })} />
+          <input key={s.aiDailyLimit} className="input w-24" type="number" min={1} max={30} defaultValue={s.aiDailyLimit} aria-label="Most AI scripts per day"
+            onBlur={(e) => { const n = Math.min(30, Math.max(1, Math.round(Number(e.target.value)) || s.aiDailyLimit)); e.target.value = String(n); if (n !== s.aiDailyLimit) void save({ aiDailyLimit: n }); }}
+            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
         </Field>
       </Card>
 

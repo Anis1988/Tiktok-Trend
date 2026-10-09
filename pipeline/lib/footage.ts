@@ -83,9 +83,11 @@ export async function findClip(query: string, used: Set<string>, outPath: string
     for (const c of best(cands, used)) {
       if (seen.has(c.key)) continue;
       seen.add(c.key);
-      const dl = await fetch(c.link, { signal: AbortSignal.timeout(90_000) }).catch(() => null);
-      if (!dl?.ok) continue;
-      await writeFile(outPath, Buffer.from(await dl.arrayBuffer()));
+      // A download that breaks halfway (timeout, reset) just moves on to the next clip.
+      const ok = await fetch(c.link, { signal: AbortSignal.timeout(90_000) })
+        .then(async (dl) => (dl.ok ? (await writeFile(outPath, Buffer.from(await dl.arrayBuffer())), true) : false))
+        .catch((e) => (console.log(`Clip download failed (${c.site}):`, e instanceof Error ? e.message : e), false));
+      if (!ok) continue;
       used.add(c.key);
       return { path: outPath, by: c.by, url: c.url, site: c.site };
     }

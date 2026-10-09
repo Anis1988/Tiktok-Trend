@@ -104,7 +104,7 @@ function wordsOf(l: { text: string; start: number; dur: number; times?: Timing[]
   return timeWords(l.text, l.start, l.dur);
 }
 
-export interface CaptionLine { text: string; start: number; dur: number; times?: Timing[]; keywords?: string[]; credit?: string; label?: string; quiz?: 'hide' | 'reveal'; countdown?: number; verdict?: 'myth' | 'fact'; stampAt?: number; speaker?: 'A' | 'B'; scene?: number }
+export interface CaptionLine { text: string; start: number; dur: number; times?: Timing[]; keywords?: string[]; credit?: string; label?: string; quiz?: 'hide' | 'reveal'; countdown?: number; verdict?: 'myth' | 'fact'; stampAt?: number; speaker?: 'A' | 'B'; scene?: number; end?: number }
 
 /** Manga speed lines: thin white spikes from the screen edges toward the middle (an ASS vector drawing). */
 export function speedLines(cx = W / 2, cy = Math.round(H * 0.42), n = 56): string {
@@ -183,7 +183,7 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
   }
   for (const l of lines) {
     if (!l.credit) continue;
-    events.push(`Dialogue: 1,${assTime(l.start)},${assTime(l.start + l.dur + GAP)},Credit,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.7)})}${l.credit.replace(/[{}\\]/g, '').slice(0, 90)}`);
+    events.push(`Dialogue: 1,${assTime(l.start)},${assTime(l.end ?? l.start + l.dur + GAP)},Credit,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.7)})}${l.credit.replace(/[{}\\]/g, '').slice(0, 90)}`);
   }
   for (const l of lines) {
     const label = l.label?.replace(/[{}\\]/g, '').trim().slice(0, 40);
@@ -197,7 +197,7 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
     const who = l.speaker ? `\\c${l.speaker === 'B' ? hiB : hi}` : '';
     const stripe = o.skin === 'sport' ? `{\\c${accent}}▌{\\r} ` : '';
     const text = stripe + (m ? `{\\c${rank}\\fs${Math.round(fs * 1.3)}}${m[1].replace(/\s/g, '')}{\\r\\fs${fs}${who}}${m[2] ? ` ${assText(m[2])}` : ''}` : `{\\fs${fs}${who}}${assText(label)}`);
-    events.push(`Dialogue: 2,${assTime(l.start)},${assTime(l.start + l.dur + GAP)},${style},,0,0,0,,{\\an8\\pos(${W / 2},${Math.round(H * 0.11)})\\fad(150,150)\\fscx70\\fscy70\\t(0,180,\\fscx100\\fscy100)}${text}`);
+    events.push(`Dialogue: 2,${assTime(l.start)},${assTime(l.end ?? l.start + l.dur + GAP)},${style},,0,0,0,,{\\an8\\pos(${W / 2},${Math.round(H * 0.11)})\\fad(150,150)\\fscx70\\fscy70\\t(0,180,\\fscx100\\fscy100)}${text}`);
   }
   for (const l of lines) {
     if (l.quiz !== 'hide') continue;
@@ -212,7 +212,7 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
   for (const l of lines) {
     if (!l.verdict || l.stampAt === undefined) continue;
     const [mark, word, col] = l.verdict === 'myth' ? ['✗', 'MYTH', '&H004444EF&'] : ['✓', 'FACT', '&H005EC522&'];
-    events.push(`Dialogue: 3,${assTime(l.stampAt)},${assTime(l.start + l.dur + GAP)},Stamp,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.33)})\\c${col}\\frz8\\fscx190\\fscy190\\t(0,130,\\fscx100\\fscy100)\\fad(0,120)}${mark} ${word}`);
+    events.push(`Dialogue: 3,${assTime(l.stampAt)},${assTime(l.end ?? l.start + l.dur + GAP)},Stamp,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.33)})\\c${col}\\frz8\\fscx190\\fscy190\\t(0,130,\\fscx100\\fscy100)\\fad(0,120)}${mark} ${word}`);
   }
   // ---- niche skins ----
   // Big moments: a quiz answer, a #1, a myth/fact stamp.
@@ -398,7 +398,7 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
     const keys = new Set((s.keywords ?? []).flatMap((k) => k.split(/\s+/)).map(norm).filter(Boolean));
     const word = wordsOf({ text: s.text, start: 0, dur: durs[i] - GAP, times: times[i] ?? undefined }).find((w) => keys.has(norm(w.text)));
     const at = word && word.from > 0.5 ? word.from : durs[i] / 2;
-    return at + fade / 2;
+    return at + (i > 0 ? fade / 2 : 0);
   });
   const videos: string[] = [];
   for (const [i, s] of scenes.entries()) videos.push(await renderScene(s, i, durs[i], dir, i === scenes.length - 1 ? tail : 0, look.grade, fade, punch[i]));
@@ -407,7 +407,7 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
   await run('ffmpeg', ['-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', `${dir}/a.txt`, '-af', `apad=pad_dur=${tail + 1}`, '-c:a', 'pcm_s16le', `${dir}/voice.wav`]);
   // Myth vs Fact: the stamp lands a bit past the middle of the line (on the word nearest that moment).
   const stampAt = scenes.map((s, i) => (s.verdict ? starts[i] + (durs[i] - GAP - extra[i]) * 0.55 : undefined));
-  const lines = scenes.map((s, i) => ({ text: s.text, start: starts[i], dur: durs[i] - GAP - extra[i], times: times[i] ?? undefined, verdict: s.verdict, stampAt: stampAt[i], keywords: s.keywords, credit: s.credit, label: s.label, quiz: s.quiz, countdown: cd[i], speaker: s.speaker }));
+  const lines = scenes.map((s, i) => ({ text: s.text, start: starts[i], dur: durs[i] - GAP - extra[i], times: times[i] ?? undefined, verdict: s.verdict, stampAt: stampAt[i], keywords: s.keywords, credit: s.credit, label: s.label, quiz: s.quiz, countdown: cd[i], speaker: s.speaker, end: starts[i] + durs[i] }));
   const ticks = scenes.flatMap((_, i) => (cd[i] ? Array.from({ length: COUNTDOWN }, (_, k) => starts[i] + durs[i] - extra[i] + k) : []));
   await writeFile(`${dir}/captions.ass`, captionsAss(lines, { ...o, look, voiceEnd, total }));
   if (o.music) await makeMusic(total + 1, `${dir}/music.wav`);
@@ -428,15 +428,25 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
     last = label;
   }
   const accent = `0x${look.accent.replace('#', '')}`;
+  // A bar that fills as the video plays: drawbox can't grow by itself (its "t" means line thickness, not time),
+  // so it is made of small segments, each switched on at its moment (about every half second).
+  const fillBar = (x: number, y: number, w: number, h: number, color: string) => {
+    const n = Math.max(2, Math.min(120, Math.ceil(total * 2)));
+    return Array.from({ length: n }, (_, k) => {
+      const x0 = x + Math.floor((w * k) / n);
+      const x1 = x + Math.floor((w * (k + 1)) / n);
+      return `drawbox=x=${x0}:y=${y}:w=${x1 - x0}:h=${h}:color=${color}:t=fill:enable='gte(t,${((total * k) / n).toFixed(2)})'`;
+    });
+  };
   const overlays = [
     ...(o.cover ? ["drawbox=x=0:y=0:w=iw:h=ih:color=black@0.45:t=fill:enable='lt(t,1.2)'"] : []),
     ...(o.endCard ? [`drawbox=x=0:y=0:w=iw:h=ih:color=black@0.55:t=fill:enable='gte(t,${voiceEnd.toFixed(2)})'`] : []),
-    ...(o.progress && o.skin !== 'game' ? [`drawbox=x=0:y=0:w='max(6,iw*t/${total.toFixed(2)})':h=12:color=${accent}@0.95:t=fill`] : []),
+    ...(o.progress && o.skin !== 'game' ? fillBar(0, 0, W, 12, `${accent}@0.95`) : []),
     // Gaming skin: an XP bar (frame + filling bar) instead of the thin progress bar.
     ...(o.skin === 'game' ? [
       `drawbox=x=56:y=44:w=${W - 112}:h=34:color=black@0.55:t=fill`,
       `drawbox=x=56:y=44:w=${W - 112}:h=34:color=white@0.9:t=4`,
-      `drawbox=x=64:y=52:w='max(4,(${W - 128})*t/${total.toFixed(2)})':h=18:color=${accent}@0.95:t=fill`,
+      ...fillBar(64, 52, W - 128, 18, `${accent}@0.95`),
     ] : []),
   ];
   graph.push(`${last}${overlays.length ? `${overlays.join(',')},` : ''}subtitles=${dir}/captions.ass:fontsdir=${FONT_DIR},format=yuv420p[vout]`);

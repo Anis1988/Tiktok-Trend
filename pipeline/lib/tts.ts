@@ -29,6 +29,8 @@ async function loadKokoro(): Promise<Kokoro> {
 
 /** The voice actually used for this video (shown in the app). */
 export const voiceUsed = () => used;
+/** Forget the voice used, before the next video (one job can build more than one). */
+export const resetVoiceUsed = () => void (used = '');
 
 /** `pace`: true = a bit lively (1.08x), false = normal, or an exact speed (voice acting: 0.9 calm … 1.15 hype). */
 export async function speak(text: string, voice: VoiceId, outWav: string, pace: boolean | number): Promise<void> {
@@ -41,16 +43,28 @@ export async function speak(text: string, voice: VoiceId, outWav: string, pace: 
     return;
   }
   if (!kokoroBroken) {
+    let model: Kokoro | null = null;
     try {
       kokoro ??= loadKokoro();
-      const v = kokoroVoice(voice);
-      const audio = await (await kokoro).generate(text, { voice: v, speed });
-      await audio.save(outWav);
-      used = `Kokoro ${v}`;
-      return;
+      model = await kokoro;
     } catch (e) {
+      // Kokoro can't start at all: Piper for the whole video.
       kokoroBroken = e instanceof Error ? e.message : String(e);
       console.log(`Kokoro voice failed, using Piper instead: ${kokoroBroken}`);
+    }
+    if (model) {
+      const v = kokoroVoice(voice);
+      // One odd line (a strange symbol or name) is tried again in plain letters; only that line falls back to Piper.
+      for (const attempt of [text, text.normalize('NFKD').replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, ' ').trim()]) {
+        try {
+          const audio = await model.generate(attempt, { voice: v, speed });
+          await audio.save(outWav);
+          used ||= `Kokoro ${v}`; // the voice of the first line (host A in a debate), shown in the app
+          return;
+        } catch (e) {
+          console.log(`Kokoro could not read "${text.slice(0, 40)}": ${e instanceof Error ? e.message : e}`);
+        }
+      }
     }
   }
   const dir = process.env.PIPER_DIR ?? '.piper';
@@ -58,5 +72,5 @@ export async function speak(text: string, voice: VoiceId, outWav: string, pace: 
   if (!existsSync(bin)) throw new Error(`No voice available (Kokoro: ${kokoroBroken}; Piper not found at ${bin}).`);
   const model = piperFor(voice);
   await run(bin, ['-m', `${dir}/${model}.onnx`, '-f', outWav, '--length_scale', (0.97 / speed).toFixed(2), '--sentence_silence', '0.1'], text);
-  used = `Piper ${model}`;
+  used ||= `Piper ${model}`;
 }

@@ -1,7 +1,7 @@
 import type { AppSettings, DraftLine, Extra, MediaItem, PlatformId, VideoRecord } from './types';
 
 /** sendTo: platforms you can send to (only on the email review page, which has no access code). */
-export type Video = VideoRecord & { sig: string; sendTo?: PlatformId[] };
+export type Video = VideoRecord & { sig: string; sendTo?: PlatformId[]; tiktokConnected?: boolean };
 
 export interface Status {
   ready: { secret: boolean; tiktokApp: boolean; youtubeApp: boolean; metaApp: boolean; dispatch: boolean };
@@ -84,6 +84,7 @@ async function thumbOf(file: Blob, isVideo: boolean): Promise<string | undefined
           v.onloadeddata = () => (v.currentTime = Math.min(1, (v.duration || 2) / 2));
           v.onseeked = () => ok(v);
           v.onerror = () => no(new Error('video'));
+          setTimeout(() => no(new Error('preview took too long')), 8000);
           v.src = url;
         })
       : await createImageBitmap(file);
@@ -139,6 +140,37 @@ export const api = {
   connectStart: (p: 'youtube' | 'meta') => post<{ url: string; redirectUri: string }>(`/api/connect/${p}/start`, {}),
   connectDisconnect: (p: 'youtube' | 'meta') => post<{ ok: boolean }>(`/api/connect/${p}/disconnect`, {}),
 };
+
+/**
+ * Saves the video to the phone or computer. Netlify can't send big files in one go (about 20 MB), so it is
+ * fetched in 4 MB pieces and put back together here. Falls back to the plain link if that fails.
+ */
+export async function downloadVideo(v: { id: string; sig: string }, onProgress?: (share: number) => void): Promise<void> {
+  const url = fileUrl(v, 'mp4');
+  try {
+    const parts: ArrayBuffer[] = [];
+    let start = 0;
+    let size = Infinity;
+    while (start < size) {
+      const res = await fetch(url, { headers: { Range: `bytes=${start}-${start + 4 * 1024 * 1024 - 1}` } });
+      if (res.status !== 206) throw new Error(`HTTP ${res.status}`);
+      size = Number(res.headers.get('Content-Range')?.split('/')[1]) || 0;
+      const buf = await res.arrayBuffer();
+      if (!buf.byteLength) break;
+      parts.push(buf);
+      start += buf.byteLength;
+      onProgress?.(size ? start / size : 0);
+    }
+    const href = URL.createObjectURL(new Blob(parts, { type: 'video/mp4' }));
+    const a = Object.assign(document.createElement('a'), { href, download: `${v.id}.mp4` });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(href), 60_000);
+  } catch {
+    window.location.href = fileUrl(v, 'mp4', true);
+  }
+}
 
 export const fileUrl = (v: { id: string; sig: string }, kind: 'mp4' | 'jpg', download = false) =>
   `/api/file?id=${encodeURIComponent(v.id)}&kind=${kind}&sig=${encodeURIComponent(v.sig)}${download ? '&dl=1' : ''}`;

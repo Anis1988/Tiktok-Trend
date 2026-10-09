@@ -16,14 +16,18 @@ async function main() {
   if (!v) throw new Error(`Video ${id} not found.`);
   const platform = process.env.PLATFORM || 'tiktok';
   if (platform !== 'tiktok') return sendOther(v, platform as PlatformId);
+  // Already sent (e.g. Approve tapped twice): never send a second copy.
+  if (v.status === 'sent' || v.tiktok?.sentAt) return console.log('Already sent to TikTok drafts.');
+  let publishId = '';
   try {
     const data = await store('tt-files').get(`${id}.mp4`, { type: 'arrayBuffer' });
     if (!data) throw new Error('The video file is missing.');
-    const publishId = await sendToDrafts(Buffer.from(data));
+    publishId = await sendToDrafts(Buffer.from(data));
     await patchVideo(id, { status: 'publishing', tiktok: { publishId, status: 'PROCESSING_UPLOAD' } });
     for (let i = 0; i < 20; i++) {
       await sleep(6000);
-      const st = await publishStatus(publishId);
+      // A failed status check is not a failed upload: keep checking.
+      const st = await publishStatus(publishId).catch((e) => (console.log('TikTok status check failed:', e instanceof Error ? e.message : e), { status: 'UNKNOWN', fail_reason: undefined }));
       console.log('TikTok status:', st.status);
       if (st.status === 'FAILED') throw new Error(`TikTok rejected the upload: ${st.fail_reason ?? 'unknown reason'}`);
       if (st.status === 'SEND_TO_USER_INBOX' || st.status === 'PUBLISH_COMPLETE') {
@@ -33,7 +37,10 @@ async function main() {
     }
     await patchVideo(id, { status: 'sent', tiktok: { publishId, status: 'PROCESSING', sentAt: new Date().toISOString() } });
   } catch (e) {
-    await patchVideo(id, { status: 'failed', error: e instanceof Error ? e.message : String(e) });
+    const error = e instanceof Error ? e.message : String(e);
+    // TikTok rejected it: failed (Retry sends again). The upload went through but saving the result failed: it is sent.
+    if (publishId && !/rejected the upload/.test(error)) await patchVideo(id, { status: 'sent', error: undefined, tiktok: { publishId, status: 'PROCESSING', sentAt: new Date().toISOString() } }).catch(() => undefined);
+    else await patchVideo(id, { status: 'failed', error });
     throw e;
   }
 }
@@ -51,9 +58,11 @@ async function sendOther(v: VideoRecord, p: PlatformId) {
     let done: { id: string; url?: string };
     if (p === 'youtube') {
       const ytId = await uploadToYouTube(video, { title: v.title, description: `${text} #Shorts`, tags: v.hashtags });
+      // Uploaded: from here on it counts as sent even if a status check fails (a resend would make a duplicate).
+      await patchPlatform(v.id, p, { state: 'sent', at: new Date().toISOString(), id: ytId, url: `https://studio.youtube.com/video/${ytId}/edit` });
       for (let i = 0; i < 20; i++) {
         await sleep(6000);
-        const st = await youtubeStatus(ytId);
+        const st = await youtubeStatus(ytId).catch(() => ({ status: 'unknown', reason: undefined }));
         console.log('YouTube status:', st.status);
         if (st.status === 'failed' || st.status === 'rejected') throw new Error(`YouTube rejected the video: ${st.reason ?? st.status}`);
         if (st.status === 'processed') break;

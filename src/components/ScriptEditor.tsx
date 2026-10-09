@@ -24,8 +24,26 @@ export function ScriptEditor({ v, onChange, example = false }: { v: Video; onCha
   }, [example]);
 
   const setLine = (i: number, patch: Partial<Line>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)));
+  // The key-word boxes keep exactly what you type (commas, spaces); the words are taken from it when saving.
+  const [kw, setKw] = useState<string[]>(() => lines.map((l) => l.keywords.join(', ')));
   const save = async (quiet = false) => {
-    const next = await api.saveScript(v.id, v.sig, { title: title.trim() || v.title, hook: hook.trim() || lines[0]?.text.slice(0, 120) || v.hook, caption, firstComment: comment, cover: cover.trim() || undefined, lines: lines.filter((l) => l.text.trim()) });
+    // Fit everything to what the server accepts, so Save and Build never fail on a long AI line or an emptied box.
+    const clean = lines
+      .map((l, i) => ({
+        ...l,
+        text: l.text.trim().slice(0, 220),
+        footage: (l.footage.trim() || l.text.trim().split(/\s+/).slice(0, 3).join(' ') || 'city').slice(0, 60),
+        keywords: (kw[i] ?? '').split(',').map((k) => k.trim().slice(0, 30)).filter(Boolean).slice(0, 3),
+        label: l.label?.trim().slice(0, 40) || undefined,
+      }))
+      .filter((l) => l.text)
+      .slice(0, 14);
+    if (clean.length < 2) throw new Error('A script needs at least 2 lines.');
+    const firstLine = clean[0].text;
+    const next = await api.saveScript(v.id, v.sig, {
+      title: (title.trim() || v.title).slice(0, 80), hook: (hook.trim() || firstLine || v.hook).slice(0, 120),
+      caption: caption.slice(0, 150), firstComment: comment.slice(0, 150), cover: cover.trim().slice(0, 40), lines: clean,
+    });
     onChange?.(next);
     if (!quiet) toast('success', 'Script saved.');
     return next;
@@ -76,7 +94,7 @@ export function ScriptEditor({ v, onChange, example = false }: { v: Video; onCha
             </div>
             <div className="grid grid-cols-1 gap-1 pl-7 sm:grid-cols-2">
               <input className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.footage} maxLength={60} disabled={building} onChange={(e) => setLine(i, { footage: e.target.value })} placeholder="Footage search, e.g. city night" aria-label={`Footage for line ${i + 1}`} />
-              <input className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.keywords.join(', ')} disabled={building} onChange={(e) => setLine(i, { keywords: e.target.value.split(',').map((k) => k.trim()).filter(Boolean).slice(0, 3) })} placeholder="Words that pop, e.g. Zelda, record" aria-label={`Key words for line ${i + 1}`} />
+              <input className={`${field} !min-h-[34px] !py-1 text-xs`} value={kw[i] ?? ''} disabled={building} onChange={(e) => setKw((k) => k.map((x, j) => (j === i ? e.target.value : x)))} placeholder="Words that pop, e.g. Zelda, record" aria-label={`Key words for line ${i + 1}`} />
               <input className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.real ?? ''} maxLength={80} disabled={building} onChange={(e) => setLine(i, { real: e.target.value })} placeholder="Real photo of… e.g. LeBron James" aria-label={`Real photo for line ${i + 1}`} />
               <input className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.character ?? ''} maxLength={100} disabled={building} onChange={(e) => setLine(i, { character: e.target.value })} placeholder="Character, e.g. Levi | Attack on Titan" aria-label={`Character picture for line ${i + 1}`} />
               <input className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.object ?? ''} maxLength={60} disabled={building} onChange={(e) => setLine(i, { object: e.target.value })} placeholder="Photo of a thing, e.g. red apple" aria-label={`Object photo for line ${i + 1}`} />

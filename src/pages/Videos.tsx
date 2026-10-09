@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, fileUrl, sendTargets, type Status, type Video } from '../lib/api';
 import { VideoDetail } from '../components/VideoDetail';
 import { StatusChip, toast, when } from '../components/ui';
@@ -34,12 +34,13 @@ export function Videos() {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const settingsLoaded = useRef(false);
   const load = useCallback(async (quick = false) => {
     try {
       // Quick (auto-refresh): only the video list, to keep server calls low.
       if (quick) return setList(await api.videos());
       const [v, s] = await Promise.all([api.videos(), api.status()]);
-      api.settings().then(setSettings, () => undefined);
+      if (!settingsLoaded.current) api.settings().then((x) => ((settingsLoaded.current = true), setSettings(x)), () => undefined);
       setList(v);
       setStatus(s);
       setErr('');
@@ -59,7 +60,7 @@ export function Videos() {
   // While a video is being made (after "Make a video now", or one is building), check every 20 seconds, up to 15 minutes.
   const [watchUntil, setWatchUntil] = useState(0);
   const [watchFrom, setWatchFrom] = useState('');
-  const building = list?.some((v) => v.status === 'building') ?? false;
+  const building = list?.some((v) => v.status === 'building' && Date.now() - Date.parse(v.updatedAt) < 20 * 60_000) ?? false;
   const arrived = !!watchFrom && (list?.some((v) => v.createdAt > watchFrom && v.status !== 'building') ?? false);
   useEffect(() => {
     if (arrived) setWatchUntil(0);
@@ -181,7 +182,7 @@ export function Videos() {
       {selected && (
         <section className="card space-y-3">
           <button className="btn-ghost !px-0" onClick={() => setOpen(null)}>← All videos</button>
-          <VideoDetail v={selected} tiktokConnected={!!status?.tiktok.connected && !status.tiktok.expired} sendTo={sendTargets(status)} hintConnect onChange={(n) => setList((l) => l?.map((x) => (x.id === n.id ? n : x)) ?? null)} onDeleted={(id) => (setOpen(null), setList((l) => l?.filter((x) => x.id !== id) ?? null))} />
+          <VideoDetail key={selected.id} v={selected} tiktokConnected={!!status?.tiktok.connected && !status.tiktok.expired} sendTo={sendTargets(status)} hintConnect onChange={(n) => setList((l) => l?.map((x) => (x.id === n.id ? n : x)) ?? null)} onDeleted={(id) => (setOpen(null), setList((l) => l?.filter((x) => x.id !== id) ?? null))} />
         </section>
       )}
 

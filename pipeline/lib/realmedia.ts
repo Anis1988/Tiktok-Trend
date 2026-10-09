@@ -101,7 +101,11 @@ interface NasaSearch { collection?: { items?: { href: string; data?: { nasa_id: 
 async function nasa(query: string, outBase: string): Promise<RealMedia | null> {
   for (const type of ['video', 'image'] as const) {
     const s = await getJson<NasaSearch>(`https://images-api.nasa.gov/search?q=${encodeURIComponent(query)}&media_type=${type}&page_size=6`);
+    // Every main word of the name must be in the NASA title ("Freddie Mercury" never matches a Mercury capsule).
+    const want = query.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3 && !['from', 'with', 'nasa', 'photo', 'image'].includes(w));
     for (const item of s.collection?.items ?? []) {
+      const title = (item.data?.[0]?.title ?? '').toLowerCase();
+      if (want.some((w) => !title.includes(w))) continue;
       const files = await getJson<string[]>(item.href.replace(/^http:/, 'https:').replace(/ /g, '%20')).catch(() => [] as string[]);
       const pref = type === 'video' ? ['~mobile.mp4', '~medium.mp4', '~small.mp4'] : ['~large.jpg', '~medium.jpg', '~orig.jpg'];
       const file = pref.map((p) => files.find((f) => f.endsWith(p))).find(Boolean);

@@ -29,7 +29,10 @@ export default async (req: Request): Promise<Response> => {
 
   let cands: Candidate[] = [];
   try {
-    cands = niche ? (await nicheCandidates(niche, s.country, [], 0)).candidates : (await findCandidates([], s.country, [])).candidates;
+    // Netlify stops a function after about 10 seconds: give up a bit earlier with a clear message.
+    const found = niche ? nicheCandidates(niche, s.country, [], 0) : findCandidates([], s.country, []);
+    const slow = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('the news sites are slow right now. Try again in a minute')), 8500));
+    cands = (await Promise.race([found, slow])).candidates;
   } catch (e) {
     return json({ error: `Could not load ideas: ${e instanceof Error ? e.message : e}` }, 502);
   }

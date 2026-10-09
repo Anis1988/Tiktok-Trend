@@ -1,8 +1,17 @@
 import { useState } from 'react';
-import { api, fileUrl, type Video } from '../lib/api';
+import { api, downloadVideo, fileUrl, type Video } from '../lib/api';
 import { StatusChip, toast, when } from './ui';
 import { ScriptEditor } from './ScriptEditor';
 import { EXTRA_LABEL, PLATFORM_INFO, PLATFORMS, VOICE_LABEL, type PlatformId } from '../lib/types';
+
+/** "news.example.com" from a link (or the link itself if it isn't a valid address). */
+const hostOf = (u: string) => {
+  try {
+    return new URL(u).hostname;
+  } catch {
+    return u.slice(0, 40);
+  }
+};
 
 /** "Kokoro af_heart" -> "Heart · warm female (US)". Older videos show the Piper voice name as saved. */
 const voiceText = (v: string) => VOICE_LABEL[v.replace(/^Kokoro /, '') as keyof typeof VOICE_LABEL] ?? v;
@@ -10,6 +19,7 @@ const voiceText = (v: string) => VOICE_LABEL[v.replace(/^Kokoro /, '') as keyof 
 /** Everything about one video, with the buttons that fit its status. Used in the app and on the email review page. */
 export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, sendTo = [], hintConnect = false, example = false }: { v: Video; onChange?: (v: Video) => void; onDeleted?: (id: string) => void; tiktokConnected?: boolean; sendTo?: PlatformId[]; hintConnect?: boolean; example?: boolean }) {
   const [busy, setBusy] = useState('');
+  const [dl, setDl] = useState(0);
   const hasFile = v.sizeBytes > 0;
   const fullCaption = `${v.caption} ${v.hashtags.map((h) => `#${h}`).join(' ')}`.trim();
 
@@ -189,7 +199,13 @@ export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, sendTo = 
           {(v.status === 'approved' || v.status === 'sent') && (
             <button className="btn-primary" disabled={!!busy} onClick={() => void act('posted')}>★ I posted it</button>
           )}
-          {hasFile && <a className="btn" href={example ? undefined : fileUrl(v, 'mp4', true)} download>↓ Download</a>}
+          {hasFile && (
+            <button className="btn" disabled={busy === 'download'} onClick={() => {
+              if (example) return;
+              setBusy('download');
+              void downloadVideo(v, (x) => setDl(Math.round(x * 100))).finally(() => (setBusy(''), setDl(0)));
+            }}>{busy === 'download' ? <><span className="spinner" /> {dl}%</> : '↓ Download'}</button>
+          )}
           <button className="btn" onClick={() => void copy()}>Copy caption</button>
           {del}
         </div>
@@ -223,7 +239,7 @@ export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, sendTo = 
           {!!v.extras?.length && <p><span className="label !text-[10px]">Extras</span> {v.extras.map((e) => EXTRA_LABEL[e][0]).join(' · ')}</p>}
           {v.topicVideo && <p className="text-amber-200">📚 Topic video: written from well-known facts, not news. Check the facts before approving.</p>}
           {v.sources.length > 0 && (
-            <p><span className="label !text-[10px]">Sources</span> {v.sources.map((s, i) => <a key={i} className="mr-2 text-cyan-300 underline" href={s.url} target="_blank" rel="noopener noreferrer">{s.site ?? new URL(s.url).hostname}</a>)}</p>
+            <p><span className="label !text-[10px]">Sources</span> {v.sources.map((s, i) => <a key={i} className="mr-2 text-cyan-300 underline" href={s.url} target="_blank" rel="noopener noreferrer">{s.site ?? hostOf(s.url)}</a>)}</p>
           )}
           {v.footage.length > 0 && (
             <p><span className="label !text-[10px]">Footage</span> {v.footage.map((f, i) => <a key={i} className="mr-1 underline" href={f.url} target="_blank" rel="noopener noreferrer">{f.by} ({f.site ?? 'Pexels'})</a>)}</p>

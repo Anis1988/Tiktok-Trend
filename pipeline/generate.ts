@@ -16,7 +16,7 @@ import { MODEL, writeScript } from './lib/script';
 import { refreshStats, resultsNote } from '../netlify/lib/stats';
 import { recapDue, recapScript } from './lib/recap';
 import { kineticClip } from './lib/graphics';
-import { speak, voiceUsed } from './lib/tts';
+import { resetVoiceUsed, speak, voiceUsed } from './lib/tts';
 import { footageReady } from './lib/footage';
 import { renderVideo, type RenderOptions, type Scene } from './lib/render';
 import { visualFor, type Credit } from './lib/visuals';
@@ -251,8 +251,8 @@ async function pageTitle(url: string): Promise<string> {
 
 /** Next number in your series ("Daily Tech Drop #14"). */
 async function nextEpisode(): Promise<number> {
+  // Only a peek: the number is kept (written) when the video is saved, so a failed or rejected script doesn't use it up.
   const n = (await readJson<number>('episode', 0)) + 1;
-  await writeJson('episode', n);
   return n;
 }
 
@@ -328,6 +328,9 @@ function renderOptions(s: AppSettings, hook: string, v: Pick<VideoRecord, 'extra
 
 /** Voice, footage and the final MP4 for a script, then saved for review and emailed. */
 async function build(base: VideoRecord, s: AppSettings) {
+  resetVoiceUsed();
+  // A script checked later gets the series number now, so numbers stay in order with no gaps.
+  if (base.episode && s.seriesName.trim()) base = { ...base, episode: Math.max(base.episode, await nextEpisode()) };
   if (!footageReady()) log('No PIXABAY_API_KEY or PEXELS_API_KEY: scenes will use plain backgrounds.');
   const lines: DraftLine[] = base.draft?.lines ?? base.lines.map((text) => ({ text, footage: base.topic, keywords: [] }));
   const id = base.id;
@@ -344,7 +347,8 @@ async function build(base: VideoRecord, s: AppSettings) {
       // Voice acting: speed per line; in a debate, host B has the other voice.
       await speak(l.text, l.speaker === 'B' ? otherVoice(s.voice) : s.voice, wav, paceOf(l, s));
       let { kind, ...v } = await visualFor(l, i, dir, { mine: mine[i], real: s.effects.realMedia, characters: s.effects.characters, charts: s.effects.charts, headlines: s.effects.headlines, accent: accentOf(s), used, credits });
-      if (mine[i]) log(`Scene ${i + 1}: your clip "${mine[i]!.name}"`);
+      if (mine[i] && kind === 'mine') log(`Scene ${i + 1}: your clip "${mine[i]!.name}"`);
+      else if (mine[i]) checks.push(`Scene ${i + 1}: your clip "${mine[i]!.name}" could not be loaded, so something else was shown.`);
       else if (v.credit) log(`Scene ${i + 1}: ${v.credit}`);
       // Quality check: fix what can be fixed, and note the rest for you.
       const n = i + 1;
@@ -354,7 +358,7 @@ async function build(base: VideoRecord, s: AppSettings) {
         if (await kineticClip(words, out, accentOf(s)).catch(() => false)) (v = { clip: out }), checks.push(`Scene ${n}: no picture or clip was found, so big animated words were used instead (fixed).`);
         else checks.push(`Scene ${n}: no picture was found (plain background).`);
       } else if (kind === 'stock' || kind === 'text') {
-        const asked = l.real || (s.effects.characters && l.character?.split('|')[0]) || l.object;
+        const asked = (s.effects.realMedia && l.real) || (s.effects.characters && l.character?.split('|')[0]) || l.object;
         if (asked) checks.push(`Scene ${n}: no free picture of "${asked.trim()}" was found, so ${kind === 'text' ? 'animated words' : 'stock footage'} were used.`);
         if (l.versus) checks.push(`Scene ${n}: pictures for "${l.versus.a}" or "${l.versus.b}" were not found, so the This or That split screen was skipped.`);
       }
@@ -384,6 +388,7 @@ async function build(base: VideoRecord, s: AppSettings) {
     };
     await saveVideo(rec);
     log(`Saved ${id}`);
+    if (rec.episode) await writeJson('episode', Math.max(rec.episode, await readJson<number>('episode', 0)));
     if (process.env.SAVE_COPY_DIR) {
       // GitHub attaches this copy to the run, so the video can be downloaded even without the website.
       await mkdir(process.env.SAVE_COPY_DIR, { recursive: true });
