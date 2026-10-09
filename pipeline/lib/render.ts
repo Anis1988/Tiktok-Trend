@@ -33,7 +33,15 @@ export interface Scene {
   speaker?: 'A' | 'B'; // "Debate": host B's captions and title use a second colour
   pause?: number; // voice acting: seconds of dramatic pause after the line (the picture stays)
   sticker?: string; // reaction sticker name (pipeline/assets/emoji/<name>.svg) that pops up on this line
+  slide?: Slide; // "Slides" videos: this scene is one slide (rank, picture card, name, short description, dots)
 }
+
+/** One slide of a "Slides" video: the description written on it, and its place among the slides (for the dots). */
+export interface Slide { desc: string; index: number; total: number }
+
+// Slide layout (fractions of the height): the picture card, then the name and the description under it.
+const SLIDE_TOP = 0.16;
+const SLIDE_BOX = 0.38;
 
 export interface RenderOptions {
   music?: boolean; // soft background music under the voice
@@ -107,7 +115,7 @@ function wordsOf(l: { text: string; start: number; dur: number; times?: Timing[]
   return timeWords(l.text, l.start, l.dur);
 }
 
-export interface CaptionLine { text: string; start: number; dur: number; times?: Timing[]; keywords?: string[]; credit?: string; label?: string; quiz?: 'hide' | 'reveal'; countdown?: number; verdict?: 'myth' | 'fact'; stampAt?: number; speaker?: 'A' | 'B'; scene?: number; end?: number }
+export interface CaptionLine { slide?: Slide & { pic: boolean }; text: string; start: number; dur: number; times?: Timing[]; keywords?: string[]; credit?: string; label?: string; quiz?: 'hide' | 'reveal'; countdown?: number; verdict?: 'myth' | 'fact'; stampAt?: number; speaker?: 'A' | 'B'; scene?: number; end?: number }
 
 /** Manga speed lines: thin white spikes from the screen edges toward the middle (an ASS vector drawing). */
 export function speedLines(cx = W / 2, cy = Math.round(H * 0.42), n = 56): string {
@@ -157,12 +165,17 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
     'Style: Clock,DejaVu Sans,46,&H00FFFFFF,&H00FFFFFF,&H00401E0F,&H00000000,-1,0,0,0,100,100,2,0,3,12,0,9,40,40,0,1',
     `Style: Pop,DejaVu Sans,44,${accent},${accent},&H00000000,&H96000000,-1,0,0,0,100,100,1,0,1,5,2,5,40,40,0,1`,
     'Style: Speed,DejaVu Sans,20,&H40FFFFFF,&H40FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,0,0,7,0,0,0,1',
+    // Slides: the rank on an accent badge, the description under the name, the dots (which slide this is).
+    `Style: Rank,DejaVu Sans,104,&H00140B0B,&H00140B0B,${accent},&H00000000,-1,0,0,0,100,100,0,0,3,18,0,7,60,60,0,1`,
+    'Style: Desc,DejaVu Sans,56,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,-1,0,0,0,100,100,0,0,1,6,3,8,120,120,0,1',
+    'Style: Dots,DejaVu Sans,34,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,-1,0,0,0,100,100,6,0,1,3,0,8,60,60,0,1',
     'Style: Credit,DejaVu Sans,28,&H30FFFFFF,&H30FFFFFF,&H80000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,5,60,60,0,1',
     'Style: End,DejaVu Sans,84,&H00FFFFFF,&H00FFFFFF,&H00000000,&H96000000,-1,0,0,0,100,100,1,0,1,8,3,5,90,90,0,1', '',
     '[Events]', 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
   ];
   const events: string[] = [];
   for (const l of lines) {
+    if (l.slide) continue; // a slide shows its name and description instead of word-by-word captions
     const keys = new Set(o.keywords ? (l.keywords ?? []).flatMap((k) => k.split(/\s+/)).map(norm).filter(Boolean) : []);
     // Real word timings from the voice when available; otherwise timed by word length.
     const groups = groupWords(wordsOf(l));
@@ -186,11 +199,11 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
   }
   for (const l of lines) {
     if (!l.credit) continue;
-    events.push(`Dialogue: 1,${assTime(l.start)},${assTime(l.end ?? l.start + l.dur + GAP)},Credit,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * 0.7)})}${l.credit.replace(/[{}\\]/g, '').slice(0, 90)}`);
+    events.push(`Dialogue: 1,${assTime(l.start)},${assTime(l.end ?? l.start + l.dur + GAP)},Credit,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * (l.slide ? 0.75 : 0.7))})}${l.credit.replace(/[{}\\]/g, '').slice(0, 90)}`);
   }
   for (const l of lines) {
     const label = l.label?.replace(/[{}\\]/g, '').trim().slice(0, 40);
-    if (!label) continue;
+    if (!label || l.slide) continue;
     // "#3 Name" on one line: the rank bigger and in the accent colour; pops in, fades out with the scene.
     // Below TikTok's top bar and above the photo card (which is smaller on titled scenes).
     const m = label.match(/^(#\s?\d+)\s*[:.\-–]?\s*(.*)$/);
@@ -201,6 +214,28 @@ export function captionsAss(lines: CaptionLine[], o: RenderOptions & { voiceEnd?
     const stripe = o.skin === 'sport' ? `{\\c${accent}}▌{\\r} ` : '';
     const text = stripe + (m ? `{\\c${rank}\\fs${Math.round(fs * 1.3)}}${m[1].replace(/\s/g, '')}{\\r\\fs${fs}${who}}${m[2] ? ` ${assText(m[2])}` : ''}` : `{\\fs${fs}${who}}${assText(label)}`);
     events.push(`Dialogue: 2,${assTime(l.start)},${assTime(l.end ?? l.start + l.dur + GAP)},${style},,0,0,0,,{\\an8\\pos(${W / 2},${Math.round(H * 0.11)})\\fad(150,150)\\fscx70\\fscy70\\t(0,180,\\fscx100\\fscy100)}${text}`);
+  }
+  for (const l of lines) {
+    if (!l.slide) continue;
+    // One slide: rank badge on the card's corner, the name under the picture (or big in the middle when there is
+    // no picture), the description fading in just after, and dots showing which slide this is.
+    const sl = l.slide;
+    const [from, to] = [assTime(l.start), assTime(l.end ?? l.start + l.dur + GAP)];
+    const m = (l.label ?? '').replace(/[{}\\]/g, '').trim().slice(0, 40).match(/^(#\s?\d+)\s*[:.\-–]?\s*(.*)$/);
+    const name = assText(m ? m[2] : l.label ?? '');
+    if (m) events.push(`Dialogue: 3,${from},${to},Rank,,0,0,0,,{\\an7\\pos(60,${Math.round(H * (SLIDE_TOP - 0.02))})\\frz5\\fad(100,150)\\fscx40\\fscy40\\t(120,300,\\fscx100\\fscy100)}${m[1].replace(/\s/g, '')}`);
+    const nameY = Math.round(H * (SLIDE_TOP + SLIDE_BOX + 0.018));
+    const style = o.skin === 'manga' ? 'Panel' : o.skin === 'sport' ? 'Score' : 'Label';
+    if (name && sl.pic) events.push(`Dialogue: 2,${from},${to},${style},,0,0,0,,{\\an8\\pos(${W / 2},${nameY})\\fs${name.length > 18 ? 58 : 74}\\fad(150,150)\\fscx80\\fscy80\\t(0,180,\\fscx100\\fscy100)}${name}`);
+    if (name && !sl.pic) events.push(`Dialogue: 2,${from},${to},Cover,,0,0,0,,{\\an5\\pos(${W / 2},${Math.round(H * (SLIDE_TOP + SLIDE_BOX / 2))})\\fs${name.length > 14 ? 96 : 124}\\fad(150,150)\\fscx70\\fscy70\\t(0,200,\\fscx100\\fscy100)}${name}`);
+    const desc = sl.desc.replace(/[{}\\]/g, '').trim().slice(0, 90);
+    const descY = sl.pic ? nameY + (name.length > 22 ? 170 : 108) + (style === 'Label' ? 0 : 24) : nameY; // a long name takes two lines; a boxed name (manga, sport) is taller
+    if (desc) events.push(`Dialogue: 2,${from},${to},Desc,,0,0,0,,{\\an8\\pos(${W / 2},${descY})\\alpha&HFF&\\t(250,550,\\alpha&H00&)\\fad(0,150)}${desc}`);
+    // Dots (up to 12 slides), otherwise "7 / 14".
+    const dots = sl.total <= 12
+      ? Array.from({ length: sl.total }, (_, k) => (k <= sl.index ? `{\\c${accent}}●` : '{\\c&H00FFFFFF&\\alpha&H60&}○') + '{\\r}').join(' ')
+      : `${sl.index + 1} / ${sl.total}`;
+    events.push(`Dialogue: 2,${from},${to},Dots,,0,0,0,,{\\an8\\pos(${W / 2},${Math.round(H * 0.102)})}${dots}`);
   }
   for (const l of lines) {
     if (l.quiz !== 'hide') continue;
@@ -309,7 +344,7 @@ async function renderScene(s: Scene, i: number, dur: number, dir: string, tail: 
   const enc = ['-t', len.toFixed(3), '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '16', '-pix_fmt', 'yuv420p', video];
   // A big enough photo fills the whole screen, and the camera slowly moves toward the face (or the middle).
   // Smaller pictures (character art, small photos) stay a framed card, so they never look blurry.
-  if (s.image && face && Math.max(W / face.w, H / face.h) <= 1.9) {
+  if (s.image && !s.slide && face && Math.max(W / face.w, H / face.h) <= 1.9) {
     const n = Math.ceil(len * FPS);
     // Work at twice the size so the slow move is smooth, crop to 9:16 around the face (kept in the top part).
     const k = Math.max((2 * W) / face.w, (2 * H) / face.h);
@@ -336,16 +371,17 @@ async function renderScene(s: Scene, i: number, dur: number, dir: string, tail: 
     // Photo card: the whole photo, sharp, with a thin white frame, over a blurred and darkened copy filling the screen.
     // Small pictures (e.g. character art, ~230x350) are enlarged at most 2.2x with a sharp filter, so they stay crisp
     // instead of being stretched 3x and looking blurry.
-    const [bw, bh] = [W - 120, Math.round(H * (s.label ? 0.5 : 0.58))];
+    // A slide: the card sits in the top part (the name and description go under it); no slide-up, the slides swipe.
+    const [bw, bh] = s.slide ? [W - 160, Math.round(H * SLIDE_BOX)] : [W - 120, Math.round(H * (s.label ? 0.5 : 0.58))];
     const [iw, ih] = await sizeOf(s.image).catch(() => [0, 0]);
     const f = iw && ih ? Math.min(bw / iw, bh / ih, 2.2) : 0;
     const fit = f
       ? `scale=w=${Math.round((iw * f) / 2) * 2}:h=${Math.round((ih * f) / 2) * 2}:flags=lanczos${f > 1.3 ? ',unsharp=5:5:0.7:5:5:0' : ''}`
       : `scale=w=${bw}:h=${bh}:force_original_aspect_ratio=decrease:flags=lanczos`;
     const card = [
-      `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},boxblur=28:4,eq=brightness=-0.22[bg]`,
+      `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},boxblur=28:4,eq=brightness=${s.slide ? -0.34 : -0.22}[bg]`,
       `[1:v]${fit},${hidden}pad=iw+14:ih+14:7:7:color=white@0.92[fg]`,
-      `[bg][fg]overlay=x=(W-w)/2:y='(H-h)/2-${Math.round(H * (s.label ? 0.03 : 0.07))}+90*pow(max(0,1-t/0.5),3)',${vf.replace(`scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},`, '')}[out]`,
+      `[bg][fg]overlay=x=(W-w)/2:y='${s.slide ? `${Math.round(H * SLIDE_TOP)}+(${bh}-h)/2` : `(H-h)/2-${Math.round(H * (s.label ? 0.03 : 0.07))}+90*pow(max(0,1-t/0.5),3)`}',${vf.replace(`scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},`, '')}[out]`,
     ].join(';');
     await run('ffmpeg', ['-y', '-v', 'error', '-loop', '1', '-framerate', String(FPS), '-i', s.image, '-loop', '1', '-framerate', String(FPS), '-i', s.image, '-filter_complex', card, '-map', '[out]', ...enc]);
     return video;
@@ -422,7 +458,7 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
   // Fast pacing: quicker transitions, and a punch-in zoom on each line's key word (or half-way through a long line).
   const fade = o.fast ? 0.28 : FADE;
   const punch = scenes.map((s, i) => {
-    if (!o.fast || durs[i] < 2.2 || s.quiz) return undefined;
+    if (!o.fast || durs[i] < 2.2 || s.quiz || s.slide) return undefined;
     const keys = new Set((s.keywords ?? []).flatMap((k) => k.split(/\s+/)).map(norm).filter(Boolean));
     const word = wordsOf({ text: s.text, start: 0, dur: durs[i] - GAP, times: times[i] ?? undefined }).find((w) => keys.has(norm(w.text)));
     const at = word && word.from > 0.5 ? word.from : durs[i] / 2;
@@ -441,7 +477,7 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
   await run('ffmpeg', ['-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', `${dir}/a.txt`, '-af', `apad=pad_dur=${tail + 1}`, '-c:a', 'pcm_s16le', `${dir}/voice.wav`]);
   // Myth vs Fact: the stamp lands a bit past the middle of the line (on the word nearest that moment).
   const stampAt = scenes.map((s, i) => (s.verdict ? starts[i] + (durs[i] - GAP - extra[i]) * 0.55 : undefined));
-  const lines = scenes.map((s, i) => ({ text: s.text, start: starts[i], dur: durs[i] - GAP - extra[i], times: times[i] ?? undefined, verdict: s.verdict, stampAt: stampAt[i], keywords: s.keywords, credit: s.credit, label: s.label, quiz: s.quiz, countdown: cd[i], speaker: s.speaker, end: starts[i] + durs[i] }));
+  const lines = scenes.map((s, i) => ({ slide: s.slide && { ...s.slide, pic: !!s.image }, text: s.text, start: starts[i], dur: durs[i] - GAP - extra[i], times: times[i] ?? undefined, verdict: s.verdict, stampAt: stampAt[i], keywords: s.keywords, credit: s.credit, label: s.label, quiz: s.quiz, countdown: cd[i], speaker: s.speaker, end: starts[i] + durs[i] }));
   const ticks = scenes.flatMap((_, i) => (cd[i] ? Array.from({ length: COUNTDOWN }, (_, k) => starts[i] + durs[i] - extra[i] + k) : []));
   await writeFile(`${dir}/captions.ass`, captionsAss(lines, { ...o, look, voiceEnd, total }));
   if (o.music) await makeMusic(total + 1, `${dir}/music.wav`);
@@ -459,7 +495,7 @@ export async function renderVideo(scenes: Scene[], dir: string, out: string, thu
   for (let i = 1; i < videos.length; i++) {
     const label = `[x${i}]`;
     // Quiz answer: a white flash into the sharp picture.
-    const t = scenes[i].quiz === 'reveal' ? 'fadewhite' : TRANSITIONS[(i - 1) % TRANSITIONS.length];
+    const t = scenes[i].quiz === 'reveal' ? 'fadewhite' : scenes[i].slide ? 'slideleft' : TRANSITIONS[(i - 1) % TRANSITIONS.length];
     graph.push(`${last}[s${i}]xfade=transition=${t}:duration=${fade}:offset=${(starts[i] - fade / 2).toFixed(3)}${label}`);
     last = label;
   }

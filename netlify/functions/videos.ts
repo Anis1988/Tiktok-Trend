@@ -22,7 +22,7 @@ const Post = z.discriminatedUnion('action', [
     subject: z.string().trim().max(200).optional(),
     pick: z.string().regex(/^[a-z-]{2,30}(:[a-z0-9-]{2,30})?$/).optional(),
     ideaUrl: z.string().url().startsWith('https://').max(1000).optional(),
-    extras: z.array(z.enum(['quiz', 'facts', 'myth', 'versus', 'debate', 'fast', 'cover', 'long'])).max(8).optional(),
+    extras: z.array(z.enum(['quiz', 'facts', 'myth', 'versus', 'debate', 'slides', 'fast', 'cover', 'long'])).max(9).optional(),
     comment: z.string().trim().max(300).optional(),
     commentBy: z.string().trim().max(30).optional(),
     recap: z.boolean().optional(),
@@ -37,7 +37,7 @@ const Post = z.discriminatedUnion('action', [
     lines: z.array(z.object({
       text: z.string().trim().min(1).max(220), footage: z.string().trim().min(1).max(60), keywords: z.array(z.string().trim().max(30)).max(3),
       real: z.string().trim().max(80).optional(), media: z.string().max(30).optional(),
-      character: z.string().trim().max(100).optional(), object: z.string().trim().max(60).optional(), label: z.string().trim().max(40).optional(), quiz: z.enum(['hide', 'reveal']).optional(),
+      character: z.string().trim().max(100).optional(), object: z.string().trim().max(60).optional(), label: z.string().trim().max(40).optional(), desc: z.string().trim().max(90).optional(), quiz: z.enum(['hide', 'reveal']).optional(),
       chart: z.object({ title: z.string().trim().max(40), unit: z.string().trim().max(12).optional(), bars: z.array(z.object({ label: z.string().trim().max(24), value: z.number() })).min(2).max(6) }).optional(),
       map: z.string().trim().max(60).optional(),
       headline: z.object({ title: z.string().trim().max(200), site: z.string().trim().max(60).optional() }).optional(),

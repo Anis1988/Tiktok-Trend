@@ -52,7 +52,7 @@ async function sample() {
     { text: 'Guess who: short, scary fast, and obsessed with cleaning.', footage: 'anime city', keywords: ['cleaning'], character: 'Levi Ackerman | Attack on Titan', label: 'Guess #1', quiz: 'hide' },
     { text: "It's Levi, who would clean the cup before drinking it.", footage: 'anime city', keywords: ['Levi'], character: 'Levi Ackerman | Attack on Titan', label: 'Levi Ackerman', quiz: 'reveal' },
     { text: 'And the strongest coffee drinker of all is…', footage: 'coffee shop', keywords: ['strongest'], delivery: 'calm', pause: true },
-    { text: 'Number one: LeBron James, who would dunk the sugar cube.', footage: 'basketball court', keywords: ['LeBron'], real: 'LeBron James', label: '#1 LeBron James', delivery: 'hype', sticker: 'fire' },
+    { text: 'Number one: LeBron James, who would dunk the sugar cube.', footage: 'basketball court', keywords: ['LeBron'], real: 'LeBron James', label: '#1 LeBron James', desc: 'Made-up: four rings and a very strong espresso.', delivery: 'hype', sticker: 'fire' },
     { text: 'No way, Mikasa would win any coffee contest!', footage: 'anime city', keywords: ['Mikasa'], character: 'Mikasa Ackerman | Attack on Titan', label: 'TEAM MIKASA', speaker: 'B' },
     { text: 'Picture sipping it right under the Eiffel Tower.', footage: 'paris cafe', real: 'Eiffel Tower', keywords: ['Eiffel Tower'] },
     { text: 'Or floating past Saturn, if space stations had a barista.', footage: 'space stars', real: 'Saturn', keywords: ['Saturn'] },
@@ -70,7 +70,8 @@ async function sample() {
     await speak(l.text, l.speaker === 'B' ? otherVoice(voice) : voice, wav, paceOf(l, { ...DEFAULT_SETTINGS, tone: 'witty' }));
     const { kind, ...v } = await visualFor(l, i, dir, { mine: null, real: true, characters: true, charts: true, accent: '#22D3EE', used, credits: [] });
     log(`Sample scene ${i + 1}: ${kind}${v.credit ? ` · ${v.credit}` : ''}`);
-    scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, verdict: l.verdict, speaker: l.speaker, pause: l.pause ? PAUSE : 0, sticker: l.sticker, ...v });
+    const slide = l.desc ? { desc: l.desc, index: 0, total: 3 } : undefined; // one sample slide (as slide 1 of 3)
+    scenes.push({ slide, text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, verdict: l.verdict, speaker: l.speaker, pause: l.pause ? PAUSE : 0, sticker: l.sticker, ...v });
   }
   const dur = await renderVideo(scenes, dir, `${dir}/video.mp4`, `${dir}/thumb.jpg`, {
     ...renderOptions({ ...DEFAULT_SETTINGS, niche: { category: 'food', subs: ['drinks'], focus: [], mix: 'niche' }, endCardName: '@yourname', seriesName: 'Coffee News' }, lines[0].text, { extras: ['fast', 'cover'], cover: 'Coffee gets promoted?', episode: 7 }),
@@ -115,7 +116,7 @@ async function main() {
   // A subject typed for this one video (app box or GitHub "Run workflow") replaces the trend search.
   let subject = (process.env.SUBJECT ?? '').replace(/\s+/g, ' ').trim().slice(0, 300);
   // Extras picked for this one video in the app: quiz, fast pacing, bold cover…
-  const extras = [...new Set(rawExtras)].filter((x): x is Extra => ['quiz', 'facts', 'myth', 'versus', 'debate', 'fast', 'cover', 'long'].includes(x));
+  const extras = [...new Set(rawExtras)].filter((x): x is Extra => ['quiz', 'facts', 'myth', 'versus', 'debate', 'slides', 'fast', 'cover', 'long'].includes(x));
   if (extras.length) log(`Extras: ${extras.join(', ')}`);
   let ideaUrl = /^https:\/\/\S+$/.test(process.env.IDEA_URL ?? '') ? process.env.IDEA_URL! : '';
   // A link pasted (or shared from the phone) as the subject: the video is about that page.
@@ -157,7 +158,7 @@ async function main() {
     // and a subject that is not in the news becomes a topic video too.
     const topic: Candidate = { topic: subject, headlines: [], evergreen: true };
     // A quiz, fun facts, myth vs fact or this-or-that use well-known facts, so their subject is always a topic video.
-    const c = !ideaUrl && (LISTY.test(subject) || extras.some((e) => ['quiz', 'facts', 'myth', 'versus'].includes(e)))
+    const c = !ideaUrl && (LISTY.test(subject) || extras.some((e) => ['quiz', 'facts', 'myth', 'versus', 'slides'].includes(e)))
       ? topic
       : (await subjectNews(subject, s.country)) ?? (ideaUrl ? { topic: subject, headlines: [{ title: subject, url: ideaUrl }] } : topic);
     if (c.evergreen) log('Topic video (not news): written from well-known facts.');
@@ -200,6 +201,7 @@ async function main() {
     draft: { lines: sc.lines.map((l) => ({
       text: l.text, footage: l.footage, keywords: (l.keywords ?? []).slice(0, 3), real: l.real?.trim().slice(0, 80) || undefined,
       character: l.character?.trim().slice(0, 100) || undefined, object: l.object?.trim().slice(0, 60) || undefined, label: l.label?.trim().slice(0, 40) || undefined,
+      desc: extras.includes('slides') ? l.slideText?.trim().slice(0, 90) || undefined : undefined,
       quiz: l.quiz || undefined,
       chart: l.chartBars.length >= 2 ? { title: (l.chartTitle || sc.title).slice(0, 40), unit: l.chartUnit?.trim().slice(0, 12) || undefined, bars: l.chartBars.slice(0, 6).map((b) => ({ label: b.label.slice(0, 24), value: b.value })) } : undefined,
       map: l.map?.trim().slice(0, 60) || undefined,
@@ -342,6 +344,8 @@ async function build(base: VideoRecord, s: AppSettings) {
     const scenes: Scene[] = [];
     const credits: Credit[] = [];
     const checks: string[] = [];
+    // Slides: every line with a slide text is one slide (numbered for the dots).
+    const slides = base.extras?.includes('slides') ? lines.filter((l) => l.desc?.trim()) : [];
     const mine = chooseMedia(lines, s.effects.myClips || lines.some((l) => l.media) ? await listMedia() : [], s.effects.myClips);
     for (const [i, l] of lines.entries()) {
       const wav = `${dir}/l${i}.wav`;
@@ -353,7 +357,12 @@ async function build(base: VideoRecord, s: AppSettings) {
       else if (v.credit) log(`Scene ${i + 1}: ${v.credit}`);
       // Quality check: fix what can be fixed, and note the rest for you.
       const n = i + 1;
-      if (kind === 'none') {
+      const slide = slides.includes(l) ? { desc: l.desc!.trim(), index: slides.indexOf(l), total: slides.length } : undefined;
+      if (slide && !v.image) {
+        // A slide without its picture: the name on a coloured card (never random footage).
+        if (kind !== 'mine') checks.push(`Scene ${n}: no picture of "${(l.character?.split('|')[0] || l.real || l.object || l.label || '').trim()}" was found, so the slide shows the name on a coloured card.`);
+        v = kind === 'mine' ? v : { clip: null };
+      } else if (kind === 'none') {
         const words = l.bigText || (l.keywords.length ? l.keywords.join(' ') : l.text.split(/\s+/).slice(0, 3).join(' '));
         const out = `${dir}/fix${i}.mp4`;
         if (await kineticClip(words, out, accentOf(s)).catch(() => false)) (v = { clip: out }), checks.push(`Scene ${n}: no picture or clip was found, so big animated words were used instead (fixed).`);
@@ -363,7 +372,9 @@ async function build(base: VideoRecord, s: AppSettings) {
         if (asked) checks.push(`Scene ${n}: no free picture of "${asked.trim()}" was found, so ${kind === 'text' ? 'animated words' : 'stock footage'} were used.`);
         if (l.versus) checks.push(`Scene ${n}: pictures for "${l.versus.a}" or "${l.versus.b}" were not found, so the This or That split screen was skipped.`);
       }
-      scenes.push({ text: l.text, wav, keywords: l.keywords, label: l.label, quiz: l.quiz, verdict: l.verdict, speaker: l.speaker, pause: l.pause ? PAUSE : 0, sticker: s.effects.stickers === false ? undefined : l.sticker, ...v });
+      // A slide always has a name: the title, else the character, person or thing it shows.
+      const label = l.label || (slide ? (l.character?.split('|')[0] || l.real || l.object || '').trim().slice(0, 40) || undefined : undefined);
+      scenes.push({ slide, text: l.text, wav, keywords: l.keywords, label, quiz: l.quiz, verdict: l.verdict, speaker: l.speaker, pause: l.pause ? PAUSE : 0, sticker: s.effects.stickers === false ? undefined : l.sticker, ...v });
     }
     // Stickers are Twemoji pictures (CC-BY 4.0): credited with the other footage.
     if (scenes.some((x) => x.sticker)) credits.push({ by: 'Twemoji (CC-BY 4.0)', url: 'https://github.com/jdecked/twemoji', site: 'Twemoji' });

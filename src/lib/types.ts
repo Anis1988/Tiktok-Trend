@@ -27,6 +27,7 @@ export interface DraftLine {
   character?: string; // a fictional character to show, "Name | Work", e.g. "Levi Ackerman | Attack on Titan"
   object?: string; // a concrete thing to show a photo of, e.g. "red apple"
   label?: string; // big on-screen title for this scene, e.g. "#3 Levi Ackerman"
+  desc?: string; // "Slides" videos: the short description written on this slide, e.g. "Humanity's strongest soldier"
   quiz?: 'hide' | 'reveal'; // "Guess who?" videos: picture hidden (blurred) on this line, then shown sharp with a flash
   media?: string; // a clip from "My clips" chosen for this scene (its id), or "stock" to never use one
   chart?: { title: string; unit?: string; bars: { label: string; value: number }[] }; // an animated bar chart of the line's numbers
@@ -51,13 +52,14 @@ export const STICKERS = {
 export type Sticker = keyof typeof STICKERS;
 
 /** Extras you pick for one video ("Make a video now"). */
-export type Extra = 'quiz' | 'facts' | 'myth' | 'versus' | 'debate' | 'fast' | 'cover' | 'long';
+export type Extra = 'quiz' | 'facts' | 'myth' | 'versus' | 'debate' | 'slides' | 'fast' | 'cover' | 'long';
 export const EXTRA_LABEL: Record<Extra, [string, string]> = {
   quiz: ['🎯 Guess who?', 'A quiz: the picture starts blurred with a big "?", a 3-second countdown, then a flash reveals who it is. Best with a subject, e.g. "Attack on Titan characters".'],
   facts: ['💡 Fun facts', 'Up to 10 surprising fun facts about your subject (someone or something), each with its picture and a "Fact #3" title.'],
   myth: ['✗✓ Myth vs Fact', '3 to 5 popular beliefs about the subject; each gets a big red ✗ MYTH or green ✓ FACT stamp with a boom, then the real answer. People love to argue in the comments.'],
   versus: ['🆚 This or That', 'Rounds of two pictures side by side ("A or B?"), with a fun reason for each. Ends asking viewers to comment A or B. Great for comments.'],
   debate: ['🗣️ Debate', 'Two different voices argue about your subject ("Levi is stronger!" "No way, Mikasa…"), each with their colour and their side\'s picture. Ends by asking viewers to pick a side.'],
+  slides: ['🗂️ Slides', 'Each item gets its own slide: a big rank, the picture, the name and a short description written under it. Slides swipe from one to the next. Great for "Top 10" lists.'],
   long: ['⏱️ Over 1 minute', 'Makes this video 65 to 75 seconds, still fast-paced. TikTok\'s Creator Rewards only pay for videos over 1 minute (check TikTok\'s current rules).'],
   fast: ['⚡ Fast pacing', 'Shorter lines and a quick zoom on the key word, so the picture changes every 2 to 3 seconds.'],
   cover: ['🖼️ Bold cover', 'The first frame is a poster with 2 to 5 big words, so it stands out on your profile and in search.'],

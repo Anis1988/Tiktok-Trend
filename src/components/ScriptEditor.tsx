@@ -14,6 +14,7 @@ export function ScriptEditor({ v, onChange, example = false }: { v: Video; onCha
   const [cover, setCover] = useState(v.cover ?? '');
   const quiz = v.extras?.includes('quiz');
   const debate = v.extras?.includes('debate');
+  const slides = v.extras?.includes('slides');
   const [lines, setLines] = useState<Line[]>(v.draft?.lines ?? v.lines.map((text) => ({ text, footage: v.topic.slice(0, 60), keywords: [] })));
   const [busy, setBusy] = useState('');
   const building = v.status === 'building';
@@ -35,6 +36,7 @@ export function ScriptEditor({ v, onChange, example = false }: { v: Video; onCha
         footage: (l.footage.trim() || l.text.trim().split(/\s+/).slice(0, 3).join(' ') || 'city').slice(0, 60),
         keywords: (kw[i] ?? '').split(',').map((k) => k.trim().slice(0, 30)).filter(Boolean).slice(0, 3),
         label: l.label?.trim().slice(0, 40) || undefined,
+        desc: l.desc?.trim().slice(0, 90) || undefined,
       }))
       .filter((l) => l.text)
       .slice(0, 14);
@@ -99,6 +101,9 @@ export function ScriptEditor({ v, onChange, example = false }: { v: Video; onCha
               <input className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.character ?? ''} maxLength={100} disabled={building} onChange={(e) => setLine(i, { character: e.target.value })} placeholder="Character, e.g. Levi | Attack on Titan" aria-label={`Character picture for line ${i + 1}`} />
               <input className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.object ?? ''} maxLength={60} disabled={building} onChange={(e) => setLine(i, { object: e.target.value })} placeholder="Photo of a thing, e.g. red apple" aria-label={`Object photo for line ${i + 1}`} />
               <input className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.label ?? ''} maxLength={40} disabled={building} onChange={(e) => setLine(i, { label: e.target.value })} placeholder="Title on screen, e.g. #3 Levi Ackerman" aria-label={`Title on screen for line ${i + 1}`} />
+              {slides && (
+                <input className={`${field} !min-h-[34px] !py-1 text-xs sm:col-span-2`} value={l.desc ?? ''} maxLength={90} disabled={building} onChange={(e) => setLine(i, { desc: e.target.value })} placeholder="Slide text (short, on screen), e.g. Humanity's strongest soldier" aria-label={`Slide text for line ${i + 1}`} />
+              )}
               {quiz && (
                 <select className={`${field} !min-h-[34px] !py-1 text-xs`} value={l.quiz ?? ''} disabled={building} onChange={(e) => setLine(i, { quiz: (e.target.value || undefined) as Line['quiz'] })} aria-label={`Quiz for line ${i + 1}`}>
                   <option value="">Quiz: normal line</option>
