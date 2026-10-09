@@ -37,8 +37,16 @@ export async function youtubeExchangeCode(code: string, redirectUri: string): Pr
   if (!j.refresh_token) throw new Error('Google did not give a lasting login. Remove the app at myaccount.google.com/permissions and connect again.');
   const t: YouTubeAuth = { accessToken: j.access_token, refreshToken: j.refresh_token, expiresAt: Date.now() + (j.expires_in ?? 3600) * 1000 };
   const res = await fetch('https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true', { headers: { Authorization: `Bearer ${t.accessToken}` }, signal: AbortSignal.timeout(15_000) });
-  const ch = (await res.json()) as { items?: { id: string; snippet?: { title?: string } }[] };
-  if (!ch.items?.length) throw new Error('This Google account has no YouTube channel yet. Create one on youtube.com first.');
+  const ch = (await res.json().catch(() => ({}))) as { items?: { id: string; snippet?: { title?: string } }[]; error?: { message?: string; errors?: { reason?: string }[] } };
+  // A refused request is not "no channel": say what YouTube really answered.
+  if (!res.ok || ch.error) {
+    const reason = ch.error?.errors?.[0]?.reason ?? '';
+    const msg = (ch.error?.message ?? `HTTP ${res.status}`).replace(/<[^>]+>/g, '').slice(0, 200);
+    if (/accessNotConfigured|SERVICE_DISABLED/.test(reason) || /has not been used|is disabled/.test(msg)) throw new Error('"YouTube Data API v3" is not turned on in your Google Cloud project. Turn it on (APIs & Services → Library), wait 2 minutes, then connect again.');
+    if (/insufficient|PERMISSION_DENIED/i.test(reason + msg)) throw new Error('Google did not give permission to see your channel. Connect again and tick every box on Google\'s page.');
+    throw new Error(`YouTube said: ${msg}`);
+  }
+  if (!ch.items?.length) throw new Error('This Google account has no YouTube channel yet. Create one on youtube.com first (or pick the channel\'s brand account when Google asks).');
   t.channelId = ch.items[0].id;
   t.name = ch.items[0].snippet?.title;
   await setYouTube(t);
