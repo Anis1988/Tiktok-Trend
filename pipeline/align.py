@@ -6,7 +6,19 @@ Uses faster-whisper (open source speech recognition) with word timestamps; the s
 """
 import json
 import os
+import subprocess
 import sys
+
+
+def load_audio(path: str):
+    """16 kHz mono float samples, decoded by ffmpeg (faster-whisper's own decoder breaks with newer PyAV versions)."""
+    import numpy as np
+
+    raw = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", path, "-f", "f32le", "-ac", "1", "-ar", "16000", "-"],
+        check=True, capture_output=True,
+    ).stdout
+    return np.frombuffer(raw, dtype=np.float32)
 
 
 def main() -> None:
@@ -18,7 +30,7 @@ def main() -> None:
     for it in items:
         try:
             segments, _ = model.transcribe(
-                it["wav"], language="en", word_timestamps=True, beam_size=1,
+                load_audio(it["wav"]), language="en", word_timestamps=True, beam_size=1,
                 initial_prompt=it["text"][:200], condition_on_previous_text=False, vad_filter=False,
             )
             words = []
