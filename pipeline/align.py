@@ -27,8 +27,7 @@ def main() -> None:
                     words.append([round(w.start, 3), round(w.end, 3), w.word.strip()])
             out.append(words)
         except Exception as e:  # one bad line never stops the others
-            print(f"align failed for {it.get('wav')}: {e}", file=sys.stderr)
-            out.append(None)
+            out.append({"error": f"{type(e).__name__}: {e}"[:300]})
     json.dump(out, sys.stdout)
 
 

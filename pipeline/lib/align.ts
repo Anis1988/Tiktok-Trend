@@ -62,8 +62,19 @@ export async function alignLines(items: { wav: string; text: string; dur: number
   try {
     const script = fileURLToPath(new URL('../align.py', import.meta.url));
     const out = await run('python3', [script], JSON.stringify(items.map(({ wav, text }) => ({ wav, text }))));
-    const heard = JSON.parse(out) as (Heard[] | null)[];
-    return items.map((it, i) => (heard[i] ? matchTimes(it.text, heard[i]!, it.dur) : null));
+    // Only the last line of output is the result (anything printed before it is ignored).
+    const heard = JSON.parse(out.trim().split('\n').pop() ?? '[]') as (Heard[] | { error: string } | null)[];
+    const res = items.map((it, i) => (Array.isArray(heard[i]) ? matchTimes(it.text, heard[i] as Heard[], it.dur) : null));
+    // Say why lines were not timed, so a problem is visible in the GitHub log.
+    const errors = heard.filter((h): h is { error: string } => !!h && !Array.isArray(h) && 'error' in h);
+    const empty = heard.filter((h) => Array.isArray(h) && !h.length).length;
+    const unmatched = items.filter((_, i) => Array.isArray(heard[i]) && (heard[i] as Heard[]).length && !res[i]);
+    if (errors.length || empty || unmatched.length) {
+      console.log(`Word timing: ${errors.length} failed, ${empty} heard nothing, ${unmatched.length} didn't match the script.${errors[0] ? ` First error: ${errors[0].error}` : ''}`);
+      const k = items.findIndex((_, i) => Array.isArray(heard[i]) && (heard[i] as Heard[]).length && !res[i]);
+      if (k >= 0) console.log(`  e.g. script "${items[k].text.slice(0, 80)}" / heard "${(heard[k] as Heard[]).map((h) => h[2]).join(' ').slice(0, 80)}"`);
+    }
+    return res;
   } catch (e) {
     console.log('Word timing skipped (captions timed by word length):', e instanceof Error ? e.message.slice(0, 200) : e);
     return items.map(() => null);
