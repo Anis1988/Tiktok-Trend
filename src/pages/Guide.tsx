@@ -117,7 +117,7 @@ export function Guide() {
           <li><b>Real people, places and events</b>: a free photo from Wikimedia Commons (the library behind Wikipedia), or NASA for space. If the Wikipedia photo isn't free, the app tries the person's free photo on Wikidata. Credit like "Photo: Jane Doe · CC BY-SA 4.0 · Wikimedia Commons". If Wikimedia has none, <b>Openverse</b> is searched: 800 million free photos (Flickr, museums...), only licences that allow use in your videos, and only photos whose title names that person or place.</li>
           <li><b>Things</b> (an apple, a basketball, a controller): a free photo from Pixabay (or Pexels), then Openverse.</li>
           <li>Otherwise a stock video clip, as before.</li>
-          <li>Pictures appear as a framed card over a blurred copy, sliding gently into place with a slow zoom.</li>
+          <li>Pictures appear as a framed card over a blurred copy, sliding gently into place with a slow zoom. Small pictures (character art is often small) are enlarged only a little and sharpened, so they stay crisp instead of blurry.</li>
           <li><b>Titles:</b> in rankings, each place shows a big title at the top, like "<b>#3</b> LEVI ACKERMAN", with the number in your accent colour.</li>
           <li>Never used: TV, film, anime or game <b>footage</b> (video). TikTok mutes or removes those.</li>
           <li>Turn real photos off in <b>Video style &amp; effects → Real photos &amp; clips</b>. All credits are listed under each video (Footage).</li>
@@ -164,7 +164,9 @@ export function Guide() {
         </Example>
         <ul className="list-disc space-y-1.5 pl-5">
           <li><b>Category for this video:</b> tap a category (like Gaming), then a subcategory (like Nintendo) or "All". The video then uses that niche's news, style, footage and hashtags. "My channel" (or "Trending") uses your normal settings.</li>
-          <li><b>💡 Ideas right now:</b> tap "Show ideas" for a plain list of fresh headlines from your pick (or today's top trends). Tap one to use it as the subject. It's free (no AI) and refreshes every 30 minutes.</li>
+          <li><b>💡 Ideas, 📰 News tab:</b> tap "Show ideas" for a plain list of fresh headlines from your pick (or today's top trends). Tap one to use it as the subject. It's free (no AI) and refreshes every 30 minutes.</li>
+          <li><b>💡 Ideas, 🎯 Quiz &amp; facts tab:</b> subjects that work any day, for your category (or a mix): "Guess who? Attack on Titan characters", "Fun facts about octopus", "Top 10 strongest Pokémon"… Your channel's focus words come first. Tapping one fills the subject <b>and</b> picks the right extra (Guess who? or Fun facts). "↻ More" shows other ideas. Free, no AI.</li>
+          <li><b>Found in search:</b> TikTok works like a search engine. For every video, the AI picks 2 or 3 "search words" (what people really type, like "strongest aot characters ranked"), says them early in the video, puts them in the caption and uses matching specific hashtags (never empty ones like #fyp). You see them under each video as "Search words".</li>
           <li><b>Type a subject</b> (like "iPhone 18" or "Champions League"): the app reads the latest news about it (last 2 days, or last week if that's quiet) and makes the video from those facts. You don't need to pick a category: a typed subject can be about anything, even outside your channel (an anime video on a gaming channel is fine). Pick a category only if you want that niche's style and colours.</li>
           <li><b>Leave it empty</b>: the app picks the best story from your pick, your channel, or the top trending topic.</li>
           <li>If the subject is sad or risky (real deaths, crimes, elections…), no video is made and you see why. It still counts as one AI script.</li>

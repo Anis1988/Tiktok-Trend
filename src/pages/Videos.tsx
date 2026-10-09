@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, fileUrl, sendTargets, type Status, type Video } from '../lib/api';
 import { VideoDetail } from '../components/VideoDetail';
 import { StatusChip, toast, when } from '../components/ui';
-import { CATEGORIES, LISTY, findCategory, type Niche } from '../lib/niches';
+import { CATEGORIES, LISTY, evergreenIdeas, findCategory, type EvergreenIdea, type Niche } from '../lib/niches';
 import { EXTRA_LABEL, type Extra } from '../lib/types';
 import { useSettings } from '../lib/useSettings';
 import { NichePicker } from '../components/NichePicker';
@@ -103,6 +103,12 @@ export function Videos() {
       setIdeasBusy(false);
     }
   };
+  // A quiz / fun facts / top 10 idea: its subject, and the matching extra (Guess who? or Fun facts) instead of the other.
+  const chooseEvergreen = (i: EvergreenIdea) => {
+    setIdea(null);
+    setSubject(i.subject);
+    setExtras([...extras.filter((x) => !['quiz', 'facts', 'myth', 'versus'].includes(x)), ...(i.extra ? [i.extra] : [])]);
+  };
   const chooseIdea = (i: Idea | null) => {
     setIdea(i);
     if (i) setSubject(i.title);
@@ -154,7 +160,7 @@ export function Videos() {
           <button className="btn" onClick={() => void load()}>↻ Refresh</button>
         </div>
       </div>
-      <MakeNow subject={subject} onSubject={setSubject} pick={pick} onPick={choosePick} ideaUrl={idea?.url} onIdea={chooseIdea} ideas={ideas} ideasBusy={ideasBusy} onIdeas={() => void loadIdeas()} busy={busy} onMake={() => void makeNow()} niche={niche} extras={extras} onExtras={setExtras} reply={reply} onReply={setReply} onRecap={() => void makeNow(true)} />
+      <MakeNow subject={subject} onSubject={setSubject} pick={pick} onPick={choosePick} ideaUrl={idea?.url} onIdea={chooseIdea} ideas={ideas} ideasBusy={ideasBusy} onIdeas={() => void loadIdeas()} busy={busy} onMake={() => void makeNow()} niche={niche} extras={extras} onExtras={setExtras} reply={reply} onReply={setReply} onRecap={() => void makeNow(true)} onEvergreen={chooseEvergreen} />
       {settings && (
         <>
           <Fold id="channel" title="My channel" subtitle={niche ? `${findCategory(niche.category)?.emoji ?? ''} ${findCategory(niche.category)?.label ?? ''} · used for every video` : 'Anything trending · tap to choose your niche'}>
@@ -225,6 +231,7 @@ export function MakeNow(p: {
   extras?: Extra[]; onExtras?: (e: Extra[]) => void;
   reply?: { text: string; by: string } | null; onReply?: (r: { text: string; by: string } | null) => void;
   onRecap?: () => void;
+  onEvergreen?: (i: EvergreenIdea) => void;
 }) {
   const extras = p.extras ?? [];
   const topicHint = !p.ideaUrl && !/^https?:\/\//.test(p.subject.trim()) && (LISTY.test(p.subject) || extras.some((e) => ['quiz', 'facts', 'myth', 'versus'].includes(e)));
@@ -233,6 +240,9 @@ export function MakeNow(p: {
   const toggle = (e: Extra) => p.onExtras?.(extras.includes(e) ? extras.filter((x) => x !== e) : [...extras.filter((x) => !(KINDS.includes(e) && KINDS.includes(x))), e]);
   const [catId, subId] = p.pick.split(':');
   const cat = findCategory(catId);
+  const [tab, setTab] = useState<'news' | 'evergreen'>('news');
+  const [seed, setSeed] = useState(0);
+  const evergreen = useMemo(() => evergreenIdeas(cat?.id ?? p.niche?.category, cat ? (p.niche?.category === cat.id ? p.niche.focus : []) : p.niche?.focus ?? [], seed), [cat, p.niche, seed]);
   const where = cat ? `${cat.label}${subId ? ` · ${cat.subs.find((x) => x.id === subId)?.label ?? ''}` : ''}` : p.niche ? 'your channel' : 'today\'s top trends';
   return (
     <form className="card space-y-3" onSubmit={(e) => (e.preventDefault(), p.onMake())}>
@@ -294,28 +304,60 @@ export function MakeNow(p: {
 
       <div className="space-y-2 border-t border-white/10 pt-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-slate-200">💡 Ideas right now <span className="text-xs text-slate-500">· {where}</span></p>
-          <button type="button" className="btn !min-h-0 !py-1.5 text-xs" disabled={p.ideasBusy} onClick={p.onIdeas}>{p.ideasBusy ? <><span className="spinner" /> Loading…</> : p.ideas ? '↻ Refresh ideas' : 'Show ideas'}</button>
+          <p className="text-sm text-slate-200">💡 Ideas <span className="text-xs text-slate-500">· {where}</span></p>
+          <div className="flex gap-1" role="tablist" aria-label="Kind of ideas">
+            <button type="button" role="tab" aria-selected={tab === 'news'} className={chip(tab === 'news')} onClick={() => setTab('news')}>📰 News</button>
+            <button type="button" role="tab" aria-selected={tab === 'evergreen'} className={chip(tab === 'evergreen')} onClick={() => setTab('evergreen')}>🎯 Quiz &amp; facts</button>
+          </div>
         </div>
-        {p.ideas && !p.ideas.length && <p className="text-xs text-slate-500">No fresh headlines right now. Try another category.</p>}
-        {p.ideas && p.ideas.length > 0 && (
-          <ul className="space-y-1.5">
-            {p.ideas.map((i) => {
-              const on = p.ideaUrl === i.url;
-              return (
-                <li key={i.url}>
-                  <button type="button" onClick={() => p.onIdea(on ? null : i)} aria-pressed={on}
-                    className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition ${on ? 'border-cyan-300/60 bg-cyan-400/10 text-cyan-50' : 'border-white/10 bg-white/[0.03] text-slate-200 hover:border-white/25'}`}>
-                    <span className="mr-1.5 rounded bg-white/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">{i.tag}</span>
-                    {i.title}
-                    {i.site && <span className="text-xs text-slate-500"> · {i.site}</span>}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+        {tab === 'news' ? (
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-slate-500">Fresh headlines (free, updated every 30 minutes).</p>
+              <button type="button" className="btn !min-h-0 shrink-0 !py-1.5 text-xs" disabled={p.ideasBusy} onClick={p.onIdeas}>{p.ideasBusy ? <><span className="spinner" /> Loading…</> : p.ideas ? '↻ Refresh' : 'Show ideas'}</button>
+            </div>
+            {p.ideas && !p.ideas.length && <p className="text-xs text-slate-500">No fresh headlines right now. Try another category.</p>}
+            {p.ideas && p.ideas.length > 0 && (
+              <ul className="space-y-1.5">
+                {p.ideas.map((i) => {
+                  const on = p.ideaUrl === i.url;
+                  return (
+                    <li key={i.url}>
+                      <button type="button" onClick={() => p.onIdea(on ? null : i)} aria-pressed={on}
+                        className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition ${on ? 'border-cyan-300/60 bg-cyan-400/10 text-cyan-50' : 'border-white/10 bg-white/[0.03] text-slate-200 hover:border-white/25'}`}>
+                        <span className="mr-1.5 rounded bg-white/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">{i.tag}</span>
+                        {i.title}
+                        {i.site && <span className="text-xs text-slate-500"> · {i.site}</span>}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {p.ideas && p.ideas.length > 0 && <p className="text-xs text-slate-500">Tap an idea to use it as the subject, then tap "Make it about this".</p>}
+          </>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-slate-500">Subjects that work any day: a quiz, fun facts or a top 10. Tapping one also picks the right extra.</p>
+              <button type="button" className="btn !min-h-0 shrink-0 !py-1.5 text-xs" onClick={() => setSeed((n) => n + 1)}>↻ More</button>
+            </div>
+            <ul className="space-y-1.5">
+              {evergreen.map((i) => {
+                const on = p.subject.trim() === i.subject;
+                return (
+                  <li key={i.title}>
+                    <button type="button" onClick={() => p.onEvergreen?.(i)} aria-pressed={on}
+                      className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition ${on ? 'border-cyan-300/60 bg-cyan-400/10 text-cyan-50' : 'border-white/10 bg-white/[0.03] text-slate-200 hover:border-white/25'}`}>
+                      <span className="mr-1.5 rounded bg-white/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">{i.tag}</span>
+                      {i.title}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
         )}
-        {p.ideas && p.ideas.length > 0 && <p className="text-xs text-slate-500">Tap an idea to use it as the subject, then tap "Make it about this".</p>}
       </div>
     </form>
   );

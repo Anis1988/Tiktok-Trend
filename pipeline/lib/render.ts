@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { durationOf, run } from './sh';
+import { durationOf, run, sizeOf } from './sh';
 import { DEFAULT_LOOK, type Look } from '../../src/lib/niches';
 import { alignLines, type Timing } from './align';
 
@@ -257,9 +257,17 @@ async function renderScene(s: Scene, i: number, dur: number, dir: string, tail: 
   const enc = ['-t', len.toFixed(3), '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '16', '-pix_fmt', 'yuv420p', video];
   if (s.image) {
     // Photo card: the whole photo, sharp, with a thin white frame, over a blurred and darkened copy filling the screen.
+    // Small pictures (e.g. character art, ~230x350) are enlarged at most 2.2x with a sharp filter, so they stay crisp
+    // instead of being stretched 3x and looking blurry.
+    const [bw, bh] = [W - 120, Math.round(H * (s.label ? 0.5 : 0.58))];
+    const [iw, ih] = await sizeOf(s.image).catch(() => [0, 0]);
+    const f = iw && ih ? Math.min(bw / iw, bh / ih, 2.2) : 0;
+    const fit = f
+      ? `scale=w=${Math.round((iw * f) / 2) * 2}:h=${Math.round((ih * f) / 2) * 2}:flags=lanczos${f > 1.3 ? ',unsharp=5:5:0.7:5:5:0' : ''}`
+      : `scale=w=${bw}:h=${bh}:force_original_aspect_ratio=decrease:flags=lanczos`;
     const card = [
       `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},boxblur=28:4,eq=brightness=-0.22[bg]`,
-      `[1:v]scale=w=${W - 120}:h=${Math.round(H * (s.label ? 0.5 : 0.58))}:force_original_aspect_ratio=decrease,${hidden}pad=iw+14:ih+14:7:7:color=white@0.92[fg]`,
+      `[1:v]${fit},${hidden}pad=iw+14:ih+14:7:7:color=white@0.92[fg]`,
       `[bg][fg]overlay=x=(W-w)/2:y='(H-h)/2-${Math.round(H * (s.label ? 0.03 : 0.07))}+90*pow(max(0,1-t/0.5),3)',${vf.replace(`scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},`, '')}[out]`,
     ].join(';');
     await run('ffmpeg', ['-y', '-v', 'error', '-loop', '1', '-framerate', String(FPS), '-i', s.image, '-loop', '1', '-framerate', String(FPS), '-i', s.image, '-filter_complex', card, '-map', '[out]', ...enc]);

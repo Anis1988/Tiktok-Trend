@@ -35,9 +35,10 @@ const Script = z.object({
     map: z.string().describe('only when this line is about where something happens or is (a country, city, region, landmark): its name as on Wikipedia, e.g. "Japan", "Gaza Strip", "Lake Tahoe"; otherwise an empty string'),
   })).describe('the whole voice-over in order, starting with the hook line'),
   cover: z.string().describe('2 to 5 punchy words for the video cover (first frame), like a poster title, e.g. "STRONGEST IN AOT?"'),
-  caption: z.string().describe('TikTok description, max 150 characters, no hashtags; witty, not a summary'),
+  searchWords: z.array(z.string()).describe('2 or 3 phrases people would really type in TikTok search to find this video (2 to 5 words each, e.g. "strongest aot characters ranked")'),
+  caption: z.string().describe('TikTok description, max 150 characters, no hashtags; witty, not a summary, and contains the main search phrase word for word'),
   firstComment: z.string().describe('a short witty comment (max 120 characters) the creator posts and pins under the video to get replies'),
-  hashtags: z.array(z.string()).describe('3 to 5 hashtags without the # sign'),
+  hashtags: z.array(z.string()).describe('3 to 5 hashtags without the # sign: specific ones people search (e.g. "attackontitan", "levi"), plus at most one broad one; never "fyp" or "viral"'),
   sources: z.array(z.number()).describe('indexes of the headlines (from the chosen candidate) the facts come from'),
 });
 export type ScriptOut = z.infer<typeof Script>;
@@ -58,6 +59,7 @@ Rules:
 - Then explain what happened and why people care, in short spoken sentences.
 - Add one clever moment: a funny comparison, a wordplay or a dry one-liner that fits the facts (for the witty and punchy tones, two are fine). Jokes may poke fun at what public figures say and do; never at people for who they are, and keep sad news respectful.
 - End with a punchline or a playful question people will want to answer in the comments (not "What do you think?").
+- TikTok is a search engine: first decide the "searchWords" (what people really type to find this, plain and specific: names, series, "ranked", "explained", "facts"). Say the main search phrase (or its key words) naturally in the first or second spoken line, put it word for word in the caption, and use matching specific hashtags. Never stuff keywords or make the hook boring for it.
 - Caption: witty, a tease rather than a summary. First comment: a short, funny comment the creator pins to start replies (a hot take, a playful poll, or a joke). Both stay truthful.
 - Plain everyday English. No emojis in the spoken lines.
 - Footage search words describe generic scenes (no real people, logos or brands), because the footage is generic stock video.
@@ -106,7 +108,7 @@ function channel(s: AppSettings): string {
       : 'Only pick a candidate that fits this niche.',
     `Niche style: ${c.style}.`,
     `Footage ideas for this niche: ${c.footage}.`,
-    'Hashtags: 1 or 2 broad niche tags plus specific ones for the story.',
+    'Hashtags: at most 1 broad niche tag, the rest specific ones people search for this story.',
     '',
   ].join('\n');
 }

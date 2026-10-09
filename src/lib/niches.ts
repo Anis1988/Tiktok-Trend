@@ -183,3 +183,44 @@ export const subsOf = (n: Niche) => {
 
 /** Subjects that are not news but a topic: rankings, lists, explainers, fun facts. */
 export const LISTY = /\b(top ?\d+|ranked|ranking|tier ?list|strongest|weakest|of all time|fun facts?|facts? about|who would win|explained)\b/i;
+
+// ---------- evergreen ideas: subjects for quiz, fun facts and top 10 videos (no news needed, free) ----------
+
+/** Per category: who to quiz on, what to give fun facts about, what to rank. */
+const EVERGREEN: Record<string, { quiz: string[]; facts: string[]; top: string[] }> = {
+  gaming: { quiz: ['GTA characters', 'Pokémon', 'Mario characters', 'Minecraft mobs', 'video game villains'], facts: ['GTA 6', 'Minecraft', 'Pokémon', 'The Legend of Zelda', 'Elden Ring'], top: ['strongest Pokémon', 'best GTA games ranked', 'hardest video game bosses', 'best-selling video games of all time'] },
+  tech: { quiz: ['famous tech founders', 'famous robots'], facts: ['the iPhone', 'Elon Musk', 'the internet', 'artificial intelligence', 'Apple'], top: ['best iPhones ranked', 'biggest tech fails of all time', 'most expensive gadgets ever'] },
+  sports: { quiz: ['famous footballers', 'NBA legends', 'Formula 1 drivers'], facts: ['Cristiano Ronaldo', 'Lionel Messi', 'LeBron James', 'Michael Jordan', 'the World Cup'], top: ['greatest footballers of all time', 'best NBA players of all time', 'fastest athletes ever'] },
+  movies: { quiz: ['Attack on Titan characters', 'One Piece characters', 'Naruto characters', 'Demon Slayer characters', 'Marvel heroes'], facts: ['Attack on Titan', 'One Piece', 'Naruto', 'Harry Potter', 'Star Wars'], top: ['strongest anime characters', 'strongest Attack on Titan characters', 'best anime of all time', 'strongest Marvel heroes'] },
+  music: { quiz: ['famous singers', 'K-pop idols', 'famous rappers'], facts: ['Taylor Swift', 'BTS', 'Eminem', 'Michael Jackson', 'The Beatles'], top: ['best-selling artists of all time', 'greatest rappers of all time', 'most streamed songs ever'] },
+  science: { quiz: ['animals', 'planets', 'famous scientists'], facts: ['octopus', 'black holes', 'sharks', 'the Moon', 'dinosaurs', 'the human brain'], top: ['deadliest animals', 'biggest stars in the universe', 'weirdest animals on Earth'] },
+  cars: { quiz: ['supercars', 'famous race cars'], facts: ['Ferrari', 'Lamborghini', 'Tesla', 'Bugatti', 'Formula 1'], top: ['fastest cars in the world', 'most expensive cars ever', 'most iconic movie cars'] },
+  food: { quiz: ['famous dishes', 'fruits from around the world'], facts: ['pizza', 'coffee', 'chocolate', 'sushi', "McDonald's"], top: ['most popular foods in the world', 'spiciest peppers in the world', 'most expensive foods ever'] },
+  travel: { quiz: ['famous landmarks', 'world capitals'], facts: ['Japan', 'Paris', 'Dubai', 'Iceland', 'the Great Wall of China'], top: ['most visited places in the world', 'most beautiful islands', 'tallest buildings in the world'] },
+  viral: { quiz: ['famous YouTubers', 'famous memes'], facts: ['MrBeast', 'TikTok', 'YouTube', 'memes'], top: ['most followed TikTokers', 'biggest internet moments ever', 'most viewed YouTube videos'] },
+};
+
+export interface EvergreenIdea { title: string; subject: string; extra?: 'quiz' | 'facts'; tag: string }
+
+/** A shuffled handful of quiz / fun facts / top 10 subjects for a category (or a mix), plus your focus words. */
+export function evergreenIdeas(categoryId: string | undefined, focus: string[] = [], seed = 0, count = 8): EvergreenIdea[] {
+  const cats = categoryId && EVERGREEN[categoryId] ? [categoryId] : Object.keys(EVERGREEN);
+  const all: EvergreenIdea[] = [];
+  for (const f of focus.filter(Boolean)) {
+    all.push({ title: `Fun facts about ${f}`, subject: f, extra: 'facts', tag: 'Fun facts' });
+  }
+  for (const c of cats) {
+    const e = EVERGREEN[c];
+    e.quiz.forEach((q) => all.push({ title: `Guess who? ${q}`, subject: q, extra: 'quiz', tag: 'Guess who?' }));
+    e.facts.forEach((f) => all.push({ title: `Fun facts about ${f}`, subject: f, extra: 'facts', tag: 'Fun facts' }));
+    e.top.forEach((t) => all.push({ title: `Top 10 ${t}`, subject: `Top 10 ${t}`, tag: 'Top 10' }));
+  }
+  // Same order all day (seeded by the day), a new order with "More ideas".
+  let x = (Math.floor(Date.now() / 86_400_000) * 9973 + seed * 7919) % 2147483647 || 1;
+  const rand = () => (x = (x * 48271) % 2147483647) / 2147483647;
+  const nf = focus.filter(Boolean).length;
+  const focusFirst = all.slice(0, nf);
+  const rest = all.slice(nf).map((i) => [rand(), i] as const).sort((a, b) => a[0] - b[0]).map(([, i]) => i);
+  const seen = new Set<string>();
+  return [...(seed === 0 ? focusFirst : []), ...rest].filter((i) => !seen.has(i.title.toLowerCase()) && seen.add(i.title.toLowerCase())).slice(0, count);
+}

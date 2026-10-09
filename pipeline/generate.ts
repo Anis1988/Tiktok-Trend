@@ -190,7 +190,8 @@ async function main() {
   const base: VideoRecord = {
     id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status: 'failed',
     topic: cand.topic, title: sc.title.slice(0, 80), hook: sc.hook, lines: sc.lines.map((l) => l.text),
-    caption: sc.caption.slice(0, 150), firstComment: sc.firstComment.slice(0, 150) || undefined, hashtags: sc.hashtags.map((h) => h.replace(/^#/, '').replace(/\s+/g, '')).filter(Boolean).slice(0, 5),
+    caption: sc.caption.slice(0, 150), firstComment: sc.firstComment.slice(0, 150) || undefined, hashtags: sc.hashtags.map((h) => h.replace(/^#/, '').replace(/\s+/g, '')).filter((h) => h && !/^(fyp|foryou|foryoupage|viral|trending)$/i.test(h)).slice(0, 5),
+    searchWords: (sc.searchWords ?? []).map((w) => w.trim().slice(0, 50)).filter(Boolean).slice(0, 3),
     sources: sc.sources.map((i) => cand.headlines[i]).filter(Boolean), durationSec: 0, sizeBytes: 0,
     voice: s.voice, footage: [], model: MODEL,
     draft: { lines: sc.lines.map((l) => ({

@@ -19,3 +19,10 @@ export async function durationOf(file: string): Promise<number> {
   const out = await run('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', file]);
   return Number(out.trim()) || 0;
 }
+
+/** Width and height of a picture or video, in pixels. */
+export async function sizeOf(file: string): Promise<[number, number]> {
+  const out = await run('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0:s=x', file]);
+  const [w, h] = out.trim().split('x').map(Number);
+  return [w || 0, h || 0];
+}

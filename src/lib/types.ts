@@ -90,6 +90,7 @@ export interface VideoRecord {
   topicVideo?: boolean; // a topic video (ranking, top 10, fun facts): written from well-known facts, not news
   extras?: Extra[]; // extras picked for this video (quiz, fast pacing, bold cover)
   cover?: string; // the big words on the cover (first frame), when "Bold cover" is on
+  searchWords?: string[]; // what people would type in TikTok search to find this video
   fileRemovedAt?: string; // the video file was deleted by the auto clean-up (the text is kept)
   tiktok?: { publishId?: string; sentAt?: string; status?: string };
   recap?: boolean; // a weekly recap made from the week's videos

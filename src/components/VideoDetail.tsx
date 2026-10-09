@@ -219,6 +219,7 @@ export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, sendTo = 
         </div>
         <div className="space-y-1 text-xs text-slate-400">
           <p><span className="label !text-[10px]">Topic</span> {v.topic}</p>
+          {!!v.searchWords?.length && <p><span className="label !text-[10px]">Search words</span> {v.searchWords.join(' · ')}</p>}
           {!!v.extras?.length && <p><span className="label !text-[10px]">Extras</span> {v.extras.map((e) => EXTRA_LABEL[e][0]).join(' · ')}</p>}
           {v.topicVideo && <p className="text-amber-200">📚 Topic video: written from well-known facts, not news. Check the facts before approving.</p>}
           {v.sources.length > 0 && (
