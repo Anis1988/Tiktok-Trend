@@ -145,7 +145,7 @@ export const api = {
  * Saves the video to the phone or computer. Netlify can't send big files in one go (about 20 MB), so it is
  * fetched in 4 MB pieces and put back together here. Falls back to the plain link if that fails.
  */
-export async function downloadVideo(v: { id: string; sig: string }, onProgress?: (share: number) => void): Promise<void> {
+export async function downloadVideo(v: { id: string; sig: string; sizeBytes?: number }, onProgress?: (share: number) => void): Promise<void> {
   const url = fileUrl(v, 'mp4');
   try {
     const parts: ArrayBuffer[] = [];
@@ -172,8 +172,9 @@ export async function downloadVideo(v: { id: string; sig: string }, onProgress?:
   }
 }
 
-export const fileUrl = (v: { id: string; sig: string }, kind: 'mp4' | 'jpg', download = false) =>
-  `/api/file?id=${encodeURIComponent(v.id)}&kind=${kind}&sig=${encodeURIComponent(v.sig)}${download ? '&dl=1' : ''}`;
+// "v" (the file size) changes when a video is rebuilt, so the phone's week-long copy is never an old version.
+export const fileUrl = (v: { id: string; sig: string; sizeBytes?: number }, kind: 'mp4' | 'jpg', download = false) =>
+  `/api/file?id=${encodeURIComponent(v.id)}&kind=${kind}&sig=${encodeURIComponent(v.sig)}${v.sizeBytes ? `&v=${v.sizeBytes}` : ''}${download ? '&dl=1' : ''}`;
 
 /** Which platforms have a Send button, from the connections in /api/status. */
 export const sendTargets = (st: Status | null): PlatformId[] =>

@@ -6,7 +6,8 @@ export const config = { path: '/api/file' };
 
 const CHUNK = 4 * 1024 * 1024; // keep each reply small; video players ask for the rest
 
-// GET /api/file?id=..&kind=mp4|jpg&sig=..[&dl=1] -> the video (with Range support for phones) or thumbnail
+// A video's file never changes under the same link (a rebuild changes the "v" in the link), so phones keep it a week.
+// GET /api/file?id=..&kind=mp4|jpg&sig=..[&v=..][&dl=1] -> the video (with Range support for phones) or thumbnail
 export default async (req: Request): Promise<Response> => {
   const blocked = linkGuard(req, 'file', 240);
   if (blocked) return blocked;
@@ -15,7 +16,7 @@ export default async (req: Request): Promise<Response> => {
   const kind = url.searchParams.get('kind') === 'jpg' ? 'jpg' : 'mp4';
   if (!verify(id, url.searchParams.get('sig'))) return json({ error: 'Bad or expired link.' }, 403);
   const type = kind === 'jpg' ? 'image/jpeg' : 'video/mp4';
-  const headers: Record<string, string> = { 'Content-Type': type, 'Cache-Control': 'private, max-age=3600', 'Accept-Ranges': 'bytes' };
+  const headers: Record<string, string> = { 'Content-Type': type, 'Cache-Control': 'private, max-age=604800, immutable', 'Accept-Ranges': 'bytes' };
   if (url.searchParams.get('dl')) headers['Content-Disposition'] = `attachment; filename="${id}.${kind}"`;
 
   const range = req.headers.get('range');

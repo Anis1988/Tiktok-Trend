@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { guard, json, linkGuard } from '../lib/guard';
 import { deleteVideo, getMeta, getTikTok, getVideo, getYouTube, listVideos, patchPlatform, patchVideo } from '../lib/store';
@@ -91,7 +92,13 @@ export default async (req: Request): Promise<Response> => {
       const sendTo: PlatformId[] = [...(yt ? ['youtube' as const] : []), ...(meta ? ['facebook' as const] : []), ...(meta?.igUserId ? ['instagram' as const] : [])];
       return json({ ...withSig(v), sendTo, tiktokConnected: !!tt && dispatchReady() });
     }
-    return json((await listVideos()).map(withSig));
+    // The whole list can be big, and the app re-checks it every 20 seconds while a video is being made: the browser
+    // keeps a copy and asks "changed?" (ETag), and an unchanged list costs an almost empty "304 Not Modified" reply.
+    const body = JSON.stringify((await listVideos()).map(withSig));
+    const etag = `"${createHash('sha1').update(body).digest('base64url')}"`;
+    const cache = { ETag: etag, 'Cache-Control': 'private, no-cache', Vary: 'X-Access-Token' };
+    if (req.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers: cache });
+    return new Response(body, { headers: { 'Content-Type': 'application/json', ...cache } });
   }
   if (!body) return json({ error: 'GET or POST only' }, 405);
 
