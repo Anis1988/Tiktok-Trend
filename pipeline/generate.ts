@@ -21,6 +21,7 @@ import { footageReady } from './lib/footage';
 import { renderVideo, type RenderOptions, type Scene } from './lib/render';
 import { visualFor, type Credit } from './lib/visuals';
 import { chooseMedia, listMedia } from '../netlify/lib/media';
+import { fcmAll } from '../netlify/lib/fcm';
 
 const CAPTION_HEX: Record<AppSettings['captionStyle']['color'], string> = { yellow: '#FFE600', cyan: '#22E3FF', green: '#7CFF4F', pink: '#FF4FD8', white: '#FFFFFF' };
 const day = () => new Date().toISOString().slice(0, 10);
@@ -412,6 +413,7 @@ async function build(base: VideoRecord, s: AppSettings) {
   } catch (e) {
     // A checked script goes back to "check it" so Build can be tapped again; otherwise the video failed.
     await saveVideo({ ...base, status: base.draft && base.status === 'building' ? 'script' : 'failed', error: e instanceof Error ? e.message : String(e) });
+    await fcmAll({ title: `Video failed: ${base.title}`, body: (e instanceof Error ? e.message : String(e)).slice(0, 200), tag: base.id, url: `/review/${base.id}?sig=${sign(base.id)}` }).catch(() => 0);
     throw e;
   } finally {
     if (!process.env.KEEP_OUT) await rm(dir, { recursive: true, force: true });
@@ -431,6 +433,14 @@ async function buildChecked(id: string, saved: AppSettings) {
 /** Email with the review link. A failed email never fails the video: it is still in the app. */
 async function notify(rec: VideoRecord, to: string) {
   const site = process.env.SITE_URL?.replace(/\/$/, '');
+  // Android app: a phone notification too; tapping it opens the video (or script) in the app.
+  const phones = await fcmAll({
+    title: rec.status === 'script' ? `Script ready to check: ${rec.title}` : `New video to review: ${rec.title}`,
+    body: rec.status === 'script' ? 'Read it, edit it if you like, then tap Build video.' : `${rec.durationSec} seconds. Watch it, then approve or reject.`,
+    tag: rec.id,
+    url: `/review/${rec.id}?sig=${sign(rec.id)}`,
+  }).catch((e) => (log('Phone notification failed:', e instanceof Error ? e.message : e), 0));
+  if (phones) log(`Phone notification sent (${phones})`);
   try {
     if (to && emailReady() && site) {
       const id = rec.id;

@@ -7,6 +7,7 @@ import { publishStatus, sendToDrafts } from '../netlify/lib/tiktok';
 import { uploadToYouTube, youtubeStatus } from '../netlify/lib/youtube';
 import { postToInstagram, sendToFacebook } from '../netlify/lib/meta';
 import type { PlatformId, VideoRecord } from '../src/lib/types';
+import { fcmAll } from '../netlify/lib/fcm';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -32,6 +33,7 @@ async function main() {
       if (st.status === 'FAILED') throw new Error(`TikTok rejected the upload: ${st.fail_reason ?? 'unknown reason'}`);
       if (st.status === 'SEND_TO_USER_INBOX' || st.status === 'PUBLISH_COMPLETE') {
         await patchVideo(id, { status: 'sent', error: undefined, tiktok: { publishId, status: st.status, sentAt: new Date().toISOString() } });
+        await fcmAll({ title: 'In your TikTok drafts', body: `${v.title}: open TikTok (inbox) to post it.`, tag: id }).catch(() => 0);
         return;
       }
     }

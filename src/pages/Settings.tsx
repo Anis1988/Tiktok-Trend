@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, setCode, type Status } from '../lib/api';
 import { Card, Field, Toggle, toast } from '../components/ui';
 import { useSettings } from '../lib/useSettings';
+import { PhonePush } from '../components/PhonePush';
 
 export function Settings() {
   const { settings: s, setSettings: setS, save } = useSettings();
@@ -143,6 +144,8 @@ export function Settings() {
             onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
         </Field>
       </Card>
+
+      <PhonePush />
 
       <Card title="This device">
         <Field label="Access code" hint="Saved on this device only.">
