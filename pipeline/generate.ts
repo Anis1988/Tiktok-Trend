@@ -5,14 +5,14 @@
 import { copyFile, mkdir, readFile, rm } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import type { AppSettings, DraftLine, Extra, VideoRecord } from '../src/lib/types';
-import { DEFAULT_SETTINGS } from '../src/lib/types';
+import { DEFAULT_SETTINGS, seriesKey } from '../src/lib/types';
 import { getSettings, listVideos, readJson, saveVideo, store, writeJson } from '../netlify/lib/store';
 import { sign } from '../netlify/lib/sign';
 import { emailReady, sendEmail } from '../netlify/lib/mailer';
-import { LISTY, bingNews, feedNews, findCandidates, nicheCandidates, subjectNews, type Candidate } from '../netlify/lib/trends';
+import { LISTY, bingNews, feedNews, findCandidates, nicheCandidates, seriesTrending, subjectNews, type Candidate } from '../netlify/lib/trends';
 import { CATEGORIES, DEFAULT_LOOK, findCategory, subsOf, type Niche } from '../src/lib/niches';
 import { cleanUp } from '../netlify/lib/cleanup';
-import { MODEL, writeScript } from './lib/script';
+import { MODEL, writeScript, type ScriptOut, type SeriesBrief } from './lib/script';
 import { refreshStats, resultsNote } from '../netlify/lib/stats';
 import { recapDue, recapScript } from './lib/recap';
 import { kineticClip } from './lib/graphics';
@@ -21,7 +21,7 @@ import { footageReady } from './lib/footage';
 import { renderVideo, type RenderOptions, type Scene } from './lib/render';
 import { visualFor, type Credit } from './lib/visuals';
 import { chooseMedia, listMedia } from '../netlify/lib/media';
-import { fcmAll } from '../netlify/lib/fcm';
+import { fcmAll, firebaseKey, getFcmTokens } from '../netlify/lib/fcm';
 
 const CAPTION_HEX: Record<AppSettings['captionStyle']['color'], string> = { yellow: '#FFE600', cyan: '#22E3FF', green: '#7CFF4F', pink: '#FF4FD8', white: '#FFFFFF' };
 const day = () => new Date().toISOString().slice(0, 10);
@@ -117,7 +117,7 @@ async function main() {
   // A subject typed for this one video (app box or GitHub "Run workflow") replaces the trend search.
   let subject = (process.env.SUBJECT ?? '').replace(/\s+/g, ' ').trim().slice(0, 300);
   // Extras picked for this one video in the app: quiz, fast pacing, bold cover…
-  const extras = [...new Set(rawExtras)].filter((x): x is Extra => ['quiz', 'facts', 'myth', 'versus', 'debate', 'slides', 'fast', 'cover', 'long'].includes(x));
+  let extras = [...new Set(rawExtras)].filter((x): x is Extra => ['quiz', 'facts', 'myth', 'versus', 'debate', 'slides', 'fast', 'cover', 'long'].includes(x));
   if (extras.length) log(`Extras: ${extras.join(', ')}`);
   let ideaUrl = /^https:\/\/\S+$/.test(process.env.IDEA_URL ?? '') ? process.env.IDEA_URL! : '';
   // A link pasted (or shared from the phone) as the subject: the video is about that page.
@@ -136,7 +136,9 @@ async function main() {
   // A typed subject with no category is free: it does not have to fit "My channel" (ideas from the list come from it anyway).
   const pickRaw = process.env.PICK?.trim() || (subject && !ideaUrl ? 'any' : '');
   const pick = pickRaw === 'any' ? null : pickedNiche(pickRaw, saved.niche);
-  const s = settingsFor(pickRaw, saved);
+  // 📅 Daily series: scheduled runs (or "Make the next series video now") make the series video instead of a trend.
+  const seriesRun = rawExtras.includes('series') || (saved.series.on && !manual && !subject && !pickRaw);
+  const s = seriesRun ? { ...saved, niche: null } : settingsFor(pickRaw, saved);
   if (pick) log(`Picked for this video: ${findCategory(pick.category)?.label} · ${subsOf(pick).map((x) => x.label).join(', ')}`);
   if (pickRaw === 'any' && saved.niche) log('Subject without a category: not limited to My channel.');
   const videos = await listVideos();
@@ -152,7 +154,17 @@ async function main() {
   if (budget.n >= s.aiDailyLimit) throw new Error(`Daily AI limit reached (${s.aiDailyLimit}). Raise it in Settings or wait until tomorrow.`);
 
   let candidates: Candidate[];
-  if (subject) {
+  let series: SeriesBrief | undefined;
+  if (seriesRun) {
+    const subj = s.series.subject.trim() || DEFAULT_SETTINGS.series.subject;
+    const used = s.series.used[seriesKey(subj)] ?? [];
+    const t = await seriesTrending(s.country);
+    t.log.forEach((l) => log(l));
+    series = { subject: subj, facts: Math.max(5, s.series.facts), minSeconds: s.series.minSeconds, used, trending: t.lines };
+    log(`Daily series: "${subj}" · ${series.facts} facts · at least ${series.minSeconds} s · ${used.length} already done`);
+    candidates = [{ topic: subj, headlines: [], evergreen: true }];
+    extras = [...extras.filter((e) => e !== 'long' && e !== 'facts'), 'facts'];
+  } else if (subject) {
     log(`Subject: ${subject}`);
     // Rankings, "top 10", fun facts…: a topic video from well-known facts (no news needed).
     // Otherwise the latest news; an idea from the app's "Ideas" list is a headline, used as is if a fresh search finds nothing more;
@@ -166,7 +178,8 @@ async function main() {
     candidates = [c];
   } else {
     const since = new Date(Date.now() - 14 * 86400_000).toISOString();
-    const recent = videos.filter((v) => v.createdAt >= since).map((v) => v.topic);
+    // Recent videos (topic and title, in any wording) are never picked again: see sameStory in trends.ts.
+    const recent = videos.filter((v) => v.createdAt >= since && v.status !== 'failed').flatMap((v) => [v.topic, v.title]);
     const turn = await readJson<number>('nicheTurn', 0);
     const found = s.niche ? await nicheCandidates(s.niche, s.country, recent, turn) : await findCandidates(s.topics, s.country, recent);
     if (s.niche && 'sub' in found && found.sub) log(`Channel: ${findCategory(s.niche.category)?.label} · this turn: ${found.sub}`);
@@ -183,7 +196,30 @@ async function main() {
 
   budget.n++;
   await writeJson('ai', budget);
-  const sc = await writeScript(candidates, s, extras, !!subject, results, comment); // your own subject: only legal limits apply
+  // The AI also sees your last month of videos, so it never makes the same story (or the same person) again.
+  const avoid = subject ? [] : videos.filter((v) => v.createdAt >= new Date(Date.now() - 30 * 86400_000).toISOString() && v.status !== 'failed').slice(0, 40).map((v) => v.title || v.topic);
+  let sc = await writeScript(candidates, s, extras, !!subject || !!series, results, comment, avoid, series); // your own subject: only legal limits apply
+  if (series) {
+    // At least N facts, long enough, and someone new: otherwise the AI is asked once more (1 more AI check, within the limit).
+    let problem = seriesProblem(sc, series);
+    if (problem && budget.n < s.aiDailyLimit) {
+      log(`Series script not right (${problem}): asking the AI once more.`);
+      budget.n++;
+      await writeJson('ai', budget);
+      const again = await writeScript(candidates, s, extras, true, results, comment, avoid, { ...series, retry: `Your last try was rejected: ${problem}. Fix that.` });
+      const p2 = seriesProblem(again, series);
+      if (!p2 || seriesWorse(problem, p2)) { sc = again; problem = p2; }
+    }
+    if (problem && /already done|no name/.test(problem)) throw new Error(`Daily series: ${problem}`);
+    if (problem) log(`Series script still not perfect (${problem}): using it anyway.`);
+    sc.pick = 0;
+    // Remember who was done, so they never come back (re-read: the app may have changed settings meanwhile).
+    const now = await getSettings();
+    const key = seriesKey(series.subject);
+    const list = [...(now.series.used[key] ?? []), sc.seriesPick.trim().slice(0, 100)].slice(-1000);
+    await writeJson('settings', { ...now, series: { ...now.series, used: { ...now.series.used, [key]: list } } });
+    log(`Series pick: ${sc.seriesPick} (${list.length} done so far)`);
+  }
   if (sc.pick < 0 || !candidates[sc.pick]) {
     if (subject) throw new Error(`The AI skipped "${subject}": ${sc.why}`);
     return log('The AI found nothing suitable today:', sc.why);
@@ -221,6 +257,7 @@ async function main() {
     extras: extras.length ? extras : undefined,
     cover: sc.cover?.trim().slice(0, 40) || undefined,
     comment,
+    series: series ? { subject: series.subject, pick: sc.seriesPick.trim().slice(0, 100), minSeconds: series.minSeconds } : undefined,
     episode: s.seriesName.trim() ? await nextEpisode() : undefined,
   };
   // Reply videos open on the comment itself.
@@ -239,6 +276,20 @@ async function main() {
   }
   await build(base, s);
 }
+
+/** What is wrong with a daily-series script, or '' if it is fine. */
+function seriesProblem(sc: ScriptOut, b: SeriesBrief): string {
+  const name = sc.seriesPick.trim();
+  if (!name) return 'no name in seriesPick';
+  if (b.used.some((u) => seriesKey(u) === seriesKey(name))) return `${name} is already done`;
+  const facts = sc.lines.filter((l) => /^fact\s*#?\s*\d+/i.test(l.label.trim())).length;
+  if (facts < b.facts) return `only ${facts} facts (need at least ${b.facts})`;
+  const words = sc.lines.reduce((t, l) => t + l.text.split(/\s+/).filter(Boolean).length, 0);
+  if (words < b.minSeconds * 2.4) return `too short: ${words} words (need at least ${Math.ceil(b.minSeconds * 2.4)} for ${b.minSeconds} seconds)`;
+  return '';
+}
+/** A retry is kept if the first try had a worse problem (a repeat or no name beats "a bit short"). */
+const seriesWorse = (a: string, b: string) => /already done|no name/.test(a) && !/already done|no name/.test(b);
 
 /** The title of a web page (for a link pasted or shared as the subject). Empty if it can't be read. */
 async function pageTitle(url: string): Promise<string> {
@@ -388,9 +439,10 @@ async function build(base: VideoRecord, s: AppSettings) {
     const dur = await renderVideo(scenes, dir, mp4, jpg, { ...ro, notes: checks });
     const bytes = await readFile(mp4);
     log(`Rendered ${dur.toFixed(1)} s, ${(bytes.length / 1e6).toFixed(1)} MB`);
-    const long = base.extras?.includes('long') || s.maxSeconds > 60;
-    if (long && dur < 61) checks.push(`Only ${Math.round(dur)} seconds: TikTok's Creator Rewards need over 1 minute. Try "Check the script first" and add a line or two.`);
-    if (!long && !base.recap && dur > s.maxSeconds + 25) checks.push(`${Math.round(dur)} seconds: longer than your ${s.maxSeconds}s setting.`);
+    const long = base.extras?.includes('long') || s.maxSeconds > 60 || !!base.series;
+    if (base.series && dur < base.series.minSeconds) checks.push(`Only ${Math.round(dur)} seconds: your daily series asks for at least ${base.series.minSeconds}. Try "Check the script first" and add a fact or two.`);
+    else if (long && dur < 61) checks.push(`Only ${Math.round(dur)} seconds: TikTok's Creator Rewards need over 1 minute. Try "Check the script first" and add a line or two.`);
+    if (!long && !base.recap && !base.series && dur > s.maxSeconds + 25) checks.push(`${Math.round(dur)} seconds: longer than your ${s.maxSeconds}s setting.`);
     if (checks.length) log('Quality check:', checks.join(' | '));
 
     const files = store('tt-files');
@@ -441,6 +493,7 @@ async function notify(rec: VideoRecord, to: string) {
     url: `/review/${rec.id}?sig=${sign(rec.id)}`,
   }).catch((e) => (log('Phone notification failed:', e instanceof Error ? e.message : e), 0));
   if (phones) log(`Phone notification sent (${phones})`);
+  else log(`No phone notification: ${!(await firebaseKey().catch(() => null)) ? 'no Firebase key uploaded (Settings → Phone notifications)' : !(await getFcmTokens().catch(() => [])).length ? 'no phone has notifications turned on in the app' : 'Firebase did not deliver it'}.`);
   try {
     if (to && emailReady() && site) {
       const id = rec.id;

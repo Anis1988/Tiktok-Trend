@@ -237,6 +237,7 @@ export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, sendTo = 
           <p><span className="label !text-[10px]">Topic</span> {v.topic}</p>
           {!!v.searchWords?.length && <p><span className="label !text-[10px]">Search words</span> {v.searchWords.join(' · ')}</p>}
           {!!v.extras?.length && <p><span className="label !text-[10px]">Extras</span> {v.extras.map((e) => EXTRA_LABEL[e][0]).join(' · ')}</p>}
+          {v.series && <p className="text-sky-200">📅 Daily series: {v.series.subject} · this one: {v.series.pick}</p>}
           {v.topicVideo && <p className="text-amber-200">📚 Topic video: written from well-known facts, not news. Check the facts before approving.</p>}
           {v.sources.length > 0 && (
             <p><span className="label !text-[10px]">Sources</span> {v.sources.map((s, i) => <a key={i} className="mr-2 text-cyan-300 underline" href={s.url} target="_blank" rel="noopener noreferrer">{s.site ?? hostOf(s.url)}</a>)}</p>

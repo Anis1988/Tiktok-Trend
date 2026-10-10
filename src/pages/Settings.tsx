@@ -5,11 +5,23 @@ import { useSettings } from '../lib/useSettings';
 import { PhonePush } from '../components/PhonePush';
 import { isNative, openExternal } from '../lib/native';
 import { APP_BUILD, downloadApp, latestApp } from '../components/AppUpdate';
+import { SeriesView } from '../components/DailySeries';
 
 export function Settings() {
   const { settings: s, setSettings: setS, save } = useSettings();
   const [st, setSt] = useState<Status | null>(null);
   const [err, setErr] = useState('');
+  const [making, setMaking] = useState(false);
+  const makeSeries = async () => {
+    setMaking(true);
+    try {
+      toast('info', (await api.makeNow({ extras: ['series'] })).message);
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : String(e));
+    } finally {
+      setMaking(false);
+    }
+  };
 
   useEffect(() => {
     Promise.all([api.settings(), api.status()]).then(([a, b]) => (setS(a), setSt(b))).catch((e) => setErr(e instanceof Error ? e.message : String(e)));
@@ -65,6 +77,7 @@ export function Settings() {
             {[1, 2, 3].map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         </Field>
+        {s.enabled && <SeriesView key={s.series.subject} v={s.series} onChange={(series) => void save({ series })} onMake={() => void makeSeries()} busy={making} />}
       </Card>
 
       <Card title="Auto clean-up" subtitle="Saves storage: deletes old video files, keeps their text">

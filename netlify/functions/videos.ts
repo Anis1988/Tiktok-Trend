@@ -22,7 +22,7 @@ const Post = z.discriminatedUnion('action', [
     subject: z.string().trim().max(200).optional(),
     pick: z.string().regex(/^[a-z-]{2,30}(:[a-z0-9-]{2,30})?$/).optional(),
     ideaUrl: z.string().url().startsWith('https://').max(1000).optional(),
-    extras: z.array(z.enum(['quiz', 'facts', 'myth', 'versus', 'debate', 'slides', 'fast', 'cover', 'long'])).max(9).optional(),
+    extras: z.array(z.enum(['quiz', 'facts', 'myth', 'versus', 'debate', 'slides', 'fast', 'cover', 'long', 'series'])).max(10).optional(),
     comment: z.string().trim().max(300).optional(),
     commentBy: z.string().trim().max(30).optional(),
     recap: z.boolean().optional(),

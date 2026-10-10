@@ -8,3 +8,4 @@
 - Paid AI calls (the script) are capped per day (`aiDailyLimit` in Settings); keep free steps (trends, voice, footage, rendering) free.
 - Phone-friendly is required: check a 390px-wide layout for any UI change.
 - Video building runs in GitHub Actions (`pipeline/`), not in Netlify functions (they time out).
+- 📅 Daily series (`Settings.series`, `src/components/DailySeries.tsx`, shown when "Make videos every day" is on): scheduled runs (or `extras: ['series']`) make a fun-facts video about a new, very famous name for one subject (`SERIES` rule in `pipeline/lib/script.ts`, `seriesPick`). Trending hints from `seriesTrending` (Wikipedia, Google Trends, TikTok Creative Center best-effort). Checked in `seriesProblem` (facts, words, not already used); asked once more within the AI limit. Names done go to `series.used[seriesKey(subject)]` (one list per subject).
