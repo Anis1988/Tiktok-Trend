@@ -108,6 +108,51 @@ export async function wikipediaTrends(country: string): Promise<Candidate[]> {
   return [...news, ...read.sort((x, y) => Number(y.headlines.length > 1) - Number(x.headlines.length > 1))];
 }
 
+/**
+ * TikTok's trending hashtags (TikTok Creative Center, best-effort: TikTok has no official free feed, so this often
+ * fails and the series then uses the other sources). Never throws.
+ */
+export async function tiktokTrends(country: string): Promise<{ tags: string[]; error?: string }> {
+  try {
+    const q = new URLSearchParams({ page: '1', limit: '30', period: '7', country_code: country, sort_by: 'popular' });
+    const res = await fetch(`https://ads.tiktok.com/creative_radar_api/v1/popular_trend/hashtag/list?${q}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36', Accept: 'application/json', Referer: 'https://ads.tiktok.com/business/creativecenter/inspiration/popular/hashtag/pc/en' },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return { tags: [], error: `HTTP ${res.status}` };
+    const j = (await res.json().catch(() => null)) as { code?: number; msg?: string; data?: { list?: { hashtag_name?: string }[] } } | null;
+    const tags = (j?.data?.list ?? []).map((x) => x.hashtag_name?.trim() ?? '').filter(Boolean);
+    return tags.length ? { tags } : { tags: [], error: j?.msg || 'no hashtags in the answer' };
+  } catch (e) {
+    return { tags: [], error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * Who and what is trending today, as short lines for the daily series (the AI prefers a famous name from here that
+ * fits the subject): Wikipedia's most-read, Google Trends searches and TikTok hashtags. Free; each source may fail.
+ */
+export async function seriesTrending(country: string): Promise<{ lines: string[]; log: string[] }> {
+  const log: string[] = [];
+  const d = new Date(Date.now() - 86400_000);
+  const date = `${d.getUTCFullYear()}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCDate()).padStart(2, '0')}`;
+  const [wiki, google, tiktok] = await Promise.all([
+    get(`https://en.wikipedia.org/api/rest_v1/feed/featured/${date}`, 1, 8000).then((t) => {
+      const j = JSON.parse(t) as { mostread?: { articles?: WikiArticle[] } };
+      return (j.mostread?.articles ?? []).filter((a) => a.type !== 'disambiguation').map((a) => ({ name: a.normalizedtitle ?? a.titles?.normalized ?? a.title.replace(/_/g, ' '), a }))
+        .filter((x) => !SKIP_WIKI.test(x.name)).slice(0, 25)
+        .map((x) => `${x.name}${x.a.description ? ` (${x.a.description})` : ''}: ${n(x.a.views ?? 0)} Wikipedia reads yesterday`);
+    }).catch((e) => { log.push(`Wikipedia failed: ${e instanceof Error ? e.message : e}`); return [] as string[]; }),
+    googleTrends(country).then((c) => c.map((x) => `${x.topic}: searched on Google today${x.traffic ? ` (${x.traffic})` : ''}`))
+      .catch((e) => { log.push(`Google Trends failed: ${e instanceof Error ? e.message : e}`); return [] as string[]; }),
+    tiktokTrends(country),
+  ]);
+  if (tiktok.error) log.push(`TikTok trends not available (${tiktok.error})`);
+  const tags = tiktok.tags.slice(0, 20).map((t) => `#${t}: trending hashtag on TikTok this week`);
+  log.unshift(`Trending now: ${wiki.length} Wikipedia, ${google.length} Google, ${tags.length} TikTok`);
+  return { lines: [...tags, ...wiki, ...google].slice(0, 60), log };
+}
+
 /** YouTube categories that fit each channel niche (for the trending chart). */
 const YT_CATEGORY: Record<string, string> = { gaming: '20', tech: '28', sports: '17', movies: '1', music: '10', science: '28', cars: '2', food: '26', travel: '19', viral: '23' };
 

@@ -28,6 +28,13 @@ const Patch = z.object({
   weeklyRecap: z.boolean().optional(),
   aiDailyLimit: z.number().int().min(1).max(30),
   notifyEmail: z.union([z.literal(''), z.string().email().max(200)]),
+  series: z.object({
+    on: z.boolean(),
+    subject: z.string().trim().min(3).max(120),
+    facts: z.number().int().min(5).max(10),
+    minSeconds: z.union([z.literal(60), z.literal(75), z.literal(90)]),
+    used: z.record(z.string().max(120), z.array(z.string().trim().min(1).max(100)).max(1000)),
+  }),
 }).partial();
 
 // GET /api/settings, POST /api/settings {partial settings}

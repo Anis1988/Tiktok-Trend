@@ -31,6 +31,7 @@ export async function getSettings(): Promise<AppSettings> {
     effects: { ...DEFAULT_SETTINGS.effects, ...saved.effects },
     captionStyle: { ...DEFAULT_SETTINGS.captionStyle, ...saved.captionStyle },
     cleanup: { ...DEFAULT_SETTINGS.cleanup, ...saved.cleanup },
+    series: { ...DEFAULT_SETTINGS.series, ...saved.series, used: { ...(saved.series?.used ?? {}) } },
   };
 }
 

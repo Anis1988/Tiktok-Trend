@@ -5,8 +5,12 @@ import { NichePicker } from '../components/NichePicker';
 import { VideoStyle } from '../components/VideoStyle';
 import { ScriptEditor } from '../components/ScriptEditor';
 import { ClipCard } from '../components/MyClips';
+import { SeriesView } from '../components/DailySeries';
 import { DEFAULT_SETTINGS } from '../lib/types';
 import type { Niche } from '../lib/niches';
+
+/* made-up example, only for this guide */
+const EXAMPLE_SERIES = { on: true, subject: 'Fun facts about a famous person', facts: 6, minSeconds: 60 as const, used: { 'fun facts about a famous person': ['Example Star One', 'Example Singer Two', 'Example Athlete Three'] } };
 
 const EXAMPLE_NICHE: Niche = { category: 'gaming', subs: ['nintendo', 'pc'], focus: ['Zelda', 'GTA 6'], mix: 'niche' };
 import { StatusChip } from '../components/ui';
@@ -72,6 +76,22 @@ export function Guide() {
           <li><b>To other platforms (if you want).</b> Approved videos also get a separate Send button for each platform you connected: YouTube Shorts, Facebook Reels and Instagram Reels. See "Other platforms" below.</li>
         </ol>
         <p>Nothing is ever posted without your OK.</p>
+      </Section>
+
+      <Section title="📅 Daily series (one subject, a new famous name every day)">
+        <p>When <b>Make videos every day</b> is on, <b>Settings → Schedule</b> shows <b>📅 Daily series</b>. With it on, every daily video is about the same subject, for example <i>fun facts about a famous person</i>, and each day it is a different person.</p>
+        <ul className="list-disc space-y-1 pl-5">
+          <li><b>Who is picked:</b> someone almost everyone knows by name and face. The app first looks at who is trending today (Wikipedia's most-read, Google searches, and TikTok's trending hashtags when TikTok lets it read them) and prefers a famous one from there.</li>
+          <li><b>Never twice:</b> everyone done goes into <b>Used so far</b>. They are never picked again. Tap ✕ next to a name to allow it again.</li>
+          <li><b>The video:</b> a hook with the name, then one fact per scene ("Fact #1", "Fact #2"…) with their real photo, and a question at the end. At least the number of facts you chose (5 or more) and at least the length you chose (1 minute or more).</li>
+          <li><b>Too short?</b> If the script comes out too short, with too few facts, or about someone already done, the AI is asked once more. That can use 1 extra AI script, still within your daily limit.</li>
+          <li><b>Changing the subject:</b> type a new one or tap a ready-made one (athletes, singers, characters, animals, countries…). It counts from the next video, and each subject has its own "Used so far" list.</li>
+          <li><b>Make the next series video now</b> makes one right away instead of waiting for the schedule. "Make a video now" on the Videos page still makes one-off videos about anything.</li>
+          <li>As always: you approve every video, and approved ones go to your TikTok drafts, never straight to public.</li>
+        </ul>
+        <Example caption="Made-up example; tapping does nothing here.">
+          <SeriesView v={EXAMPLE_SERIES} />
+        </Example>
       </Section>
 
       <Section title="My channel (your niche)">

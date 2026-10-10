@@ -108,6 +108,7 @@ export interface VideoRecord {
   fileRemovedAt?: string; // the video file was deleted by the auto clean-up (the text is kept)
   tiktok?: { publishId?: string; sentAt?: string; status?: string };
   recap?: boolean; // a weekly recap made from the week's videos
+  series?: { subject: string; pick: string; minSeconds: number }; // 📅 a daily series video: who it is about
   episode?: number; // number in your series ("Daily Tech Drop #14")
   checks?: string[]; // quality check notes: what was fixed or could be better
   comment?: { text: string; by?: string }; // reply videos: the comment it answers
@@ -191,6 +192,25 @@ export const VOICE_LABEL: Record<Exclude<VoiceId, 'female' | 'male'>, string> = 
   bm_george: 'George · male (British)',
 };
 
+/**
+ * 📅 Daily series: every scheduled video follows one subject (e.g. fun facts about a famous person), each time a new,
+ * very well-known person or thing (never repeated: `used`, one list per subject), with at least `facts` facts and at
+ * least `minSeconds` long. Change the subject anytime in Settings.
+ */
+export interface DailySeries { on: boolean; subject: string; facts: number; minSeconds: 60 | 75 | 90; used: Record<string, string[]> }
+export const SERIES_PRESETS = [
+  'Fun facts about a famous person',
+  'Fun facts about a famous athlete',
+  'Fun facts about a famous singer or rapper',
+  'Fun facts about a famous movie or TV character',
+  'Fun facts about a famous anime or video game character',
+  'Fun facts about an amazing animal',
+  'Fun facts about a country',
+  'Fun facts about a famous invention',
+];
+/** One "used so far" list per subject (same subject in other capitals = same list). */
+export const seriesKey = (subject: string) => subject.trim().toLowerCase().replace(/\s+/g, ' ');
+
 export interface AppSettings {
   enabled: boolean; // make videos on the daily schedule
   topics: string[]; // older setting, used only when no channel niche is set
@@ -210,6 +230,7 @@ export interface AppSettings {
   notifyEmail: string;
   seriesName: string; // e.g. "Daily Tech Drop": each video gets "#14" and the name with the hook (empty = off)
   weeklyRecap: boolean; // every Sunday, a "Top 5 this week" video made from the week's videos (no AI cost)
+  series: DailySeries; // 📅 daily videos follow one subject (see DailySeries)
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -231,6 +252,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notifyEmail: '',
   seriesName: '',
   weeklyRecap: true,
+  series: { on: true, subject: 'Fun facts about a famous person', facts: 6, minSeconds: 60, used: {} },
 };
 
 export const TONE_LABEL: Record<Tone, string> = {

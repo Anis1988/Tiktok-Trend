@@ -128,7 +128,7 @@ export const api = {
   deleteVideo: (id: string, sig?: string) => post<{ ok: boolean }>('/api/videos', { action: 'delete', id, sig }),
   saveScript: (id: string, sig: string | undefined, s: { title: string; hook: string; caption: string; firstComment: string; cover?: string; lines: DraftLine[] }) =>
     post<Video>('/api/videos', { action: 'save-script', id, sig, ...s }),
-  makeNow: (o: { subject?: string; pick?: string; ideaUrl?: string; extras?: Extra[]; comment?: string; commentBy?: string; recap?: boolean } = {}) =>
+  makeNow: (o: { subject?: string; pick?: string; ideaUrl?: string; extras?: (Extra | 'series')[]; comment?: string; commentBy?: string; recap?: boolean } = {}) =>
     post<{ ok: boolean; message: string }>('/api/videos', { action: 'make-now', subject: o.subject?.trim() || undefined, pick: o.pick || undefined, ideaUrl: o.ideaUrl || undefined, extras: o.extras?.length ? o.extras : undefined, comment: o.comment?.trim() || undefined, commentBy: o.commentBy?.trim() || undefined, recap: o.recap || undefined }),
   ideas: (pick?: string) => call<{ ideas: { title: string; url: string; site?: string; tag: string }[] }>(`/api/ideas${pick ? `?pick=${encodeURIComponent(pick)}` : ''}`),
   settings: () => call<AppSettings>('/api/settings'),
