@@ -166,7 +166,8 @@ async function main() {
     candidates = [c];
   } else {
     const since = new Date(Date.now() - 14 * 86400_000).toISOString();
-    const recent = videos.filter((v) => v.createdAt >= since).map((v) => v.topic);
+    // Recent videos (topic and title, in any wording) are never picked again: see sameStory in trends.ts.
+    const recent = videos.filter((v) => v.createdAt >= since && v.status !== 'failed').flatMap((v) => [v.topic, v.title]);
     const turn = await readJson<number>('nicheTurn', 0);
     const found = s.niche ? await nicheCandidates(s.niche, s.country, recent, turn) : await findCandidates(s.topics, s.country, recent);
     if (s.niche && 'sub' in found && found.sub) log(`Channel: ${findCategory(s.niche.category)?.label} · this turn: ${found.sub}`);
@@ -183,7 +184,9 @@ async function main() {
 
   budget.n++;
   await writeJson('ai', budget);
-  const sc = await writeScript(candidates, s, extras, !!subject, results, comment); // your own subject: only legal limits apply
+  // The AI also sees your last month of videos, so it never makes the same story (or the same person) again.
+  const avoid = subject ? [] : videos.filter((v) => v.createdAt >= new Date(Date.now() - 30 * 86400_000).toISOString() && v.status !== 'failed').slice(0, 40).map((v) => v.title || v.topic);
+  const sc = await writeScript(candidates, s, extras, !!subject, results, comment, avoid); // your own subject: only legal limits apply
   if (sc.pick < 0 || !candidates[sc.pick]) {
     if (subject) throw new Error(`The AI skipped "${subject}": ${sc.why}`);
     return log('The AI found nothing suitable today:', sc.why);

@@ -207,6 +207,19 @@ export async function feedNews(url: string, label: string): Promise<Candidate[]>
  * videos don't repeat one subcategory), the other subcategories, then the niche's specialist sites. With "mix",
  * general trends come last (the AI only picks one if it fits the niche).
  */
+const STOP = new Set('about after again also amid best could from have here into just more most news over says still than that their them they this time what when will with your year years today first new video'.split(' '));
+const keyWords = (t: string) => new Set(t.toLowerCase().normalize('NFKD').replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter((w) => w.length >= 4 && !STOP.has(w)));
+/** The same story in other words (another site's headline, a reworded title): most of the key words are shared. */
+export function sameStory(a: string, b: string): boolean {
+  const x = keyWords(a), y = keyWords(b);
+  if (!x.size || !y.size) return a.trim().toLowerCase() === b.trim().toLowerCase();
+  let n = 0;
+  for (const w of x) if (y.has(w)) n++;
+  return n >= 2 && n / Math.min(x.size, y.size) >= 0.6;
+}
+/** Made recently already (topic or headline, in any wording)? */
+export const usedRecently = (c: Candidate, recent: string[]) => recent.some((r) => sameStory(r, c.topic) || (c.headlines[0] && sameStory(r, c.headlines[0].title)));
+
 export async function nicheCandidates(n: Niche, country: string, recent: string[], turn: number): Promise<{ candidates: Candidate[]; errors: string[]; sub?: string }> {
   const cat = findCategory(n.category);
   const subs = subsOf(n);
@@ -226,7 +239,7 @@ export async function nicheCandidates(n: Niche, country: string, recent: string[
   const out: Candidate[] = [];
   for (const c of settled.flatMap((r) => (r.status === 'fulfilled' ? r.value : []))) {
     const k = c.headlines[0]?.title.toLowerCase() ?? c.topic.toLowerCase();
-    if (seen.has(k) || seen.has(c.topic.toLowerCase())) continue;
+    if (seen.has(k) || seen.has(c.topic.toLowerCase()) || usedRecently(c, recent) || out.some((o) => usedRecently(c, [o.topic]))) continue;
     seen.add(k);
     out.push(c);
   }
@@ -249,7 +262,7 @@ export async function findCandidates(topics: string[], country: string, recent: 
   const ordered = [...rest.flat(), ...mixed];
   for (const c of ordered) {
     const k = c.topic.toLowerCase();
-    if (seen.has(k)) continue;
+    if (seen.has(k) || usedRecently(c, recent) || out.some((o) => usedRecently(c, [o.topic]))) continue;
     seen.add(k);
     out.push(c);
   }
