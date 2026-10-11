@@ -1,17 +1,20 @@
 import type { VideoRecord, VideoStats } from '../../src/lib/types';
 import { getMeta, listVideos, writeJson } from './store';
 import { youtubeReadToken } from './youtube';
+import { linkTikTok } from './tiktokLink';
 
 /**
  * "Learn from your results": views and likes of your past videos, so the AI picks topics and hooks like your best ones.
  * - YouTube: read automatically (views, likes, comments) for videos sent there.
  * - Instagram: likes and comments, read automatically for videos posted there.
- * - TikTok: you type the views (and likes) on the video in the app (TikTok doesn't share them with apps without review).
+ * - TikTok: read automatically once your post is found (tiktokLink.ts, needs video.list); otherwise typed in the app.
  */
 const DAYS = 45;
 
 /** Updates the numbers of recent videos sent to YouTube / Instagram. Never throws (numbers are a bonus). */
 export async function refreshStats(log: (...a: unknown[]) => void = console.log): Promise<void> {
+  // 🔗 TikTok: your posts' links and numbers (when TikTok is connected with video.list).
+  await linkTikTok(log).then((r) => r.reason && log('TikTok numbers:', r.reason)).catch((e) => log('TikTok numbers not updated:', e instanceof Error ? e.message : e));
   const since = new Date(Date.now() - DAYS * 86400_000).toISOString();
   const all = await listVideos();
   const recent = all.filter((v) => v.createdAt >= since);

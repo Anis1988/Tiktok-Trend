@@ -104,6 +104,12 @@ export function Settings() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-emerald-200">✓ Connected{st.tiktok.name ? ` as ${st.tiktok.name}` : ''}</p>
             <button className="btn" onClick={() => void disconnect()}>Disconnect</button>
+            {!st.tiktok.canList && (
+              <div className="w-full space-y-1.5 rounded-lg border border-amber-300/40 bg-amber-400/10 p-2 text-sm text-amber-100">
+                <p>🔗 New: after you post, the app can find your TikTok post and keep its link and views. Connect once more to allow it (read-only).</p>
+                <button className="btn" onClick={() => void connect()}>Connect again</button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-2">

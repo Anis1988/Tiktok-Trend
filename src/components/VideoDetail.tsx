@@ -36,6 +36,20 @@ export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, sendTo = 
       setBusy('');
     }
   };
+  // 🔗 Look for this video's TikTok post now (read-only).
+  const findPost = async () => {
+    if (example) return;
+    setBusy('find');
+    try {
+      const { message, ...next } = await api.findTikTok(v.id, v.sig);
+      onChange?.(next);
+      toast(next.tiktok?.url ? 'success' : 'info', message ?? 'Done.');
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy('');
+    }
+  };
   // Delete the video, its file and thumbnail from the server for good (in the app and on the email review page).
   const remove = async () => {
     if (example || !window.confirm(`Delete "${v.title}" for good? The video file is removed too.${v.status === 'sent' ? ' (A copy already in your TikTok drafts stays there.)' : ''}`)) return;
@@ -118,13 +132,14 @@ export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, sendTo = 
     <div className="panel space-y-2">
       <p className="label">Results</p>
       {v.stats?.youtube && <p className="text-sm text-slate-300">▶ YouTube: {short(v.stats.youtube.views)} views · {short(v.stats.youtube.likes)} likes · {short(v.stats.youtube.comments)} comments</p>}
+      {v.stats?.tiktok?.auto && <p className="text-sm text-slate-300">♪ TikTok: {short(v.stats.tiktok.views ?? 0)} views · {short(v.stats.tiktok.likes ?? 0)} likes · {short(v.stats.tiktok.comments ?? 0)} comments <span className="text-xs text-slate-500">(read from TikTok)</span></p>}
       {v.stats?.instagram && <p className="text-sm text-slate-300">◎ Instagram: {short(v.stats.instagram.likes)} likes · {short(v.stats.instagram.comments)} comments</p>}
-      <div className="flex flex-wrap items-end gap-2">
+      {!v.stats?.tiktok?.auto && <div className="flex flex-wrap items-end gap-2">
         <label className="min-w-0 flex-1 basis-28 text-xs text-slate-400">TikTok views<input className="input mt-1 w-full" inputMode="numeric" placeholder="e.g. 12400" value={views} onChange={(e) => setViews(e.target.value)} /></label>
         <label className="min-w-0 flex-1 basis-28 text-xs text-slate-400">TikTok likes<input className="input mt-1 w-full" inputMode="numeric" placeholder="optional" value={likes} onChange={(e) => setLikes(e.target.value)} /></label>
         <button className="btn" disabled={!!busy} onClick={() => void saveStats()}>{busy === 'stats' ? <><span className="spinner" /> Saving…</> : 'Save'}</button>
-      </div>
-      <p className="text-xs text-slate-500">A day or two after posting, type the numbers from TikTok. New videos copy what works on your channel.</p>
+      </div>}
+      <p className="text-xs text-slate-500">{v.tiktok?.url ? 'TikTok numbers are read automatically every 2 hours.' : 'A day or two after posting, type the numbers from TikTok (or let the app find your post: they are then read automatically).'} New videos copy what works on your channel.</p>
     </div>
   );
   const del = onDeleted && v.status !== 'building' && v.status !== 'publishing' && !Object.values(v.platforms ?? {}).some((x) => x?.state === 'sending' && Date.now() - Date.parse(x.at) < 15 * 60_000) && (
@@ -196,8 +211,16 @@ export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, sendTo = 
           {v.status === 'approved' && tiktokConnected && (
             <button className="btn-primary" disabled={!!busy} onClick={() => void act('approve')}>{busy === 'approve' ? <><span className="spinner" /> Sending…</> : '↑ Send to TikTok drafts'}</button>
           )}
+          {v.status === 'sent' && (
+            // On a phone this opens the TikTok app (your draft waits in its inbox); on a computer, tiktok.com.
+            <a className="btn-primary" href={example ? undefined : 'https://www.tiktok.com/'} target="_blank" rel="noopener noreferrer">📲 Open TikTok</a>
+          )}
+          {v.tiktok?.url && <a className="btn-primary" href={example ? undefined : v.tiktok.url} target="_blank" rel="noopener noreferrer">▶ View on TikTok</a>}
+          {v.tiktok?.sentAt && !v.tiktok.url && (
+            <button className="btn" disabled={!!busy} onClick={() => void findPost()}>{busy === 'find' ? <><span className="spinner" /> Looking…</> : '🔗 Find my post'}</button>
+          )}
           {(v.status === 'approved' || v.status === 'sent') && (
-            <button className="btn-primary" disabled={!!busy} onClick={() => void act('posted')}>★ I posted it</button>
+            <button className={v.status === 'sent' ? 'btn' : 'btn-primary'} disabled={!!busy} onClick={() => void act('posted')}>★ I posted it</button>
           )}
           {hasFile && (
             <button className="btn" disabled={busy === 'download'} onClick={() => {
@@ -210,7 +233,7 @@ export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, sendTo = 
           {del}
         </div>
         {v.status === 'approved' && <p className="text-sm text-sky-100">{tiktokConnected ? 'Tap "Send to TikTok drafts", or ' : ''}Download it, then post it in the TikTok app. Paste the caption, add a sound if you like, and turn on <b>"AI-generated content"</b>.</p>}
-        {v.status === 'sent' && <p className="text-sm text-emerald-100">It's in TikTok: open the TikTok app, check your notifications or inbox, then edit and post. Turn on <b>"AI-generated content"</b> before posting.</p>}
+        {v.status === 'sent' && <p className="text-sm text-emerald-100">It's in your TikTok drafts: tap <b>Open TikTok</b>, open your inbox (or the notification), then edit and post. Turn on <b>"AI-generated content"</b> before posting. Keep the caption: that's how the app finds your post afterwards and saves its link and views.</p>}
         {v.status === 'publishing' && <p className="text-sm text-violet-100">Sending to TikTok. This takes about a minute; refresh to see the result.</p>}
         {sendBlock}
         {statsBlock}

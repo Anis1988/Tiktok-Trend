@@ -106,7 +106,7 @@ export interface VideoRecord {
   cover?: string; // the big words on the cover (first frame), when "Bold cover" is on
   searchWords?: string[]; // what people would type in TikTok search to find this video
   fileRemovedAt?: string; // the video file was deleted by the auto clean-up (the text is kept)
-  tiktok?: { publishId?: string; sentAt?: string; status?: string };
+  tiktok?: { publishId?: string; sentAt?: string; status?: string; postId?: string; url?: string; postedAt?: string }; // postId/url: your post, found after you published it
   recap?: boolean; // a weekly recap made from the week's videos
   series?: { subject: string; pick: string; minSeconds: number }; // 📅 a daily series video: who it is about
   episode?: number; // number in your series ("Daily Tech Drop #14")
@@ -119,7 +119,7 @@ export interface VideoRecord {
 }
 
 export interface VideoStats {
-  tiktok?: { views?: number; likes?: number; at: string };
+  tiktok?: { views?: number; likes?: number; comments?: number; at: string; auto?: boolean }; // auto: read from TikTok, not typed
   youtube?: { views: number; likes: number; comments: number; at: string };
   instagram?: { likes: number; comments: number; at: string };
 }
