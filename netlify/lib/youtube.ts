@@ -9,7 +9,7 @@ export const youtubeReady = () => !!(process.env.GOOGLE_CLIENT_ID && process.env
 
 export function youtubeAuthorizeUrl(redirectUri: string, state: string): string {
   const q = new URLSearchParams({
-    client_id: process.env.GOOGLE_CLIENT_ID ?? '', redirect_uri: redirectUri, response_type: 'code', scope: SCOPES,
+    client_id: (process.env.GOOGLE_CLIENT_ID ?? '').trim(), redirect_uri: redirectUri, response_type: 'code', scope: SCOPES,
     access_type: 'offline', prompt: 'consent', include_granted_scopes: 'true', state,
   });
   return `https://accounts.google.com/o/oauth2/v2/auth?${q}`;
@@ -18,10 +18,13 @@ export function youtubeAuthorizeUrl(redirectUri: string, state: string): string 
 interface TokenResponse { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; error_description?: string }
 
 async function tokenCall(body: Record<string, string>): Promise<TokenResponse & { access_token: string }> {
+  const client_id = (process.env.GOOGLE_CLIENT_ID ?? '').trim();
+  const client_secret = (process.env.GOOGLE_CLIENT_SECRET ?? '').trim();
+  if (!client_id || !client_secret) throw new Error('YouTube login failed: GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are missing here. Add both in GitHub (Settings → Secrets and variables → Actions), the same as in Netlify.');
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: process.env.GOOGLE_CLIENT_ID ?? '', client_secret: process.env.GOOGLE_CLIENT_SECRET ?? '', ...body }),
+    body: new URLSearchParams({ client_id, client_secret, ...body }),
     signal: AbortSignal.timeout(15_000),
   });
   const j = (await res.json()) as TokenResponse;
