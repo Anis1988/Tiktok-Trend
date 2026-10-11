@@ -33,8 +33,10 @@ const Patch = z.object({
     subject: z.string().trim().min(3).max(120),
     facts: z.number().int().min(5).max(10),
     minSeconds: z.union([z.literal(60), z.literal(75), z.literal(90)]),
-    used: z.record(z.string().max(120), z.array(z.string().trim().min(1).max(100)).max(1000)),
+    used: z.record(z.string().max(120), z.array(z.string().trim().min(1).max(100)).max(1000)).optional(), // ignored: see below
   }),
+  // ✕ on a name in "Used so far": allow it again.
+  seriesUnuse: z.object({ key: z.string().max(120), name: z.string().max(100) }),
 }).partial();
 
 // GET /api/settings, POST /api/settings {partial settings}
@@ -49,7 +51,13 @@ export default async (req: Request): Promise<Response> => {
   } catch (e) {
     return json({ error: `Invalid settings: ${e instanceof Error ? e.message.slice(0, 200) : e}` }, 400);
   }
-  const next = { ...(await getSettings()), ...patch };
+  const { seriesUnuse, ...rest } = patch;
+  const cur = await getSettings();
+  // "Used so far" is only ever changed one name at a time (the video maker adds, ✕ removes), never replaced by a page's
+  // copy: a page opened before a video was made would otherwise wipe that name and it could come back.
+  const used = { ...cur.series.used };
+  if (seriesUnuse) used[seriesUnuse.key] = (used[seriesUnuse.key] ?? []).filter((x) => x !== seriesUnuse.name);
+  const next = { ...cur, ...rest, series: { ...cur.series, ...rest.series, used } };
   await writeJson('settings', next);
   return json(next);
 };

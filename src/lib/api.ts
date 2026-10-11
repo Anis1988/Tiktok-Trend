@@ -132,7 +132,7 @@ export const api = {
     post<{ ok: boolean; message: string }>('/api/videos', { action: 'make-now', subject: o.subject?.trim() || undefined, pick: o.pick || undefined, ideaUrl: o.ideaUrl || undefined, extras: o.extras?.length ? o.extras : undefined, comment: o.comment?.trim() || undefined, commentBy: o.commentBy?.trim() || undefined, recap: o.recap || undefined }),
   ideas: (pick?: string) => call<{ ideas: { title: string; url: string; site?: string; tag: string }[] }>(`/api/ideas${pick ? `?pick=${encodeURIComponent(pick)}` : ''}`),
   settings: () => call<AppSettings>('/api/settings'),
-  saveSettings: (s: Partial<AppSettings>) => post<AppSettings>('/api/settings', s),
+  saveSettings: (s: Partial<AppSettings> & { seriesUnuse?: { key: string; name: string } }) => post<AppSettings>('/api/settings', s),
   tiktokStart: () => post<{ url: string; redirectUri: string }>('/api/tiktok/start', {}),
   tiktokDisconnect: () => post<{ ok: boolean }>('/api/tiktok/disconnect', {}),
   saveStats: (id: string, sig: string | undefined, views?: number, likes?: number) => post<Video>('/api/videos', { action: 'stats', id, sig, views, likes }),

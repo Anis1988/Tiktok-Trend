@@ -6,7 +6,7 @@ import { Field, Toggle } from './ui';
  * 📅 Daily series (Settings → Schedule, when "Make videos every day" is on): every daily video is about the same
  * subject, each time a new famous name. Also drawn in the Guide with made-up data (`onChange` / `onMake` left out).
  */
-export function SeriesView({ v, onChange, onMake, busy }: { v: DailySeries; onChange?: (v: DailySeries) => void; onMake?: () => void; busy?: boolean }) {
+export function SeriesView({ v, onChange, onUnuse, onMake, busy }: { v: DailySeries; onChange?: (v: DailySeries) => void; onUnuse?: (key: string, name: string) => void; onMake?: () => void; busy?: boolean }) {
   const [draft, setDraft] = useState(v.subject);
   const set = (p: Partial<DailySeries>) => onChange?.({ ...v, ...p });
   const used = v.used[seriesKey(v.subject)] ?? [];
@@ -58,7 +58,7 @@ export function SeriesView({ v, onChange, onMake, busy }: { v: DailySeries; onCh
                   <span key={name} className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs text-slate-200">
                     {name}
                     <button type="button" aria-label={`Remove ${name}`} className="text-slate-400 hover:text-white"
-                      onClick={() => set({ used: { ...v.used, [seriesKey(v.subject)]: used.filter((x) => x !== name) } })}>✕</button>
+                      onClick={() => onUnuse?.(seriesKey(v.subject), name)}>✕</button>
                   </span>
                 ))}
               </div>

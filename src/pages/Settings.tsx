@@ -75,7 +75,7 @@ export function Settings() {
             {[1, 2, 3].map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         </Field>
-        {s.enabled && <SeriesView key={s.series.subject} v={s.series} onChange={(series) => void save({ series })} onMake={() => void makeSeries()} busy={making} />}
+        {s.enabled && <SeriesView key={s.series.subject} v={s.series} onChange={(series) => void save({ series })} onUnuse={(key, name) => void save({ series: { ...s.series, used: { ...s.series.used, [key]: (s.series.used[key] ?? []).filter((x) => x !== name) } }, seriesUnuse: { key, name } })} onMake={() => void makeSeries()} busy={making} />}
       </Card>
 
       <Card title="Auto clean-up" subtitle="Saves storage: deletes old video files, keeps their text">
