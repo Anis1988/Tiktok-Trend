@@ -2,7 +2,7 @@
  * Sends an approved video to one platform. Runs in GitHub Actions (publish.yml), started by the Approve button (TikTok drafts)
  * or by a platform's Send button (YouTube as Private, Facebook as a draft, Instagram posted after you confirmed).
  */
-import { getVideo, patchPlatform, patchVideo, store } from '../netlify/lib/store';
+import { getSettings, getVideo, patchPlatform, patchVideo, store } from '../netlify/lib/store';
 import { publishStatus, sendToDrafts } from '../netlify/lib/tiktok';
 import { uploadToYouTube, youtubeStatus } from '../netlify/lib/youtube';
 import { postToInstagram, sendToFacebook } from '../netlify/lib/meta';
@@ -59,17 +59,25 @@ async function sendOther(v: VideoRecord, p: PlatformId) {
     const text = `${v.caption} ${tags}`.trim();
     let done: { id: string; url?: string };
     if (p === 'youtube') {
-      const ytId = await uploadToYouTube(video, { title: v.title, description: `${text} #Shorts`, tags: v.hashtags });
+      const asked = (await getSettings()).youtubePrivacy ?? 'public';
+      const ytId = await uploadToYouTube(video, { title: v.title, description: `${text} #Shorts`, tags: v.hashtags }, asked);
+      const studio = `https://studio.youtube.com/video/${ytId}/edit`;
       // Uploaded: from here on it counts as sent even if a status check fails (a resend would make a duplicate).
-      await patchPlatform(v.id, p, { state: 'sent', at: new Date().toISOString(), id: ytId, url: `https://studio.youtube.com/video/${ytId}/edit` });
+      await patchPlatform(v.id, p, { state: 'sent', at: new Date().toISOString(), id: ytId, url: studio, privacy: asked });
+      let privacy: string | undefined;
       for (let i = 0; i < 20; i++) {
         await sleep(6000);
-        const st = await youtubeStatus(ytId).catch(() => ({ status: 'unknown', reason: undefined }));
-        console.log('YouTube status:', st.status);
+        const st = await youtubeStatus(ytId).catch((): { status: string; reason?: string; privacy?: string } => ({ status: 'unknown' }));
+        console.log('YouTube status:', st.status, st.privacy ?? '');
+        privacy = st.privacy ?? privacy;
         if (st.status === 'failed' || st.status === 'rejected') throw new Error(`YouTube rejected the video: ${st.reason ?? st.status}`);
         if (st.status === 'processed') break;
       }
-      done = { id: ytId, url: `https://studio.youtube.com/video/${ytId}/edit` };
+      // Google keeps uploads from an app that hasn't passed its audit locked to Private.
+      const locked = asked !== 'private' && privacy === 'private';
+      if (locked) console.log('YouTube kept the video Private (the Google app has not passed the YouTube audit yet).');
+      await patchPlatform(v.id, p, { state: 'sent', at: new Date().toISOString(), id: ytId, url: privacy === 'public' && !locked ? `https://youtube.com/shorts/${ytId}` : studio, privacy: privacy ?? asked, locked });
+      return console.log('Sent to youtube:', ytId, privacy ?? asked);
     } else if (p === 'facebook') {
       done = await sendToFacebook(video, text);
     } else {

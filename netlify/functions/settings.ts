@@ -26,6 +26,7 @@ const Patch = z.object({
   maxSeconds: z.union([z.literal(30), z.literal(45), z.literal(60), z.literal(75)]),
   seriesName: z.string().trim().max(30).optional(),
   weeklyRecap: z.boolean().optional(),
+  youtubePrivacy: z.enum(['public', 'unlisted', 'private']).optional(),
   aiDailyLimit: z.number().int().min(1).max(30),
   notifyEmail: z.union([z.literal(''), z.string().email().max(200)]),
   series: z.object({

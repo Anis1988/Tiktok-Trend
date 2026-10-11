@@ -134,10 +134,12 @@ export interface PlatformPost {
   id?: string; // the platform's video / post id
   url?: string; // where to see it
   error?: string;
+  privacy?: string; // YouTube: what it is now (public / unlisted / private)
+  locked?: boolean; // YouTube kept it Private although Public was asked (app not audited yet)
 }
 
 export const PLATFORM_INFO: Record<PlatformId, { name: string; icon: string; button: string; sending: string; done: string; publicNow?: boolean }> = {
-  youtube: { name: 'YouTube Shorts', icon: '▶', button: 'Send to YouTube (private)', sending: 'Sending to YouTube…', done: 'On YouTube as Private: open YouTube Studio to make it public.' },
+  youtube: { name: 'YouTube Shorts', icon: '▶', button: 'Send to YouTube', sending: 'Sending to YouTube…', done: 'On YouTube.' },
   facebook: { name: 'Facebook Reels', icon: 'f', button: 'Send to Facebook (draft)', sending: 'Sending to Facebook…', done: 'A draft Reel on your Facebook Page: open Meta Business Suite → Content → Drafts to post it.' },
   instagram: { name: 'Instagram Reels', icon: '◎', button: 'Post to Instagram', sending: 'Posting to Instagram…', done: 'Posted on Instagram.', publicNow: true },
 };
@@ -231,7 +233,9 @@ export interface AppSettings {
   seriesName: string; // e.g. "Daily Tech Drop": each video gets "#14" and the name with the hook (empty = off)
   weeklyRecap: boolean; // every Sunday, a "Top 5 this week" video made from the week's videos (no AI cost)
   series: DailySeries; // 📅 daily videos follow one subject (see DailySeries)
+  youtubePrivacy: YouTubePrivacy; // how videos are uploaded to YouTube when you tap Send
 }
+export type YouTubePrivacy = 'public' | 'unlisted' | 'private';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   enabled: true,
@@ -253,6 +257,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   seriesName: '',
   weeklyRecap: true,
   series: { on: true, subject: 'Fun facts about a famous person', facts: 6, minSeconds: 60, used: {} },
+  youtubePrivacy: 'public',
 };
 
 export const TONE_LABEL: Record<Tone, string> = {

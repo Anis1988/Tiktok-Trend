@@ -2,7 +2,8 @@ import { getYouTube, setYouTube, type YouTubeAuth } from './store';
 
 /**
  * YouTube Data API v3 (Google OAuth). Needs GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.
- * Videos are uploaded as Private; you make them public in YouTube Studio. A vertical video under 3 minutes is a Short.
+ * Videos are uploaded as Public, Unlisted or Private (Settings). Google keeps uploads from an app that has not passed
+ * its audit locked to Private whatever was asked. A vertical video under 3 minutes is a Short.
  */
 const SCOPES = 'https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly';
 export const youtubeReady = () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
@@ -74,8 +75,8 @@ export async function youtubeReadToken(): Promise<string | null> {
 /** YouTube refuses < and > in titles and descriptions. */
 const clean = (s: string) => s.replace(/[<>]/g, '').trim();
 
-/** Uploads the video as Private. Returns the video id. */
-export async function uploadToYouTube(video: Buffer, meta: { title: string; description: string; tags: string[] }): Promise<string> {
+/** Uploads the video (Public by default). Returns the video id. */
+export async function uploadToYouTube(video: Buffer, meta: { title: string; description: string; tags: string[] }, privacy: 'public' | 'unlisted' | 'private' = 'public'): Promise<string> {
   const token = await accessToken();
   const title = clean(meta.title).slice(0, 100) || 'New video';
   const init = await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', {
@@ -86,8 +87,8 @@ export async function uploadToYouTube(video: Buffer, meta: { title: string; desc
     },
     body: JSON.stringify({
       snippet: { title, description: clean(meta.description).slice(0, 4900), tags: meta.tags.map(clean).filter(Boolean).slice(0, 15), categoryId: '24' /* Entertainment */ },
-      // Private until you publish it in YouTube Studio. The AI voice is "altered or synthetic content".
-      status: { privacyStatus: 'private', selfDeclaredMadeForKids: false, containsSyntheticMedia: true },
+      // The AI voice is "altered or synthetic content".
+      status: { privacyStatus: privacy, selfDeclaredMadeForKids: false, containsSyntheticMedia: true },
     }),
     signal: AbortSignal.timeout(30_000),
   });
@@ -105,12 +106,12 @@ export async function uploadToYouTube(video: Buffer, meta: { title: string; desc
   return j.id;
 }
 
-/** uploaded / processed / failed / rejected (+ why). */
-export async function youtubeStatus(id: string): Promise<{ status: string; reason?: string }> {
+/** uploaded / processed / failed / rejected (+ why), and its visibility now. */
+export async function youtubeStatus(id: string): Promise<{ status: string; reason?: string; privacy?: string }> {
   const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=status&id=${encodeURIComponent(id)}`, { headers: { Authorization: `Bearer ${await accessToken()}` }, signal: AbortSignal.timeout(15_000) });
-  const j = (await res.json()) as { items?: { status?: { uploadStatus?: string; failureReason?: string; rejectionReason?: string } }[] };
+  const j = (await res.json()) as { items?: { status?: { uploadStatus?: string; failureReason?: string; rejectionReason?: string; privacyStatus?: string } }[] };
   const s = j.items?.[0]?.status;
-  return { status: s?.uploadStatus ?? 'unknown', reason: s?.failureReason ?? s?.rejectionReason };
+  return { status: s?.uploadStatus ?? 'unknown', reason: s?.failureReason ?? s?.rejectionReason, privacy: s?.privacyStatus };
 }
 
 async function errorText(res: Response): Promise<string> {

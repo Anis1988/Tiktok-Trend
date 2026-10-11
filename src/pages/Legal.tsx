@@ -36,8 +36,8 @@ export function Terms() {
       <H>Using YouTube, Facebook and Instagram</H>
       <ul className="list-disc space-y-1 pl-5">
         <li>The owner connects their own YouTube channel (Google login) and their own Facebook Page and linked Instagram account (Facebook login), and can disconnect them at any time in Settings.</li>
-        <li>A video is sent only when the owner taps that platform's Send button on an approved video. YouTube videos are uploaded as Private and Facebook Reels as drafts, so the owner publishes them. Instagram has no drafts, so the owner confirms before each Instagram post.</li>
-        <li>The owner must follow each platform's terms and rules, including labelling AI-generated content. The app's use of YouTube follows the YouTube Terms of Service (youtube.com/t/terms) and Google's Privacy Policy (policies.google.com/privacy).</li>
+        <li>A video is sent only when the owner taps that platform's Send button on an approved video. YouTube videos are uploaded with the visibility the owner picked in Settings (Public, Unlisted or Private) and Facebook Reels as drafts. Instagram has no drafts, so the owner confirms before each Instagram post.</li>
+        <li>The owner must follow each platform's terms and rules, including labelling AI-generated content. The app uses YouTube API Services and follows the <a className="underline" href="https://www.youtube.com/t/terms">YouTube Terms of Service</a> and the <a className="underline" href="https://policies.google.com/privacy">Google Privacy Policy</a>.</li>
       </ul>
       <H>Content</H>
       <ul className="list-disc space-y-1 pl-5">

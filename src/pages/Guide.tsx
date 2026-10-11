@@ -298,10 +298,11 @@ export function Guide() {
       <Section title="Other platforms: YouTube, Facebook, Instagram">
         <p>Once you approve a video, it gets a <b>separate Send button for each platform</b> you connected in Settings, under "Other platforms". Each one only sends to that platform, so you choose where every video goes.</p>
         <Example caption="An approved video with all three connected (made-up example; buttons do nothing here).">
-          <VideoDetail v={{ ...EXAMPLE, status: 'sent', platforms: { youtube: { state: 'sent', at: EXAMPLE.createdAt } } }} sendTo={['youtube', 'facebook', 'instagram']} example />
+          <VideoDetail v={{ ...EXAMPLE, status: 'sent', platforms: { youtube: { state: 'sent', at: EXAMPLE.createdAt, privacy: 'public' } } }} sendTo={['youtube', 'facebook', 'instagram']} example />
         </Example>
         <ul className="list-disc space-y-1.5 pl-5">
-          <li><b>▶ YouTube Shorts:</b> uploaded as <b>Private</b>. Open YouTube Studio (the "Open" link), check it, then set it to Public. Vertical videos under 3 minutes become Shorts by themselves; the description gets #Shorts. It is marked as "altered or synthetic content" because of the AI voice.</li>
+          <li><b>▶ YouTube Shorts:</b> uploaded as <b>Public</b> by default, so it goes live by itself a few minutes after you tap Send (YouTube has no drafts like TikTok). Change it in Settings → YouTube Shorts: Public, Unlisted (only people with the link) or Private (you publish it in YouTube Studio). Vertical videos under 3 minutes become Shorts by themselves; the description gets #Shorts. It is marked as "altered or synthetic content" because of the AI voice.</li>
+          <li><b>“YouTube kept it Private”</b>: until Google audits your app (below), YouTube locks every upload to Private, whatever you picked. The video card says so; tap Open → Visibility → Public. Once the audit is approved, nothing is needed.</li>
           <li><b>f Facebook Reels:</b> saved as a <b>draft</b> on your Facebook Page. Post it from Meta Business Suite → Content → Drafts.</li>
           <li><b>◎ Instagram Reels:</b> Instagram has <b>no drafts</b> for apps, so this button <b>posts it publicly right away</b>. It always asks you first. Turn on the "AI info" label in Instagram after posting if you like (it can't be set by the app).</li>
           <li>Each send takes 1 to 3 minutes (a GitHub job). Refresh to see ✓ and a link. If one fails, the reason is shown with a <b>Try again</b> button; the others are not affected.</li>
@@ -313,7 +314,14 @@ export function Guide() {
           <li>"OAuth consent screen": choose External, fill in the app name and your email, add your Terms and Privacy links (<code>https://your-site.netlify.app/terms</code> and <code>/privacy</code>), and add yourself as a test user. Then tap <b>Publish app</b>: in "Testing" mode Google logs you out every 7 days.</li>
           <li>"Credentials → Create credentials → OAuth client ID", type <b>Web application</b>, redirect address <code>https://your-site.netlify.app/api/connect/youtube/callback</code>.</li>
           <li>Put the client ID and secret as <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> in <b>Netlify and GitHub</b>, redeploy, then tap <b>Connect YouTube</b> in Settings. Google shows an "unverified app" warning because the app is yours: tap Advanced → continue.</li>
-          <li>Good to know: YouTube's free limit is about 6 uploads a day. Google may keep videos from an unverified app <b>locked to Private</b> until you ask Google for an audit (in the Cloud console). Until then, download the video and upload it in the YouTube app instead.</li>
+          <li>Good to know: YouTube's free limit is about 6 uploads a day.</li>
+        </ol>
+        <p><b>YouTube audit (so videos can go Public by themselves, free):</b></p>
+        <ol className="list-decimal space-y-1.5 pl-5 text-sm">
+          <li><b>Check the Google login screen is ready</b>: in console.cloud.google.com → "Google Auth Platform" (OAuth consent screen), the app is <b>published</b> ("In production"), with your Terms and Privacy links and your site under "Authorized domains". Then ask for <b>verification</b> there (Google asks because of the YouTube upload permission): it may want a short screen video of the Connect YouTube login.</li>
+          <li><b>Record a 1–2 minute screen video</b> on your phone: open the site, Settings → Connect YouTube (the Google screen), approve a video, tap Send to YouTube, then show it on YouTube. Upload it to YouTube as Unlisted and keep the link.</li>
+          <li>Open the <b>YouTube API Services – Audit and Quota Extension form</b> (search those words, it's on support.google.com/youtube). Fill in: your Google Cloud project number (on the console home page), the site address, "one person, my own channel", what it does ("uploads my own approved short videos to my own channel"), the Terms and Privacy links, and the screen video link.</li>
+          <li>Wait for Google's email (often 1–3 weeks; they may ask questions: answer them by email). When approved, new uploads follow your Settings choice and go Public by themselves.</li>
         </ol>
         <p><b>Setting up Facebook &amp; Instagram (one login for both):</b></p>
         <ol className="list-decimal space-y-1.5 pl-5 text-sm">
