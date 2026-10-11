@@ -6,6 +6,14 @@ import { PhonePush } from '../components/PhonePush';
 import { isNative, openExternal } from '../lib/native';
 import { APP_BUILD, downloadApp, latestApp } from '../components/AppUpdate';
 import { SeriesView } from '../components/DailySeries';
+import type { YouTubePrivacy } from '../lib/types';
+
+const YT_LABEL: Record<YouTubePrivacy, string> = { public: 'Public', unlisted: 'Unlisted', private: 'Private' };
+const YT_HINT: Record<YouTubePrivacy, string> = {
+  public: 'Public: it goes live as a Short by itself once YouTube has processed it (a few minutes).',
+  unlisted: 'Unlisted: only people with the link can watch it.',
+  private: 'Private: only you; make it public in YouTube Studio.',
+};
 
 export function Settings() {
   const { settings: s, setSettings: setS, save } = useSettings();
@@ -121,7 +129,7 @@ export function Settings() {
         )}
       </Card>
 
-      <Card title="YouTube Shorts" subtitle="A Send button on approved videos: uploads them as Private">
+      <Card title="YouTube Shorts" subtitle={`A Send button on approved videos: uploads them as ${YT_LABEL[s.youtubePrivacy ?? 'public']}`}>
         {!st.ready.youtubeApp ? (
           <p className="text-sm text-slate-300">Not set up yet: add <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> in Netlify and GitHub (see the Guide, "Other platforms").</p>
         ) : st.youtube.connected ? (
@@ -133,6 +141,17 @@ export function Settings() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-slate-300">Not connected.</p>
             <button className="btn-primary" onClick={() => void connectOther('youtube')}>Connect YouTube</button>
+          </div>
+        )}
+        {st.ready.youtubeApp && (
+          <div className="mt-3 space-y-1.5 border-t border-white/5 pt-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label htmlFor="yt-privacy" className="text-sm">When you tap Send, the video is</label>
+              <select id="yt-privacy" className="input w-36" value={s.youtubePrivacy ?? 'public'} onChange={(e) => void save({ youtubePrivacy: e.target.value as YouTubePrivacy })}>
+                {(Object.keys(YT_LABEL) as YouTubePrivacy[]).map((k) => <option key={k} value={k}>{YT_LABEL[k]}</option>)}
+              </select>
+            </div>
+            <p className="text-xs text-slate-400">{YT_HINT[s.youtubePrivacy ?? 'public']} Until Google audits your app, YouTube keeps every upload Private anyway (the video card tells you; see the Guide, “YouTube audit”).</p>
           </div>
         )}
       </Card>

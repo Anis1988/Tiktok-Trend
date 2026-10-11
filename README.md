@@ -17,7 +17,7 @@ Makes short vertical videos about what's trending, emails you a preview, and aft
 3. **Approve** → `publish.yml` uploads the video to your TikTok inbox/drafts (Content Posting API). You add a sound,
    turn on "AI-generated content", and post from the TikTok app. Before TikTok is connected: download and post yourself.
 4. **Other platforms**: approved videos also get one Send button per connected platform (Settings): **YouTube Shorts**
-   (uploaded as Private), **Facebook Reels** (saved as a draft on your Page) and **Instagram Reels** (no drafts in the API:
+   (uploaded as Public by default; Unlisted or Private in Settings), **Facebook Reels** (saved as a draft on your Page) and **Instagram Reels** (no drafts in the API:
    posts publicly after you confirm). Each runs `publish.yml` with a `platform` input (`netlify/lib/youtube.ts`, `meta.ts`).
 
 ## Setup

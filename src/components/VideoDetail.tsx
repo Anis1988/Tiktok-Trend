@@ -4,6 +4,11 @@ import { StatusChip, toast, when } from './ui';
 import { ScriptEditor } from './ScriptEditor';
 import { EXTRA_LABEL, PLATFORM_INFO, PLATFORMS, VOICE_LABEL, type PlatformId } from '../lib/types';
 
+/** What a YouTube upload became. */
+const ytDone = (privacy?: string) => privacy === 'private' ? 'On YouTube as Private: open YouTube Studio to make it public.'
+  : privacy === 'unlisted' ? 'On YouTube as Unlisted: only people with the link can see it.'
+  : 'Live on YouTube as a Short.';
+
 /** "news.example.com" from a link (or the link itself if it isn't a valid address). */
 const hostOf = (u: string) => {
   try {
@@ -94,7 +99,10 @@ export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, sendTo = 
           <div key={p} className="flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-2 first:border-0 first:pt-0">
             <div className="min-w-0 flex-1 basis-48">
               <p className="text-sm font-medium"><span aria-hidden="true" className="mr-1.5 inline-block w-4 text-center">{info.icon}</span>{info.name}</p>
-              {st?.state === 'sent' && <p className="text-xs text-emerald-200">✓ {info.done}{st.url && <> <a className="underline" href={st.url} target="_blank" rel="noopener noreferrer">Open</a></>}</p>}
+              {st?.state === 'sent' && !st.locked && <p className="text-xs text-emerald-200">✓ {p === 'youtube' ? ytDone(st.privacy) : info.done}{st.url && <> <a className="underline" href={st.url} target="_blank" rel="noopener noreferrer">Open</a></>}</p>}
+              {st?.state === 'sent' && st.locked && (
+                <p className="text-xs text-amber-200">⚠ On YouTube, but YouTube kept it <b>Private</b>: Google locks videos from apps it hasn’t audited yet (see the Guide, “YouTube audit”). Tap Open → Visibility → Public.{st.url && <> <a className="underline" href={st.url} target="_blank" rel="noopener noreferrer">Open</a></>}</p>
+              )}
               {st?.state === 'sending' && !stuck && <p className="text-xs text-violet-100"><span className="spinner" /> {info.sending} Refresh in a minute.</p>}
               {stuck && <p className="text-xs text-amber-200">This send seems stuck. Try again.</p>}
               {st?.state === 'failed' && <p className="text-xs text-red-200">Failed: {st.error}</p>}
