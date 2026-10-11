@@ -71,6 +71,7 @@ export interface TikTokAuth {
   refreshExpiresAt: number;
   openId: string;
   name?: string;
+  scope?: string; // what the login allows, e.g. "user.info.basic,video.upload,video.list"
 }
 export const getTikTok = () => readJson<TikTokAuth | null>('tiktok', null);
 export const setTikTok = (t: TikTokAuth | null) => writeJson('tiktok', t);

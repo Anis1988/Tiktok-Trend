@@ -33,7 +33,7 @@ async function main() {
       if (st.status === 'FAILED') throw new Error(`TikTok rejected the upload: ${st.fail_reason ?? 'unknown reason'}`);
       if (st.status === 'SEND_TO_USER_INBOX' || st.status === 'PUBLISH_COMPLETE') {
         await patchVideo(id, { status: 'sent', error: undefined, tiktok: { publishId, status: st.status, sentAt: new Date().toISOString() } });
-        await fcmAll({ title: 'In your TikTok drafts', body: `${v.title}: open TikTok (inbox) to post it.`, tag: id }).catch(() => 0);
+        await fcmAll({ title: 'In your TikTok drafts', body: `${v.title}: tap to open TikTok and post it from your inbox.`, tag: id, url: 'https://www.tiktok.com/' }).catch(() => 0);
         return;
       }
     }

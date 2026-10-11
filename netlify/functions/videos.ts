@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { linkTikTok } from '../lib/tiktokLink';
 import { z } from 'zod';
 import { guard, json, linkGuard } from '../lib/guard';
 import { deleteVideo, getMeta, getTikTok, getVideo, getYouTube, listVideos, patchPlatform, patchVideo } from '../lib/store';
@@ -27,7 +28,7 @@ const Post = z.discriminatedUnion('action', [
     commentBy: z.string().trim().max(30).optional(),
     recap: z.boolean().optional(),
   }),
-  z.object({ action: z.enum(['approve', 'reject', 'posted', 'retry', 'build', 'delete']), id: z.string().max(40), sig: z.string().max(64).optional() }),
+  z.object({ action: z.enum(['approve', 'reject', 'posted', 'retry', 'build', 'delete', 'find-tiktok']), id: z.string().max(40), sig: z.string().max(64).optional() }),
   z.object({ action: z.literal('stats'), id: z.string().max(40), sig: z.string().max(64).optional(), views: z.number().int().min(0).max(1e10).optional(), likes: z.number().int().min(0).max(1e10).optional() }),
   z.object({ action: z.literal('send'), id: z.string().max(40), sig: z.string().max(64).optional(), platform: z.enum(['youtube', 'facebook', 'instagram']), confirm: z.boolean().optional() }),
   z.object({
@@ -146,6 +147,13 @@ export default async (req: Request): Promise<Response> => {
       return json(withSig((await patchVideo(v.id, { stats: { ...v.stats, tiktok: { views: body.views, likes: body.likes, at: new Date().toISOString() } } }))!));
     }
     if (body.action === 'send') return json(await send(v, body.platform, !!body.confirm));
+    if (body.action === 'find-tiktok') {
+      // 🔗 Look for your post of this video on TikTok now (read-only), instead of waiting for the check every 2 hours.
+      if (!v.tiktok?.sentAt) return json({ error: 'Only videos sent to your TikTok drafts can be found automatically.' }, 409);
+      const r = await linkTikTok(console.log, { only: v.id });
+      const next = (await getVideo(v.id))!;
+      return json({ ...withSig(next), message: r.reason ?? (next.tiktok?.url ? 'Found your TikTok post.' : 'Not found yet: post it from your TikTok drafts with its caption, then try again in a minute.') });
+    }
     if (body.action === 'reject') {
       if (!['pending', 'script', 'approved', 'failed'].includes(v.status)) return json({ error: `This video is ${v.status}, so it can't be rejected now.` }, 409);
       return json(withSig((await patchVideo(v.id, { status: 'rejected' }))!));

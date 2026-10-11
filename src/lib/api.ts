@@ -9,7 +9,7 @@ export type Video = VideoRecord & { sig: string; sendTo?: PlatformId[]; tiktokCo
 
 export interface Status {
   ready: { secret: boolean; tiktokApp: boolean; youtubeApp: boolean; metaApp: boolean; dispatch: boolean };
-  tiktok: { connected: boolean; name?: string | null; expired?: boolean };
+  tiktok: { connected: boolean; name?: string | null; expired?: boolean; canList?: boolean };
   youtube: { connected: boolean; name?: string | null };
   meta: { connected: boolean; page?: string; instagram?: string | null };
   ai: { used: number; limit: number };
@@ -129,6 +129,7 @@ export const api = {
   videos: () => call<Video[]>('/api/videos'),
   video: (id: string, sig?: string) => call<Video>(`/api/videos?id=${encodeURIComponent(id)}${sig ? `&sig=${encodeURIComponent(sig)}` : ''}`),
   act: (action: 'approve' | 'reject' | 'posted' | 'retry' | 'build', id: string, sig?: string) => post<Video>('/api/videos', { action, id, sig }),
+  findTikTok: (id: string, sig?: string) => post<Video & { message?: string }>('/api/videos', { action: 'find-tiktok', id, sig }),
   deleteVideo: (id: string, sig?: string) => post<{ ok: boolean }>('/api/videos', { action: 'delete', id, sig }),
   saveScript: (id: string, sig: string | undefined, s: { title: string; hook: string; caption: string; firstComment: string; cover?: string; lines: DraftLine[] }) =>
     post<Video>('/api/videos', { action: 'save-script', id, sig, ...s }),

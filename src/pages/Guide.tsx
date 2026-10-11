@@ -286,10 +286,26 @@ export function Guide() {
         </ul>
       </Section>
 
+      <Section title="From your drafts to TikTok (and back)">
+        <p>When you approve a video, it goes to your <b>TikTok drafts</b> (TikTok's inbox). TikTok doesn't give apps a link to one draft, so here is the quickest way:</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>📲 Open TikTok:</b> on the video in the app (and by tapping the "In your TikTok drafts" phone notification), opens the TikTok app. Your draft waits in the inbox: edit it, turn on "AI-generated content", and post.</li>
+          <li><b>🔗 Back to the app:</b> after you post, the app finds your post by itself (every 2 hours, or tap <b>Find my post</b>). It matches the caption, so keep it (small edits are fine). The video is then marked <b>Posted</b>, gets a <b>▶ View on TikTok</b> link, and its views, likes and comments are read automatically.</li>
+          <li><b>One-time step:</b> in Settings → TikTok, tap <b>Connect again</b> when asked, so the app may see your posts (read-only; it never posts or changes anything).</li>
+          <li>Android app tip: <b>↓ Download</b> → Share → <b>TikTok</b> also opens TikTok's editor with the video, if you prefer that.</li>
+        </ul>
+        <Example caption="Made-up examples: just sent to the drafts, then found after posting (buttons do nothing here).">
+          <div className="space-y-3">
+            <VideoDetail v={{ ...EXAMPLE, status: 'sent', tiktok: { publishId: 'x', sentAt: EXAMPLE.createdAt } }} tiktokConnected example />
+            <VideoDetail v={{ ...EXAMPLE, status: 'posted', tiktok: { publishId: 'x', sentAt: EXAMPLE.createdAt, postId: '1', url: 'https://www.tiktok.com/', postedAt: EXAMPLE.createdAt }, stats: { tiktok: { views: 12400, likes: 830, comments: 41, at: EXAMPLE.createdAt, auto: true } } }} tiktokConnected example />
+          </div>
+        </Example>
+      </Section>
+
       <Section title="Learning from your results">
         <p>The app learns what works on <b>your</b> channel. Before writing each new script, it tells the AI which of your recent videos did best and worst (their topics, hooks and extras), so new videos lean toward what your viewers like.</p>
         <ul className="list-disc space-y-1.5 pl-5">
-          <li><b>TikTok:</b> a day or two after posting, open the video in the app and type its views (and likes, if you like) in <b>Results</b>, then tap Save. TikTok doesn't share numbers with small apps, so this is the only step you do by hand.</li>
+          <li><b>TikTok:</b> once the app has found your post (see "From your drafts to TikTok"), its views, likes and comments are read by themselves every 2 hours. Otherwise, a day or two after posting, type its views (and likes) in <b>Results</b> and tap Save.</li>
           <li><b>YouTube</b> views, likes and comments, and <b>Instagram</b> likes and comments, are read by themselves for videos sent there.</li>
           <li>It starts once 3 videos have numbers, and looks at the last 60 days. It never copies a title or repeats a topic.</li>
         </ul>
@@ -405,7 +421,7 @@ export function Guide() {
           <Key name="TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET">later, same as in Netlify.</Key>
           <Key name="GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET">optional, same as in Netlify (YouTube uploads run on GitHub).</Key>
         </ul>
-        <p><b>TikTok developer app</b> (developers.tiktok.com): create an app, add the products <b>Login Kit</b> and <b>Content Posting API</b>, scopes <code>user.info.basic</code> and <code>video.upload</code>, and the redirect address <code>https://your-site.netlify.app/api/tiktok/callback</code>. TikTok also asks for a Terms of Service and a Privacy Policy link: use <code>https://your-site.netlify.app/terms</code> and <code>https://your-site.netlify.app/privacy</code> (also linked at the bottom of every page). Submit it for review. When approved, add its keys and tap <b>Connect TikTok</b> in Settings.</p>
+        <p><b>TikTok developer app</b> (developers.tiktok.com): create an app, add the products <b>Login Kit</b> and <b>Content Posting API</b>, scopes <code>user.info.basic</code>, <code>video.upload</code> and <code>video.list</code> (to find your posts afterwards; read-only), and the redirect address <code>https://your-site.netlify.app/api/tiktok/callback</code>. TikTok also asks for a Terms of Service and a Privacy Policy link: use <code>https://your-site.netlify.app/terms</code> and <code>https://your-site.netlify.app/privacy</code> (also linked at the bottom of every page). Submit it for review. When approved, add its keys and tap <b>Connect TikTok</b> in Settings.</p>
       </Section>
     </div>
   );

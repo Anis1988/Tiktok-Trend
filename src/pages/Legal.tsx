@@ -67,8 +67,9 @@ export function Privacy() {
       <ul className="list-disc space-y-1 pl-5">
         <li><code>user.info.basic</code>: to show which account is connected.</li>
         <li><code>video.upload</code>: to send approved videos to the TikTok drafts (inbox).</li>
+        <li><code>video.list</code>: read-only, to find the owner's own post of a video after the owner published it from the drafts, and keep its link and its view, like and comment counts.</li>
       </ul>
-      <p>The app does not read your followers, messages, likes or any other TikTok data, and never posts publicly by itself.</p>
+      <p>The app does not read your followers, messages or any other TikTok data, and never posts publicly by itself.</p>
       <H>YouTube, Facebook and Instagram permissions used</H>
       <ul className="list-disc space-y-1 pl-5">
         <li>YouTube <code>youtube.upload</code> to upload videos, and <code>youtube.readonly</code> only to show which channel is connected.</li>
