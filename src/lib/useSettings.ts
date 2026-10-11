@@ -11,11 +11,12 @@ export function useSettings() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const queue = useRef<Promise<void>>(Promise.resolve());
   const load = useCallback(() => api.settings().then(setSettings), []);
-  const save = useCallback((patch: Partial<AppSettings>) => {
+  const save = useCallback((full: Partial<AppSettings> & { seriesUnuse?: { key: string; name: string } }) => {
+    const { seriesUnuse: _, ...patch } = full;
     setSettings((cur) => (cur ? { ...cur, ...patch } : cur));
     queue.current = queue.current.then(async () => {
       try {
-        await api.saveSettings(patch);
+        await api.saveSettings(full);
       } catch (e) {
         toast('error', e instanceof Error ? e.message : String(e));
         await api.settings().then(setSettings, () => undefined); // show what is really saved
