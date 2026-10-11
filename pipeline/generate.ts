@@ -157,7 +157,9 @@ async function main() {
   let series: SeriesBrief | undefined;
   if (seriesRun) {
     const subj = s.series.subject.trim() || DEFAULT_SETTINGS.series.subject;
-    const used = s.series.used[seriesKey(subj)] ?? [];
+    // Done ones, plus scripts waiting to be checked or built (not in "Used so far" until their video is made).
+    const waiting = videos.filter((v) => v.series && seriesKey(v.series.subject) === seriesKey(subj) && (v.status === 'script' || v.status === 'building')).map((v) => v.series!.pick);
+    const used = [...new Set([...(s.series.used[seriesKey(subj)] ?? []), ...waiting])];
     const t = await seriesTrending(s.country);
     t.log.forEach((l) => log(l));
     series = { subject: subj, facts: Math.max(5, s.series.facts), minSeconds: s.series.minSeconds, used, trending: t.lines };
@@ -213,12 +215,8 @@ async function main() {
     if (problem && /already done|no name/.test(problem)) throw new Error(`Daily series: ${problem}`);
     if (problem) log(`Series script still not perfect (${problem}): using it anyway.`);
     sc.pick = 0;
-    // Remember who was done, so they never come back (re-read: the app may have changed settings meanwhile).
-    const now = await getSettings();
-    const key = seriesKey(series.subject);
-    const list = [...(now.series.used[key] ?? []), sc.seriesPick.trim().slice(0, 100)].slice(-1000);
-    await writeJson('settings', { ...now, series: { ...now.series, used: { ...now.series.used, [key]: list } } });
-    log(`Series pick: ${sc.seriesPick} (${list.length} done so far)`);
+    // The name goes into "Used so far" once the video is built (see build), so a failed video doesn't use it up.
+    log(`Series pick: ${sc.seriesPick}`);
   }
   if (sc.pick < 0 || !candidates[sc.pick]) {
     if (subject) throw new Error(`The AI skipped "${subject}": ${sc.why}`);
@@ -275,6 +273,17 @@ async function main() {
     return;
   }
   await build(base, s);
+}
+
+/** 📅 A series video was made: its name goes into "Used so far" (re-read: the app may have changed settings meanwhile). */
+async function markSeriesUsed(subject: string, pick: string) {
+  const now = await getSettings();
+  const key = seriesKey(subject);
+  const cur = now.series.used[key] ?? [];
+  if (!pick.trim() || cur.some((u) => seriesKey(u) === seriesKey(pick))) return;
+  const list = [...cur, pick.trim().slice(0, 100)].slice(-1000);
+  await writeJson('settings', { ...now, series: { ...now.series, used: { ...now.series.used, [key]: list } } });
+  log(`Series: ${pick} added to Used so far (${list.length} done)`);
 }
 
 /** What is wrong with a daily-series script, or '' if it is fine. */
@@ -455,6 +464,7 @@ async function build(base: VideoRecord, s: AppSettings) {
     };
     await saveVideo(rec);
     log(`Saved ${id}`);
+    if (rec.series) await markSeriesUsed(rec.series.subject, rec.series.pick);
     if (rec.episode) await writeJson('episode', Math.max(rec.episode, await readJson<number>('episode', 0)));
     if (process.env.SAVE_COPY_DIR) {
       // GitHub attaches this copy to the run, so the video can be downloaded even without the website.
@@ -477,7 +487,7 @@ async function buildChecked(id: string, saved: AppSettings) {
   const rec = (await listVideos()).find((v) => v.id === id);
   if (!rec) throw new Error(`Script ${id} not found.`);
   if (rec.status !== 'building' && rec.status !== 'script') return log(`Video ${id} is already ${rec.status}: nothing to build.`);
-  const s = settingsFor(rec.pick, saved);
+  const s = rec.series ? { ...saved, niche: null } : settingsFor(rec.pick, saved); // a series video never takes the channel look
   log(`Building checked script ${id}: ${rec.title}`);
   await build({ ...rec, status: 'building' }, s);
 }

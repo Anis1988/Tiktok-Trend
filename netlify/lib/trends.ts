@@ -253,7 +253,8 @@ export async function feedNews(url: string, label: string): Promise<Candidate[]>
  * general trends come last (the AI only picks one if it fits the niche).
  */
 const STOP = new Set('about after again also amid best could from have here into just more most news over says still than that their them they this time what when will with your year years today first new video'.split(' '));
-const keyWords = (t: string) => new Set(t.toLowerCase().normalize('NFKD').replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter((w) => w.length >= 4 && !STOP.has(w)));
+// The "Category: " / "Trending on YouTube: " label in front is not part of the story, so it is left out.
+const keyWords = (t: string) => new Set(t.replace(/^[^:]{1,40}:\s+(?=\S)/, '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter((w) => w.length >= 4 && !STOP.has(w)));
 /** The same story in other words (another site's headline, a reworded title): most of the key words are shared. */
 export function sameStory(a: string, b: string): boolean {
   const x = keyWords(a), y = keyWords(b);
