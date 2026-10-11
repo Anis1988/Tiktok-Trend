@@ -56,6 +56,8 @@ export function startAppPush(onAlert: (title: string, body: string) => void): ()
     PushNotifications.addListener('pushNotificationActionPerformed', (a) => {
       const url = String(a.notification.data?.url ?? '');
       if (url.startsWith('/') && !url.startsWith('//')) window.location.href = url;
+      // "In your TikTok drafts": open the TikTok app. Leaving the app for tiktok.com makes Android hand the link to TikTok.
+      else if (/^https:\/\/www\.tiktok\.com\//.test(url)) window.location.href = url;
     }),
   ];
   if (savedToken()) {
