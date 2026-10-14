@@ -180,7 +180,7 @@ function bbox(f: Feature): [number, number, number, number] {
 const norm = (s: string) => s.toLowerCase().replace(/^the /, '').replace(/[^a-z ]/g, '').trim();
 const ALIAS: Record<string, string> = { 'united states': 'united states of america', usa: 'united states of america', us: 'united states of america', uk: 'united kingdom', britain: 'united kingdom', 'great britain': 'united kingdom', 'czechia': 'czech republic', 'tanzania': 'united republic of tanzania', 'serbia': 'republic of serbia', 'north macedonia': 'macedonia', 'eswatini': 'swaziland', 'bahamas': 'bahamas', 'congo': 'republic of the congo', 'drc': 'democratic republic of the congo', 'timorleste': 'east timor' };
 
-const UA = 'TrendVideos/1.0 (https://tiktok-trend.netlify.app; personal project)';
+const UA = 'TrendVideos/1.0 (https://trend-video.netlify.app; personal project)';
 
 /** Where a place is: Wikipedia's coordinates for the best-matching article (free, no key). */
 async function locate(place: string): Promise<{ lat: number; lon: number; title: string } | null> {

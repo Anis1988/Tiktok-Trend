@@ -9,7 +9,7 @@ import { openverse } from './realmedia';
  */
 export interface Picture { path: string; credit: string; by: string; url: string; site: string }
 
-const UA = 'TrendVideos/1.0 (https://tiktok-trend.netlify.app; personal project)';
+const UA = 'TrendVideos/1.0 (https://trend-video.netlify.app; personal project)';
 
 async function download(url: string, out: string): Promise<boolean> {
   const res = await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(30_000) }).catch(() => null);

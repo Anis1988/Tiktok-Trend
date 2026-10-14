@@ -17,7 +17,7 @@ export interface RealMedia {
   by: string;
 }
 
-const UA = 'TrendVideos/1.0 (https://tiktok-trend.netlify.app; personal project)';
+const UA = 'TrendVideos/1.0 (https://trend-video.netlify.app; personal project)';
 const MAX_BYTES = 60_000_000;
 
 async function getJson<T>(url: string): Promise<T> {
