@@ -35,7 +35,7 @@ jobs:
       - name: Build the screens (they talk to the live site's server)
         run: npm run build
         env:
-          VITE_API_BASE: https://tiktok-trend.netlify.app
+          VITE_API_BASE: https://trend-video.netlify.app
           VITE_APP_BUILD: ${{ github.run_number }} # the app compares this with the release page to offer updates
       - name: Copy them into the Android project
         run: npx cap sync android
