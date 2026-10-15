@@ -35,6 +35,7 @@ const Patch = z.object({
     facts: z.number().int().min(5).max(10),
     minSeconds: z.union([z.literal(60), z.literal(75), z.literal(90)]),
     used: z.record(z.string().max(120), z.array(z.string().trim().min(1).max(100)).max(1000)).optional(), // ignored: see below
+    autoPost: z.object({ youtube: z.boolean(), tiktok: z.enum(['off', 'drafts', 'public']) }).optional(),
   }),
   // ✕ on a name in "Used so far": allow it again.
   seriesUnuse: z.object({ key: z.string().max(120), name: z.string().max(100) }),

@@ -108,7 +108,8 @@ export interface VideoRecord {
   fileRemovedAt?: string; // the video file was deleted by the auto clean-up (the text is kept)
   tiktok?: { publishId?: string; sentAt?: string; status?: string; postId?: string; url?: string; postedAt?: string }; // postId/url: your post, found after you published it
   recap?: boolean; // a weekly recap made from the week's videos
-  series?: { subject: string; pick: string; minSeconds: number }; // 📅 a daily series video: who it is about
+  series?: { subject: string; pick: string; minSeconds: number; ok?: boolean }; // 📅 a daily series video: who it is about (ok: passed the series check)
+  auto?: { at: string; youtube?: boolean; tiktok?: 'drafts' | 'public'; notes?: string[] }; // 🚀 posted by itself (series auto-post)
   episode?: number; // number in your series ("Daily Tech Drop #14")
   checks?: string[]; // quality check notes: what was fixed or could be better
   comment?: { text: string; by?: string }; // reply videos: the comment it answers
@@ -199,7 +200,14 @@ export const VOICE_LABEL: Record<Exclude<VoiceId, 'female' | 'male'>, string> = 
  * very well-known person or thing (never repeated: `used`, one list per subject), with at least `facts` facts and at
  * least `minSeconds` long. Change the subject anytime in Settings.
  */
-export interface DailySeries { on: boolean; subject: string; facts: number; minSeconds: 60 | 75 | 90; used: Record<string, string[]> }
+export interface DailySeries { on: boolean; subject: string; facts: number; minSeconds: 60 | 75 | 90; used: Record<string, string[]>; autoPost?: AutoPost }
+/**
+ * 🚀 Post series videos by themselves (owner's choice, off by default): only series videos that passed every check,
+ * at most 1 a day per platform. YouTube: public. TikTok: to your drafts, or posted publicly once TikTok approved
+ * Direct Post (scope video.publish; until TikTok's audit, such posts are visible only to you).
+ */
+export interface AutoPost { youtube: boolean; tiktok: 'off' | 'drafts' | 'public' }
+export const autoPostOf = (s: Pick<DailySeries, 'autoPost'>): AutoPost => ({ youtube: false, tiktok: 'off', ...s.autoPost });
 export const SERIES_PRESETS = [
   'Fun facts about a famous person',
   'Fun facts about a famous athlete',
@@ -256,7 +264,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notifyEmail: '',
   seriesName: '',
   weeklyRecap: true,
-  series: { on: true, subject: 'Fun facts about a famous person', facts: 6, minSeconds: 60, used: {} },
+  series: { on: true, subject: 'Fun facts about a famous person', facts: 6, minSeconds: 60, used: {}, autoPost: { youtube: false, tiktok: 'off' } },
   youtubePrivacy: 'public',
 };
 
