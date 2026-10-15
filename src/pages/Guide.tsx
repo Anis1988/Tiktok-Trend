@@ -5,7 +5,7 @@ import { NichePicker } from '../components/NichePicker';
 import { FoldChevron, VideoStyle } from '../components/VideoStyle';
 import { ScriptEditor } from '../components/ScriptEditor';
 import { ClipCard } from '../components/MyClips';
-import { SeriesView } from '../components/DailySeries';
+import { AutoPostView, SeriesView } from '../components/DailySeries';
 import { DEFAULT_SETTINGS } from '../lib/types';
 import type { Niche } from '../lib/niches';
 
@@ -112,10 +112,21 @@ export function Guide() {
           <li><b>Too short?</b> If the script comes out too short, with too few facts, or about someone already done, the AI is asked once more. That can use 1 extra AI script, still within your daily limit.</li>
           <li><b>Changing the subject:</b> type a new one or tap a ready-made one (athletes, singers, characters, animals, countries…). It counts from the next video, and each subject has its own "Used so far" list.</li>
           <li><b>Make the next series video now</b> makes one right away instead of waiting for the schedule. "Make a video now" on the Videos page still makes one-off videos about anything.</li>
-          <li>As always: you approve every video, and approved ones go to your TikTok drafts, never straight to public.</li>
+          <li>Usually you approve every video, and approved ones go to your TikTok drafts. The one exception is <b>🚀 Post by itself</b> below, if you turn it on.</li>
         </ul>
         <Example caption="Made-up example; tapping does nothing here.">
           <SeriesView v={EXAMPLE_SERIES} />
+        </Example>
+        <p><b>🚀 Post by itself</b> (inside Daily series, off unless you turn it on): series videos go out without waiting for you.</p>
+        <ul className="list-disc space-y-1 pl-5">
+          <li><b>YouTube:</b> posted publicly as a Short. If your Google app isn’t verified yet, Google keeps it Private; the app tells you.</li>
+          <li><b>TikTok “To drafts”:</b> sent to your TikTok drafts by itself; open TikTok and tap Post (that’s TikTok’s rule for this app today).</li>
+          <li><b>TikTok “Post it” 🔒:</b> opens once TikTok approves “Direct Post” for your app. Until TikTok audits the app, those posts are visible only to you.</li>
+          <li><b>Safety:</b> only series videos that passed every check (facts, a new name, long enough). Anything not right waits for you as usual, with the reason. At most 1 a day on each.</li>
+          <li><b>You’re told:</b> a phone notification and an email with the links. On the video: “🚀 Posted by itself” and <b>Remove from YouTube</b> (opens YouTube Studio: ⋮ → Delete).</li>
+        </ul>
+        <Example caption="Made-up example; tapping does nothing here.">
+          <AutoPostView a={{ youtube: true, tiktok: 'drafts' }} links={{ tiktok: true, youtube: true, canPublish: false }} />
         </Example>
       </Section>
 

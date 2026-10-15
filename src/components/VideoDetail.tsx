@@ -202,6 +202,14 @@ export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, sendTo = 
             {v.comment && <span>💬 Reply to {v.comment.by ? `@${v.comment.by.replace(/^@/, '')}` : 'a comment'}: "{v.comment.text.slice(0, 80)}{v.comment.text.length > 80 ? '…' : ''}"</span>}
           </p>
         )}
+        {v.auto && (
+          <div className="rounded-lg border border-fuchsia-300/40 bg-fuchsia-500/[0.07] px-3 py-2 text-sm">
+            <p className="label !text-fuchsia-200">🚀 Posted by itself · {when(v.auto.at)}</p>
+            <p className="mt-0.5 text-slate-200">{[v.auto.tiktok && (v.auto.tiktok === 'public' ? 'TikTok: posted' : 'TikTok: sent to your drafts (tap Post in the TikTok app)'), v.auto.youtube && 'YouTube: posted publicly'].filter(Boolean).join(' · ')}</p>
+            {!!v.auto.notes?.length && <ul className="mt-1 list-disc pl-5 text-xs text-slate-300">{v.auto.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
+            {v.platforms?.youtube?.id && <a className="btn mt-2 !min-h-[38px] text-xs" href={`https://studio.youtube.com/video/${v.platforms.youtube.id}/edit`} target="_blank" rel="noopener noreferrer">Remove from YouTube (Studio → ⋮ → Delete)</a>}
+          </div>
+        )}
         {!!v.checks?.length && (
           <div className="rounded-lg border border-amber-300/30 bg-amber-400/5 px-3 py-2 text-sm">
             <p className="label !text-amber-200">Quality check</p>

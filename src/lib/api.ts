@@ -5,7 +5,7 @@ export type Video = VideoRecord & { sig: string; sendTo?: PlatformId[]; tiktokCo
 
 export interface Status {
   ready: { secret: boolean; tiktokApp: boolean; youtubeApp: boolean; metaApp: boolean; dispatch: boolean };
-  tiktok: { connected: boolean; name?: string | null; expired?: boolean; canList?: boolean };
+  tiktok: { connected: boolean; name?: string | null; expired?: boolean; canList?: boolean; canPublish?: boolean };
   youtube: { connected: boolean; name?: string | null };
   meta: { connected: boolean; page?: string; instagram?: string | null };
   ai: { used: number; limit: number };

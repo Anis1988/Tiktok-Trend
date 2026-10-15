@@ -2,7 +2,7 @@ import { guard, json } from '../lib/guard';
 import { getMeta, getSettings, getTikTok, getYouTube, readJson } from '../lib/store';
 import { youtubeReady } from '../lib/youtube';
 import { metaReady } from '../lib/meta';
-import { canList, tiktokReady } from '../lib/tiktok';
+import { canList, canPublish, tiktokReady } from '../lib/tiktok';
 import { dispatchReady } from '../lib/github';
 
 export const config = { path: '/api/status' };
@@ -15,7 +15,7 @@ export default async (req: Request): Promise<Response> => {
   const today = new Date().toISOString().slice(0, 10);
   return json({
     ready: { secret: !!process.env.APP_SECRET, tiktokApp: tiktokReady(), youtubeApp: youtubeReady(), metaApp: metaReady(), dispatch: dispatchReady() },
-    tiktok: tt ? { connected: true, name: tt.name ?? null, expired: Date.now() > tt.refreshExpiresAt, canList: canList(tt.scope) } : { connected: false },
+    tiktok: tt ? { connected: true, name: tt.name ?? null, expired: Date.now() > tt.refreshExpiresAt, canList: canList(tt.scope), canPublish: canPublish(tt.scope) } : { connected: false },
     youtube: yt ? { connected: true, name: yt.name ?? null } : { connected: false },
     meta: meta ? { connected: true, page: meta.pageName, instagram: meta.igName ?? (meta.igUserId ? 'connected' : null) } : { connected: false },
     ai: { used: ai.day === today ? ai.n : 0, limit: settings.aiDailyLimit },

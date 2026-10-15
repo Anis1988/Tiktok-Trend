@@ -3,8 +3,11 @@ import { getTikTok, setTikTok, type TikTokAuth } from './store';
 /** TikTok Login Kit + Content Posting API (inbox / drafts). Needs TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET. */
 const API = 'https://open.tiktokapis.com/v2';
 // video.list: find your post once you published it in TikTok (its link and numbers). Read-only.
-export const SCOPES = 'user.info.basic,video.upload,video.list';
+// video.publish (Direct Post) only once TikTok approved it for this app: set TIKTOK_DIRECT_POST=1 in Netlify, then
+// connect TikTok again. Asking for a scope the app isn't approved for makes TikTok's login fail.
+export const SCOPES = `user.info.basic,video.upload,video.list${process.env.TIKTOK_DIRECT_POST === '1' ? ',video.publish' : ''}`;
 export const canList = (scope?: string) => !!scope?.split(/[ ,]+/).includes('video.list');
+export const canPublish = (scope?: string) => !!scope?.split(/[ ,]+/).includes('video.publish');
 export const tiktokReady = () => !!(process.env.TIKTOK_CLIENT_KEY && process.env.TIKTOK_CLIENT_SECRET);
 
 export function authorizeUrl(redirectUri: string, state: string): string {
@@ -89,6 +92,30 @@ export async function sendToDrafts(video: Buffer): Promise<string> {
   });
   if (!up.ok) throw new Error(`TikTok upload failed: HTTP ${up.status}`);
   return init.publish_id;
+}
+
+/**
+ * 🚀 Direct Post (needs video.publish): posts the video on your profile, publicly when TikTok allows it (until TikTok's
+ * audit of the app, only "only me" is offered and the post is private). Labelled AI-generated. Returns the publish id.
+ */
+export async function postDirect(video: Buffer, caption: string): Promise<{ publishId: string; privacy: string }> {
+  const token = await accessToken();
+  const info = await post<{ privacy_level_options?: string[]; max_video_post_duration_sec?: number }>('/post/publish/creator_info/query/', token, {});
+  const options = info.privacy_level_options ?? [];
+  const privacy = options.includes('PUBLIC_TO_EVERYONE') ? 'PUBLIC_TO_EVERYONE' : options[0] ?? 'SELF_ONLY';
+  const size = video.length;
+  const init = await post<{ publish_id: string; upload_url: string }>('/post/publish/video/init/', token, {
+    post_info: { title: caption.slice(0, 2200), privacy_level: privacy, disable_comment: false, disable_duet: false, disable_stitch: false, is_aigc: true },
+    source_info: { source: 'FILE_UPLOAD', video_size: size, chunk_size: size, total_chunk_count: 1 },
+  });
+  const up = await fetch(init.upload_url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'video/mp4', 'Content-Length': String(size), 'Content-Range': `bytes 0-${size - 1}/${size}` },
+    body: new Uint8Array(video),
+    signal: AbortSignal.timeout(120_000),
+  });
+  if (!up.ok) throw new Error(`TikTok upload failed: HTTP ${up.status}`);
+  return { publishId: init.publish_id, privacy };
 }
 
 /** PROCESSING_UPLOAD, SEND_TO_USER_INBOX, PUBLISH_COMPLETE, FAILED, ... */

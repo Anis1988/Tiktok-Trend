@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { SERIES_PRESETS, seriesKey, type DailySeries } from '../lib/types';
-import { Field, Toggle } from './ui';
+import { SERIES_PRESETS, autoPostOf, seriesKey, type AutoPost, type DailySeries } from '../lib/types';
+import { Field, Seg, Toggle } from './ui';
 
 /**
  * 📅 Daily series (Settings → Schedule, when "Make videos every day" is on): every daily video is about the same
  * subject, each time a new famous name. Also drawn in the Guide with made-up data (`onChange` / `onMake` left out).
  */
-export function SeriesView({ v, onChange, onUnuse, onMake, busy }: { v: DailySeries; onChange?: (v: DailySeries) => void; onUnuse?: (key: string, name: string) => void; onMake?: () => void; busy?: boolean }) {
+export function SeriesView({ v, onChange, onUnuse, onMake, busy, links }: { v: DailySeries; onChange?: (v: DailySeries) => void; onUnuse?: (key: string, name: string) => void; onMake?: () => void; busy?: boolean; links?: { tiktok: boolean; youtube: boolean; canPublish: boolean } }) {
   const [draft, setDraft] = useState(v.subject);
   const set = (p: Partial<DailySeries>) => onChange?.({ ...v, ...p });
   const used = v.used[seriesKey(v.subject)] ?? [];
@@ -64,9 +64,41 @@ export function SeriesView({ v, onChange, onUnuse, onMake, busy }: { v: DailySer
               </div>
             ) : <p className="text-xs text-slate-500">Nobody yet.</p>}
           </div>
+          <AutoPostView a={autoPostOf(v)} links={links} onChange={onChange && ((autoPost) => set({ autoPost }))} />
           <button type="button" className="btn-primary w-full sm:w-auto" disabled={busy} onClick={onMake}>▶ Make the next series video now</button>
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * 🚀 Post series videos by themselves (owner's choice): YouTube public, TikTok to drafts or (once TikTok approved
+ * Direct Post) posted. Only series videos that passed every check, at most 1 a day per platform; you get a message.
+ */
+export function AutoPostView({ a, links, onChange }: { a: AutoPost; links?: { tiktok: boolean; youtube: boolean; canPublish: boolean }; onChange?: (a: AutoPost) => void }) {
+  const on = a.youtube || a.tiktok !== 'off';
+  const set = (p: Partial<AutoPost>) => onChange?.({ ...a, ...p });
+  return (
+    <div className={`space-y-2.5 rounded-xl border p-3 ${on ? 'border-fuchsia-300/40 bg-fuchsia-500/[0.06]' : 'border-white/10 bg-black/20'}`}>
+      <div>
+        <p className="text-sm font-semibold text-slate-100">🚀 Post by itself</p>
+        <p className="text-xs text-slate-400">Series videos only, without waiting for you, when every check passed. At most 1 a day on each. You get a message with the links.</p>
+      </div>
+      <Field label="YouTube" hint={links && !links.youtube ? 'Connect YouTube first (Settings → YouTube).' : 'Posted publicly as a Short.'}>
+        <Toggle on={a.youtube} onChange={(x) => set({ youtube: x })} label="Post to YouTube by itself" />
+      </Field>
+      <div className="space-y-1.5">
+        <p className="text-sm font-medium text-slate-200">TikTok</p>
+        <Seg label="TikTok auto-post" value={a.tiktok} onChange={(x) => onChange && (x !== 'public' || links?.canPublish) && set({ tiktok: x })}
+          options={[{ id: 'off', label: 'Off' }, { id: 'drafts', label: 'To drafts' }, { id: 'public', label: links?.canPublish ? 'Post it' : '🔒 Post it' }]} />
+        <p className="text-xs text-slate-400">
+          {links && !links.tiktok ? 'Connect TikTok first (Settings → TikTok). ' : ''}
+          {a.tiktok === 'drafts' && 'Sent to your TikTok drafts by itself: open TikTok and tap Post (TikTok’s rule for this app). '}
+          {a.tiktok === 'public' && 'Posted on your TikTok by itself. Until TikTok’s audit of the app, TikTok shows it only to you. '}
+          {!links?.canPublish && '🔒 “Post it” opens once TikTok approves Direct Post for your app: then set TIKTOK_DIRECT_POST = 1 in Netlify and GitHub (Actions variables) and tap Connect TikTok again.'}
+        </p>
+      </div>
     </div>
   );
 }

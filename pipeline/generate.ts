@@ -5,8 +5,10 @@
 import { copyFile, mkdir, readFile, rm } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import type { AppSettings, DraftLine, Extra, VideoRecord } from '../src/lib/types';
-import { DEFAULT_SETTINGS, seriesKey } from '../src/lib/types';
-import { getSettings, listVideos, readJson, saveVideo, store, writeJson } from '../netlify/lib/store';
+import { DEFAULT_SETTINGS, autoPostOf, seriesKey } from '../src/lib/types';
+import { sendOther, sendTikTok } from './lib/send';
+import { canPublish } from '../netlify/lib/tiktok';
+import { getSettings, getTikTok, getVideo, getYouTube, listVideos, patchVideo, readJson, saveVideo, store, writeJson } from '../netlify/lib/store';
 import { sign } from '../netlify/lib/sign';
 import { emailReady, sendEmail } from '../netlify/lib/mailer';
 import { LISTY, bingNews, feedNews, findCandidates, nicheCandidates, seriesTrending, subjectNews, type Candidate } from '../netlify/lib/trends';
@@ -154,6 +156,7 @@ async function main() {
   if (budget.n >= s.aiDailyLimit) throw new Error(`Daily AI limit reached (${s.aiDailyLimit}). Raise it in Settings or wait until tomorrow.`);
 
   let candidates: Candidate[];
+  let seriesOk = true; // 🚀 the series check passed (needed for the auto-post)
   let series: SeriesBrief | undefined;
   if (seriesRun) {
     const subj = s.series.subject.trim() || DEFAULT_SETTINGS.series.subject;
@@ -204,13 +207,14 @@ async function main() {
   if (series) {
     // At least N facts, long enough, and someone new: otherwise the AI is asked once more (1 more AI check, within the limit).
     let problem = seriesProblem(sc, series);
+    seriesOk = !problem;
     if (problem && budget.n < s.aiDailyLimit) {
       log(`Series script not right (${problem}): asking the AI once more.`);
       budget.n++;
       await writeJson('ai', budget);
       const again = await writeScript(candidates, s, extras, true, results, comment, avoid, { ...series, retry: `Your last try was rejected: ${problem}. Fix that.` });
       const p2 = seriesProblem(again, series);
-      if (!p2 || seriesWorse(problem, p2)) { sc = again; problem = p2; }
+      if (!p2 || seriesWorse(problem, p2)) { sc = again; problem = p2; seriesOk = !p2; }
     }
     if (problem && /already done|no name/.test(problem)) throw new Error(`Daily series: ${problem}`);
     if (problem) log(`Series script still not perfect (${problem}): using it anyway.`);
@@ -255,7 +259,7 @@ async function main() {
     extras: extras.length ? extras : undefined,
     cover: sc.cover?.trim().slice(0, 40) || undefined,
     comment,
-    series: series ? { subject: series.subject, pick: sc.seriesPick.trim().slice(0, 100), minSeconds: series.minSeconds } : undefined,
+    series: series ? { subject: series.subject, pick: sc.seriesPick.trim().slice(0, 100), minSeconds: series.minSeconds, ok: seriesOk } : undefined,
     episode: s.seriesName.trim() ? await nextEpisode() : undefined,
   };
   // Reply videos open on the comment itself.
@@ -471,7 +475,8 @@ async function build(base: VideoRecord, s: AppSettings) {
       await mkdir(process.env.SAVE_COPY_DIR, { recursive: true });
       await copyFile(mp4, `${process.env.SAVE_COPY_DIR}/${id}.mp4`);
     }
-    await notify(rec, s.notifyEmail);
+    // 🚀 Series auto-post (Settings → Daily series): posted by itself when every check passed; otherwise it waits for you.
+    if (!(await autoPost(rec, s).catch((e) => (log('Auto-post failed:', e instanceof Error ? e.message : e), false)))) await notify((await getVideo(rec.id)) ?? rec, s.notifyEmail);
   } catch (e) {
     // A checked script goes back to "check it" so Build can be tapped again; otherwise the video failed.
     await saveVideo({ ...base, status: base.draft && base.status === 'building' ? 'script' : 'failed', error: e instanceof Error ? e.message : String(e) });
@@ -490,6 +495,82 @@ async function buildChecked(id: string, saved: AppSettings) {
   const s = rec.series ? { ...saved, niche: null } : settingsFor(rec.pick, saved); // a series video never takes the channel look
   log(`Building checked script ${id}: ${rec.title}`);
   await build({ ...rec, status: 'building' }, s);
+}
+
+/**
+ * 🚀 Series auto-post (owner's choice, Settings → Daily series): a series video that passed every check is posted by
+ * itself, at most 1 a day per platform: YouTube public, TikTok to your drafts (or posted, once TikTok approved Direct
+ * Post). Anything not right (series check, too short, quality notes about length, already 1 today, not connected): it
+ * waits for you as usual. Returns true when it handled the video (and told you), false to fall back to the review email.
+ */
+async function autoPost(rec: VideoRecord, s: AppSettings): Promise<boolean> {
+  const ap = autoPostOf(s.series);
+  if (!rec.series || (!ap.youtube && ap.tiktok === 'off')) return false;
+  const why: string[] = [];
+  if (rec.series.ok === false) why.push('the series check didn’t fully pass');
+  if (rec.durationSec < rec.series.minSeconds) why.push(`only ${rec.durationSec} seconds`);
+  if (rec.checks?.some((c) => /^Only \d+ seconds|longer than/.test(c))) why.push('a length warning');
+  const today = new Date().toISOString().slice(0, 10);
+  const doneToday = (await listVideos()).filter((v) => v.id !== rec.id && v.auto?.at.slice(0, 10) === today);
+  const notes: string[] = [];
+  const [tt, yt] = await Promise.all([getTikTok(), getYouTube()]);
+  let tiktok: 'off' | 'drafts' | 'public' = ap.tiktok;
+  if (tiktok === 'public' && !canPublish(tt?.scope)) { tiktok = 'drafts'; notes.push('TikTok hasn’t approved Direct Post yet, so it went to your drafts.'); }
+  if (tiktok !== 'off' && !tt) { tiktok = 'off'; notes.push('TikTok isn’t connected.'); }
+  if (tiktok !== 'off' && doneToday.some((v) => v.auto?.tiktok)) { tiktok = 'off'; notes.push('Already 1 automatic TikTok today.'); }
+  let youtube = ap.youtube;
+  if (youtube && !yt) { youtube = false; notes.push('YouTube isn’t connected.'); }
+  if (youtube && doneToday.some((v) => v.auto?.youtube)) { youtube = false; notes.push('Already 1 automatic YouTube video today.'); }
+  if (why.length || (tiktok === 'off' && !youtube)) {
+    log(`Auto-post skipped: ${[...why, ...notes].join('; ') || 'nothing to post to'}`);
+    await patchVideo(rec.id, { checks: [...(rec.checks ?? []), `Not posted automatically: ${[...why, ...notes].join('; ') || 'nothing to post to'}. Approve it yourself.`] });
+    return false;
+  }
+  log(`Auto-post: ${[tiktok !== 'off' && `TikTok (${tiktok})`, youtube && 'YouTube (public)'].filter(Boolean).join(' + ')}`);
+  await patchVideo(rec.id, { status: 'approved', auto: { at: new Date().toISOString(), ...(youtube ? { youtube: true } : {}), ...(tiktok !== 'off' ? { tiktok } : {}), notes } });
+  const done: string[] = [];
+  if (tiktok !== 'off') {
+    try {
+      await sendTikTok({ ...rec, status: 'approved' }, tiktok, { quiet: true });
+      done.push(tiktok === 'public' ? 'posted on TikTok' : 'in your TikTok drafts (tap Post in the TikTok app)');
+    } catch (e) { notes.push(`TikTok: ${e instanceof Error ? e.message : String(e)}`); }
+  }
+  if (youtube) {
+    try {
+      await sendOther({ ...((await getVideo(rec.id)) ?? rec), status: 'approved' }, 'youtube', 'public');
+      const p = (await getVideo(rec.id))?.platforms?.youtube;
+      done.push(p?.locked ? 'on YouTube, but Google kept it Private (your Google app isn’t verified yet)' : 'posted on YouTube');
+    } catch (e) { notes.push(`YouTube: ${e instanceof Error ? e.message : String(e)}`); }
+  }
+  const after = (await getVideo(rec.id)) ?? rec;
+  if (notes.length) await patchVideo(rec.id, { auto: { ...after.auto!, notes } });
+  await notifyAuto(after, done, notes, s.notifyEmail);
+  return true;
+}
+
+/** "Posted by itself" message: phone + email, with the links. */
+async function notifyAuto(rec: VideoRecord, done: string[], notes: string[], to: string) {
+  const site = process.env.SITE_URL?.replace(/\/$/, '');
+  const link = `${site ?? ''}/review/${rec.id}?sig=${sign(rec.id)}`;
+  const yt = rec.platforms?.youtube?.url;
+  const title = done.length ? `Posted by itself: ${rec.title}` : `Couldn’t post by itself: ${rec.title}`;
+  const body = done.length ? `${done.join(' · ')}${notes.length ? ` · ${notes[0]}` : ''}` : (notes[0] ?? 'Open it to approve it yourself.');
+  await fcmAll({ title, body: body.slice(0, 200), tag: rec.id, url: `/review/${rec.id}?sig=${sign(rec.id)}` }).catch(() => 0);
+  try {
+    if (to && emailReady() && site) {
+      await sendEmail(to, title, [
+        done.length ? `Your series video was posted automatically (Settings → Daily series → Post by itself).` : 'Your series video could not be posted automatically.',
+        '',
+        ...done.map((d) => `✓ ${d}`),
+        ...notes.map((n) => `! ${n}`),
+        ...(yt ? ['', `YouTube: ${yt}`, `Remove it: open YouTube Studio (link above) → ⋮ → Delete forever.`] : []),
+        '',
+        `Open it in the app: ${link}`,
+      ].join('\n'));
+    }
+  } catch (e) {
+    log('Email failed:', e instanceof Error ? e.message : e);
+  }
 }
 
 /** Email with the review link. A failed email never fails the video: it is still in the app. */
