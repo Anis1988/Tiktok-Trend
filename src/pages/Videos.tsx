@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, fileUrl, sendTargets, type Status, type Video } from '../lib/api';
 import { VideoDetail } from '../components/VideoDetail';
-import { StatusChip, toast, when } from '../components/ui';
+import { EmptyState, Seg, Sheet, Skeleton, StatusChip, toast, when } from '../components/ui';
+import type { VideoStatus } from '../lib/types';
 import { CATEGORIES, LISTY, evergreenIdeas, findCategory, type EvergreenIdea, type Niche } from '../lib/niches';
 import { EXTRA_LABEL, type Extra } from '../lib/types';
 import { useSettings } from '../lib/useSettings';
@@ -151,16 +152,27 @@ export function Videos() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-2xl font-semibold">Videos</h2>
-          <p className="text-sm text-slate-400">{list ? `${waiting} waiting for you · ${list.length} in total` : 'Loading…'}{status ? ` · AI today ${status.ai.used}/${status.ai.limit}` : ''}</p>
-          {watching && <p className="text-xs text-violet-200"><span className="spinner" /> A video is being made (3 to 5 minutes). This list updates by itself.</p>}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 space-y-2">
+          <h2 className="page-title">Videos</h2>
+          {list ? (
+            <ul className="flex flex-wrap gap-1.5 text-xs text-slate-300" aria-label="Summary">
+              <Stat n={waiting} words="waiting for you" hot={waiting > 0} />
+              <Stat n={list.length} words="in total" />
+              {status && <Stat n={`${status.ai.used}/${status.ai.limit}`} words="AI today" />}
+            </ul>
+          ) : (
+            <p className="text-sm text-slate-400">Loading…</p>
+          )}
         </div>
-        <div className="flex gap-2">
-          <button className="btn" onClick={() => void load()}>↻ Refresh</button>
-        </div>
+        <button className="btn shrink-0" onClick={() => void load()} aria-label="Refresh">↻ <span className="hidden min-[360px]:inline">Refresh</span></button>
       </div>
+      {watching && (
+        <p className="flex items-center gap-2.5 rounded-2xl border border-violet-300/30 bg-violet-500/10 px-3 py-2 text-xs text-violet-100">
+          <span aria-hidden="true" className="relative flex h-2.5 w-2.5 shrink-0"><span className="pulse-dot absolute inset-0 rounded-full bg-violet-300" /></span>
+          <span><span className="spinner mr-1" /> A video is being made (3 to 5 minutes). This list updates by itself.</span>
+        </p>
+      )}
       <MakeNow subject={subject} onSubject={setSubject} pick={pick} onPick={choosePick} ideaUrl={idea?.url} onIdea={chooseIdea} ideas={ideas} ideasBusy={ideasBusy} onIdeas={() => void loadIdeas()} busy={busy} onMake={() => void makeNow()} niche={niche} extras={extras} onExtras={setExtras} reply={reply} onReply={setReply} onRecap={() => void makeNow(true)} onEvergreen={chooseEvergreen} />
       {settings && (
         <>
@@ -180,44 +192,88 @@ export function Videos() {
       {status && <SetupChecklist st={status} />}
 
       {selected && (
-        <section className="card space-y-3">
-          <button className="btn-ghost !px-0" onClick={() => setOpen(null)}>← All videos</button>
+        <Sheet label={selected.title} onClose={() => setOpen(null)} top={<button className="btn-ghost !px-1" onClick={() => setOpen(null)}>← All videos</button>}>
           <VideoDetail key={selected.id} v={selected} tiktokConnected={!!status?.tiktok.connected && !status.tiktok.expired} sendTo={sendTargets(status)} hintConnect onChange={(n) => setList((l) => l?.map((x) => (x.id === n.id ? n : x)) ?? null)} onDeleted={(id) => (setOpen(null), setList((l) => l?.filter((x) => x.id !== id) ?? null))} />
-        </section>
+        </Sheet>
       )}
 
-      {list && list.length === 0 && (
-        <section className="card text-center text-slate-300">
-          <p className="text-lg font-semibold">No videos yet</p>
-          <p className="text-sm text-slate-400">The first one is made on the next daily run, or tap "Make a video now". You'll get an email to review it.</p>
-        </section>
-      )}
-      {list && list.length > 0 && (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {list.map((v) => (
-            <li key={v.id}>
-              <button className={`card block w-full !p-2 text-left transition hover:border-cyan-300/40 ${open === v.id ? '!border-cyan-300/60' : ''}`} onClick={() => (setOpen(v.id), window.scrollTo({ top: 0, behavior: 'smooth' }))}>
-                <div className="aspect-[9/16] w-full overflow-hidden rounded-xl bg-gradient-to-b from-indigo-950 to-slate-950">
-                  {v.sizeBytes > 0 ? <img className="h-full w-full object-cover" src={fileUrl(v, 'jpg')} alt="" loading="lazy" /> : <p className="p-3 text-xs text-red-200">{v.error ?? 'No video'}</p>}
-                </div>
-                <div className="mt-2 space-y-1">
-                  <StatusChip s={v.status} />
-                  <p className="line-clamp-2 text-sm font-medium leading-snug">{v.title}</p>
-                  <p className="text-[11px] text-slate-500">{when(v.createdAt)}</p>
-                </div>
-              </button>
+      {!list && !err && (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5" aria-label="Loading videos">
+          {[0, 1, 2, 3].map((i) => (
+            <li key={i} className="space-y-2">
+              <Skeleton className="aspect-[9/16] w-full !rounded-2xl" />
+              <Skeleton className="h-3 w-4/5" />
+              <Skeleton className="h-3 w-1/2" />
             </li>
           ))}
         </ul>
+      )}
+      {list && list.length === 0 && (
+        <EmptyState icon="🎬" title="No videos yet">
+          The first one is made on the next daily run, or tap "Make a video now". You'll get an email to review it.
+        </EmptyState>
+      )}
+      {list && list.length > 0 && (
+        <>
+          <p className="label pt-1">Your videos</p>
+          <ul className="feed-in grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
+            {list.map((v) => (
+              <li key={v.id}>
+                <VideoCard v={v} selected={open === v.id} onOpen={() => setOpen(v.id)} />
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );
 }
 
+const Stat = ({ n, words, hot = false }: { n: number | string; words: string; hot?: boolean }) => (
+  <li className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${hot ? 'border-amber-300/40 bg-amber-400/10 text-amber-100' : 'border-white/10 bg-white/[0.04]'}`}>
+    <b className="num text-[13px] text-white">{n}</b> {words}
+  </li>
+);
+
+/** What tapping a video card does, in words (the card's main action). */
+const ACTION: Record<VideoStatus, string> = {
+  script: '✎ Check the script', building: '⚙ See progress', pending: '▶ Review', approved: '↑ Post it', publishing: 'Open',
+  sent: '📲 Post it', posted: 'Open', rejected: 'Open', failed: 'Open',
+};
+
+/** One video in the feed: a vertical picture with its status, the title over it, and the main action. Also drawn in the Guide. */
+export function VideoCard({ v, selected = false, onOpen, example = false }: { v: Video; selected?: boolean; onOpen?: () => void; example?: boolean }) {
+  const primary = v.status === 'pending' || v.status === 'script' || v.status === 'approved' || v.status === 'sent';
+  return (
+    <button type="button" className={`card tap group block w-full overflow-hidden !p-0 text-left ${selected ? '!border-cyan-300/60' : ''}`} onClick={onOpen}>
+      <div className="relative aspect-[9/16] w-full overflow-hidden bg-gradient-to-b from-indigo-950 via-[#120c2e] to-slate-950">
+        {v.sizeBytes > 0 && !example ? (
+          <img className="h-full w-full object-cover" src={fileUrl(v, 'jpg')} alt="" loading="lazy" />
+        ) : v.sizeBytes > 0 ? (
+          <div className="h-full bg-gradient-to-br from-cyan-500/40 via-indigo-600/30 to-fuchsia-600/40 px-3 pt-12 text-center font-display text-lg font-bold uppercase leading-tight [text-shadow:0_2px_8px_#000]"><p className="line-clamp-3">{v.hook}</p></div>
+        ) : (
+          <div className="flex h-1/2 flex-col items-center justify-end gap-2 p-3 text-center">
+            <span aria-hidden="true" className="text-2xl opacity-70">{v.status === 'script' ? '✎' : v.status === 'building' ? '⚙' : '🎞️'}</span>
+            <p className="line-clamp-3 text-xs text-slate-300">{v.error ?? 'No video'}</p>
+          </div>
+        )}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/95 via-black/60 to-transparent" />
+        <div className="absolute inset-x-2 top-2 flex"><StatusChip s={v.status} onMedia /></div>
+        <div className="absolute inset-x-0 bottom-0 space-y-1.5 p-2.5">
+          <p className="line-clamp-3 font-display text-[15px] font-semibold leading-snug text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.9)]">{v.title}</p>
+          <p className="num text-[11px] text-slate-300">{when(v.createdAt)}{v.durationSec > 0 ? ` · ${v.durationSec}s` : ''}</p>
+          <span className={`flex min-h-[34px] items-center justify-center rounded-xl px-2 text-xs font-semibold ${primary ? 'bg-gradient-to-r from-cyan-400 via-indigo-400 to-fuchsia-400 text-slate-950 shadow-[0_6px_20px_-6px_rgba(34,211,238,0.7)]' : 'border border-white/20 bg-white/10 text-slate-100 backdrop-blur'}`}>
+            {ACTION[v.status]}
+          </span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 export interface Idea { title: string; url: string; site?: string; tag: string }
 
-const chip = (on: boolean) =>
-  `shrink-0 rounded-lg border px-2.5 py-1.5 text-xs transition active:scale-95 ${on ? 'border-cyan-300/60 bg-cyan-400/15 text-cyan-50' : 'border-white/10 bg-white/5 text-slate-300'}`;
+const chip = (on: boolean) => `chip ${on ? 'is-on' : ''}`;
 
 /**
  * "Make a video now": pick a category and subcategory for this one video (default: My channel), optionally a subject,
@@ -246,11 +302,14 @@ export function MakeNow(p: {
   const evergreen = useMemo(() => evergreenIdeas(cat?.id ?? p.niche?.category, cat ? (p.niche?.category === cat.id ? p.niche.focus : []) : p.niche?.focus ?? [], seed), [cat, p.niche, seed]);
   const where = cat ? `${cat.label}${subId ? ` · ${cat.subs.find((x) => x.id === subId)?.label ?? ''}` : ''}` : p.niche ? 'your channel' : 'today\'s top trends';
   return (
-    <form className="card space-y-3" onSubmit={(e) => (e.preventDefault(), p.onMake())}>
-      <p className="label">Make a video now</p>
+    <form className="card space-y-4" onSubmit={(e) => (e.preventDefault(), p.onMake())}>
+      <div className="flex items-center gap-2">
+        <span aria-hidden="true" className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400/25 to-fuchsia-500/25 text-base">✦</span>
+        <p className="font-display text-lg font-semibold">Make a video now</p>
+      </div>
 
       <div className="space-y-1.5">
-        <p className="text-xs text-slate-400">Category for this video</p>
+        <p className="label">Category for this video</p>
         <div className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
           <button type="button" className={chip(!cat)} onClick={() => (p.onPick(''), p.onIdea(null))} aria-pressed={!cat}>{p.niche ? '⭐ My channel' : '🌍 Trending'}</button>
           {CATEGORIES.map((c) => (
@@ -293,7 +352,7 @@ export function MakeNow(p: {
         )
       )}
       <div className="space-y-1.5">
-        <p className="text-xs text-slate-400">Extras for this video <span className="text-slate-500">· pick any, or none</span></p>
+        <p className="label">Extras for this video <span className="normal-case tracking-normal text-slate-500">· pick any, or none</span></p>
         <div className="flex flex-wrap gap-1.5">
           {(Object.keys(EXTRA_LABEL) as Extra[]).map((e) => (
             <button key={e} type="button" className={chip(extras.includes(e))} onClick={() => toggle(e)} aria-pressed={extras.includes(e)} title={EXTRA_LABEL[e][1]}>{EXTRA_LABEL[e][0]}</button>
@@ -303,13 +362,10 @@ export function MakeNow(p: {
       </div>
       <p className="text-xs text-slate-500">{p.subject.trim() ? `${topicHint ? '📚 Topic video: well-known facts about' : 'Uses the latest news about'} "${p.subject.trim().slice(0, 60)}${p.subject.trim().length > 60 ? '…' : ''}"${!topicHint && !p.ideaUrl ? ' (or well-known facts if it\'s not in the news)' : ''}${cat ? `, in the style of ${where}` : p.ideaUrl && p.niche ? ', in the style of your channel' : ', any topic (no need to pick a category)'}.` : `Empty: the app picks the best story from ${where}.`}</p>
 
-      <div className="space-y-2 border-t border-white/10 pt-3">
+      <div className="space-y-2.5 border-t border-white/10 pt-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-slate-200">💡 Ideas <span className="text-xs text-slate-500">· {where}</span></p>
-          <div className="flex gap-1" role="tablist" aria-label="Kind of ideas">
-            <button type="button" role="tab" aria-selected={tab === 'news'} className={chip(tab === 'news')} onClick={() => setTab('news')}>📰 News</button>
-            <button type="button" role="tab" aria-selected={tab === 'evergreen'} className={chip(tab === 'evergreen')} onClick={() => setTab('evergreen')}>🎯 Quiz &amp; facts</button>
-          </div>
+          <p className="text-sm font-medium text-slate-100">💡 Ideas <span className="text-xs text-slate-500">· {where}</span></p>
+          <Seg role="tablist" label="Kind of ideas" value={tab} onChange={setTab} options={[{ id: 'news', label: '📰 News' }, { id: 'evergreen', label: <>🎯 Quiz &amp; facts</> }]} />
         </div>
         {tab === 'news' ? (
           <>
@@ -325,8 +381,8 @@ export function MakeNow(p: {
                   return (
                     <li key={i.url}>
                       <button type="button" onClick={() => p.onIdea(on ? null : i)} aria-pressed={on}
-                        className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition ${on ? 'border-cyan-300/60 bg-cyan-400/10 text-cyan-50' : 'border-white/10 bg-white/[0.03] text-slate-200 hover:border-white/25'}`}>
-                        <span className="mr-1.5 rounded bg-white/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">{i.tag}</span>
+                        className={`tap w-full rounded-xl border px-3 py-2.5 text-left text-sm ${on ? 'border-cyan-300/60 bg-cyan-400/10 text-cyan-50' : 'border-white/10 bg-white/[0.03] text-slate-200 hover:border-white/25'}`}>
+                        <span className="mr-1.5 rounded-md bg-white/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-slate-300">{i.tag}</span>
                         {i.title}
                         {i.site && <span className="text-xs text-slate-500"> · {i.site}</span>}
                       </button>
@@ -349,8 +405,8 @@ export function MakeNow(p: {
                 return (
                   <li key={i.title}>
                     <button type="button" onClick={() => p.onEvergreen?.(i)} aria-pressed={on}
-                      className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition ${on ? 'border-cyan-300/60 bg-cyan-400/10 text-cyan-50' : 'border-white/10 bg-white/[0.03] text-slate-200 hover:border-white/25'}`}>
-                      <span className="mr-1.5 rounded bg-white/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">{i.tag}</span>
+                      className={`tap w-full rounded-xl border px-3 py-2.5 text-left text-sm ${on ? 'border-cyan-300/60 bg-cyan-400/10 text-cyan-50' : 'border-white/10 bg-white/[0.03] text-slate-200 hover:border-white/25'}`}>
+                      <span className="mr-1.5 rounded-md bg-white/10 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-slate-300">{i.tag}</span>
                       {i.title}
                     </button>
                   </li>

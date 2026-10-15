@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, setCode, type Status } from '../lib/api';
-import { Card, Field, Toggle, toast } from '../components/ui';
+import { Card, Field, Skeleton, Toggle, toast } from '../components/ui';
 import { useSettings } from '../lib/useSettings';
 import { PhonePush } from '../components/PhonePush';
 import { isNative, openExternal } from '../lib/native';
@@ -71,11 +71,16 @@ export function Settings() {
   };
 
   if (err) return <p className="card text-red-200">{err}</p>;
-  if (!s || !st) return <p className="text-slate-400"><span className="spinner" /> Loading…</p>;
+  if (!s || !st) return (
+    <div className="mx-auto grid max-w-5xl grid-cols-1 gap-3 lg:grid-cols-2" aria-label="Loading…">
+      {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-36 w-full !rounded-[1.25rem]" />)}
+    </div>
+  );
 
   return (
     <div className="mx-auto grid max-w-5xl grid-cols-1 gap-3 lg:grid-cols-2 lg:items-start">
-      <p className="text-sm text-slate-400 lg:col-span-2">Your niche, voice, captions and effects are in the <b>Videos</b> tab (My channel, Video style &amp; effects). This page is for how the app runs.</p>
+      <h2 className="page-title lg:col-span-2">Settings</h2>
+      <p className="-mt-1 text-sm text-slate-400 lg:col-span-2">Your niche, voice, captions and effects are in the <b>Videos</b> tab (My channel, Video style &amp; effects). This page is for how the app runs.</p>
       <Card title="Schedule" subtitle="Saved right away">
         <Field label="Make videos every day" hint="Off = only when you tap 'Make a video now'.">
           <Toggle on={s.enabled} onChange={(v) => void save({ enabled: v })} label="Make videos every day" />

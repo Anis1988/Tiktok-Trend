@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { CATEGORIES, findCategory, type Niche } from '../lib/niches';
 import { toast } from './ui';
 
-const chip = (on: boolean) =>
-  `rounded-xl border px-3 py-2 text-sm transition active:scale-95 ${on ? 'border-cyan-300/60 bg-cyan-400/15 text-cyan-50' : 'border-white/10 bg-white/5 text-slate-300 hover:border-white/25'}`;
+const chip = (on: boolean) => `chip !min-h-[42px] !text-sm ${on ? 'is-on' : ''}`;
 
 /** "My channel": category -> 1 to 3 subcategories -> your own focus words, and whether big trends may join in. */
 export function NichePicker({ value, onChange }: { value: Niche | null; onChange: (n: Niche | null) => void }) {
@@ -34,7 +33,7 @@ export function NichePicker({ value, onChange }: { value: Niche | null; onChange
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <p className="text-sm text-slate-200">1. Category</p>
+        <p className="text-sm font-medium text-slate-100"><span className="num mr-1 text-cyan-300">1.</span>Category</p>
         <div className="flex flex-wrap gap-2">
           <button type="button" className={chip(!value)} onClick={() => pickCategory(null)} aria-pressed={!value}>🌍 Anything trending</button>
           {CATEGORIES.map((c) => (
@@ -46,7 +45,7 @@ export function NichePicker({ value, onChange }: { value: Niche | null; onChange
       {value && cat && (
         <>
           <div className="space-y-2">
-            <p className="text-sm text-slate-200">2. Subcategories <span className="text-xs text-slate-500">· pick 1 to 3, they take turns</span></p>
+            <p className="text-sm font-medium text-slate-100"><span className="num mr-1 text-cyan-300">2.</span>Subcategories <span className="text-xs text-slate-500">· pick 1 to 3, they take turns</span></p>
             <div className="flex flex-wrap gap-2">
               {cat.subs.map((s) => (
                 <button key={s.id} type="button" className={chip(value.subs.includes(s.id))} onClick={() => toggleSub(s.id)} aria-pressed={value.subs.includes(s.id)}>{value.subs.includes(s.id) ? '✓ ' : ''}{s.label}</button>
@@ -55,7 +54,7 @@ export function NichePicker({ value, onChange }: { value: Niche | null; onChange
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm text-slate-200">3. Focus words <span className="text-xs text-slate-500">· optional, news about these comes first</span></p>
+            <p className="text-sm font-medium text-slate-100"><span className="num mr-1 text-cyan-300">3.</span>Focus words <span className="text-xs text-slate-500">· optional, news about these comes first</span></p>
             <div className="flex gap-2">
               <input className="input w-full" placeholder={cat.id === 'gaming' ? 'e.g. Zelda, GTA 6' : 'e.g. a name, a team, a product'} value={word} maxLength={40} onChange={(e) => setWord(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addWord()} aria-label="Focus word" />
               <button type="button" className="btn shrink-0" onClick={addWord}>Add</button>
@@ -73,12 +72,12 @@ export function NichePicker({ value, onChange }: { value: Niche | null; onChange
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm text-slate-200">4. Big trends</p>
+            <p className="text-sm font-medium text-slate-100"><span className="num mr-1 text-cyan-300">4.</span>Big trends</p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <button type="button" className={`${chip(value.mix === 'niche')} text-left`} onClick={() => onChange({ ...value, mix: 'niche' })} aria-pressed={value.mix === 'niche'}>
+              <button type="button" className={`${chip(value.mix === 'niche')} !flex-col !items-start !py-2.5 text-left`} onClick={() => onChange({ ...value, mix: 'niche' })} aria-pressed={value.mix === 'niche'}>
                 <b className="block">Only my niche</b><span className="text-xs text-slate-400">Best for growing a channel</span>
               </button>
-              <button type="button" className={`${chip(value.mix === 'mix')} text-left`} onClick={() => onChange({ ...value, mix: 'mix' })} aria-pressed={value.mix === 'mix'}>
+              <button type="button" className={`${chip(value.mix === 'mix')} !flex-col !items-start !py-2.5 text-left`} onClick={() => onChange({ ...value, mix: 'mix' })} aria-pressed={value.mix === 'mix'}>
                 <b className="block">Niche + huge trends</b><span className="text-xs text-slate-400">Only when a big trend fits your niche</span>
               </button>
             </div>

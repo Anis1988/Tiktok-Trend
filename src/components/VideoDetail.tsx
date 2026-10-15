@@ -178,11 +178,11 @@ export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, sendTo = 
 
   return (
     <div className="grid gap-4 md:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
-      <div className="mx-auto w-full max-w-[300px]">
+      <div className="mx-auto w-full max-w-[230px] md:max-w-[300px]">
         {hasFile && !example ? (
-          <video className="aspect-[9/16] w-full rounded-2xl border border-white/10 bg-black object-cover" src={fileUrl(v, 'mp4')} poster={fileUrl(v, 'jpg')} controls playsInline preload="metadata" />
+          <video className="aspect-[9/16] w-full rounded-3xl border border-white/10 bg-black object-cover shadow-[0_20px_50px_-15px_rgba(0,0,0,0.9),0_0_40px_-15px_rgba(167,139,250,0.7)]" src={fileUrl(v, 'mp4')} poster={fileUrl(v, 'jpg')} controls playsInline preload="metadata" />
         ) : (
-          <div className="flex aspect-[9/16] w-full items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-b from-indigo-950 to-slate-950 p-6 text-center">
+          <div className="flex aspect-[9/16] w-full items-center justify-center rounded-3xl border border-white/10 bg-gradient-to-b from-indigo-950 to-slate-950 p-6 text-center">
             <p className="font-display text-2xl font-bold uppercase leading-tight [text-shadow:0_2px_8px_#000]">{hasFile ? v.hook : 'No video'}</p>
           </div>
         )}
