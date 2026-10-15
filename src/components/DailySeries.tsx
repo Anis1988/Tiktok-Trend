@@ -17,7 +17,7 @@ export function SeriesView({ v, onChange, onUnuse, onMake, busy }: { v: DailySer
     if (t.length >= 3 && t !== v.subject) set({ subject: t });
   };
   return (
-    <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+    <div className="panel space-y-3">
       <Field label="📅 Daily series" hint="Each daily video: the same subject, a new famous name every time, at least 1 minute.">
         <Toggle on={v.on} onChange={(x) => set({ on: x })} label="Daily series" />
       </Field>
@@ -29,7 +29,7 @@ export function SeriesView({ v, onChange, onUnuse, onMake, busy }: { v: DailySer
               onChange={(e) => setDraft(e.target.value)} onBlur={() => pickSubject(draft)} onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} readOnly={!onChange} />
             <div className="flex flex-wrap gap-1.5">
               {SERIES_PRESETS.map((p) => (
-                <button key={p} type="button" className={`rounded-full border px-2.5 py-1 text-xs ${seriesKey(p) === seriesKey(v.subject) ? 'border-fuchsia-300/60 bg-fuchsia-400/20 text-fuchsia-100' : 'border-white/15 text-slate-300'}`}
+                <button key={p} type="button" aria-pressed={seriesKey(p) === seriesKey(v.subject)} className={`chip !rounded-full ${seriesKey(p) === seriesKey(v.subject) ? 'is-on' : ''}`}
                   onClick={() => pickSubject(p)}>{p.replace(/^Fun facts about /, '')}</button>
               ))}
             </div>

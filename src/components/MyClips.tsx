@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, uploadMedia } from '../lib/api';
 import type { MediaItem } from '../lib/types';
-import { toast } from './ui';
+import { Skeleton, toast } from './ui';
 
 const tagList = (s: string) => [...new Set(s.split(',').map((t) => t.trim().slice(0, 30)).filter(Boolean))].slice(0, 10);
 const mb = (n: number) => `${(n / 1024 / 1024).toFixed(n < 10 * 1024 * 1024 ? 1 : 0)} MB`;
@@ -9,7 +9,7 @@ const mb = (n: number) => `${(n / 1024 / 1024).toFixed(n < 10 * 1024 * 1024 ? 1 
 /** Static preview of a clip (used in the app and, with example data, in the Guide). */
 export function ClipCard({ m, onEdit, onDelete }: { m: MediaItem; onEdit?: () => void; onDelete?: () => void }) {
   return (
-    <li className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-2">
+    <li className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-2">
       <div className="flex h-16 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-black/40 text-lg">
         {m.thumb ? <img src={m.thumb} alt="" className="h-full w-full object-cover" /> : m.kind === 'video' ? '🎬' : '🖼️'}
       </div>
@@ -89,8 +89,8 @@ export function MyClips() {
   return (
     <div className="space-y-3">
       <p className="text-xs text-slate-400">Your own videos and pictures: gameplay you recorded, your manga shelf or figures, your face-cam… When a scene mentions one of a clip's <b>tags</b>, that clip is shown. Only upload things you have the right to use. Short clips (5 to 20 seconds, up to 60 MB) work best.</p>
-      <div className="space-y-2 rounded-xl border border-dashed border-white/15 p-3">
-        <input ref={input} type="file" accept="video/mp4,video/quicktime,video/webm,image/jpeg,image/png,image/webp" className="block w-full text-sm text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-2 file:text-slate-100" onChange={(e) => pickFile(e.target.files?.[0] ?? null)} aria-label="Choose a video or picture" />
+      <div className="space-y-2 rounded-2xl border border-dashed border-cyan-300/25 bg-cyan-400/[0.03] p-3">
+        <input ref={input} type="file" accept="video/mp4,video/quicktime,video/webm,image/jpeg,image/png,image/webp" className="block w-full text-sm text-slate-300 file:mr-3 file:min-h-[40px] file:rounded-xl file:border-0 file:bg-white/10 file:px-3 file:py-2 file:text-slate-100" onChange={(e) => pickFile(e.target.files?.[0] ?? null)} aria-label="Choose a video or picture" />
         {file && (
           <>
             <input className="input w-full" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="Name, e.g. Zelda gameplay" aria-label="Clip name" />
@@ -102,11 +102,11 @@ export function MyClips() {
         )}
       </div>
       {items === null ? (
-        <p className="text-sm text-slate-400"><span className="spinner" /> Loading…</p>
+        <div className="space-y-2" aria-label="Loading…"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div>
       ) : items.length ? (
         <ul className="space-y-2">{items.map((m) => <ClipCard key={m.id} m={m} onEdit={() => void edit(m)} onDelete={() => void remove(m)} />)}</ul>
       ) : (
-        <p className="text-sm text-slate-500">No clips yet.</p>
+        <p className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-3 text-sm text-slate-400"><span aria-hidden="true" className="text-xl">🎞️</span> No clips yet.</p>
       )}
     </div>
   );

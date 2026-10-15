@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { VideoDetail } from '../components/VideoDetail';
-import { MakeNow } from './Videos';
+import { MakeNow, VideoCard } from './Videos';
 import { NichePicker } from '../components/NichePicker';
-import { VideoStyle } from '../components/VideoStyle';
+import { FoldChevron, VideoStyle } from '../components/VideoStyle';
 import { ScriptEditor } from '../components/ScriptEditor';
 import { ClipCard } from '../components/MyClips';
 import { SeriesView } from '../components/DailySeries';
@@ -13,7 +13,7 @@ import type { Niche } from '../lib/niches';
 const EXAMPLE_SERIES = { on: true, subject: 'Fun facts about a famous person', facts: 6, minSeconds: 60 as const, used: { 'fun facts about a famous person': ['Example Star One', 'Example Singer Two', 'Example Athlete Three'] } };
 
 const EXAMPLE_NICHE: Niche = { category: 'gaming', subs: ['nintendo', 'pc'], focus: ['Zelda', 'GTA 6'], mix: 'niche' };
-import { StatusChip } from '../components/ui';
+import { Seg, StatusChip, TabBar, Toggle } from '../components/ui';
 import type { Video } from '../lib/api';
 import type { VideoStatus } from '../lib/types';
 import { STATUS_LABEL } from '../lib/types';
@@ -33,11 +33,11 @@ function Section({ title, children, open: start = false }: { title: string; chil
   const [open, setOpen] = useState(start);
   return (
     <section className="card !p-0">
-      <button className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        <span className="min-w-0 font-display font-semibold">{title}</span>
-        <span aria-hidden="true" className={`text-slate-400 transition ${open ? 'rotate-180' : ''}`}>⌄</span>
+      <button className="tap flex min-h-[56px] w-full items-center justify-between gap-3 rounded-[1.25rem] px-4 py-3.5 text-left" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <span className="min-w-0 font-display text-[16px] font-semibold">{title}</span>
+        <FoldChevron open={open} />
       </button>
-      {open && <div className="space-y-3 border-t border-white/10 px-4 pb-4 pt-3 text-[15px] leading-relaxed text-slate-300">{children}</div>}
+      {open && <div className="fold-in space-y-3 border-t border-white/10 px-4 pb-4 pt-3 text-[15px] leading-relaxed text-slate-300">{children}</div>}
     </section>
   );
 }
@@ -60,7 +60,7 @@ export function Guide() {
   return (
     <div className="mx-auto max-w-4xl space-y-3">
       <div>
-        <h2 className="text-2xl font-semibold">Guide</h2>
+        <h2 className="page-title">Guide</h2>
         <p className="text-sm text-slate-400">How the app works, in plain words. Tap a topic to open it.</p>
       </div>
 
@@ -76,6 +76,31 @@ export function Guide() {
           <li><b>To other platforms (if you want).</b> Approved videos also get a separate Send button for each platform you connected: YouTube Shorts, Facebook Reels and Instagram Reels. See "Other platforms" below.</li>
         </ol>
         <p>Nothing is ever posted without your OK.</p>
+      </Section>
+
+      <Section title="✦ How it looks (Neon Studio)">
+        <p>The app has a dark "Neon Studio" look, made to be used on a phone with one thumb:</p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>Tabs at the bottom.</b> On a phone, Videos, Settings and Guide sit in a floating bar at the bottom of the screen; a glowing pill slides to the tab you are on. On a computer they are at the top.</li>
+          <li><b>Your videos as a feed.</b> Each video is a tall picture with its label at the top (with a sign, not just a colour), the title, the date, and what to do next ("▶ Review", "✎ Check the script"…). Tap it to open the video.</li>
+          <li><b>Videos open in a panel.</b> On a phone the panel slides up from the bottom. Close it with ✕, "← All videos", or by pulling the top bar down.</li>
+          <li><b>Switches and choices</b> slide and give a little bounce when you tap them; an on switch shows ✓. While something loads, grey shapes shimmer where it will appear.</li>
+          <li>If your phone is set to <b>reduce motion</b>, all of the movement stops.</li>
+        </ul>
+        <Example caption="Made-up example; tapping does nothing here.">
+          <div className="space-y-4">
+            <div className="grid max-w-sm grid-cols-2 gap-3">
+              <VideoCard v={EXAMPLE} example />
+              <VideoCard v={{ ...EXAMPLE, id: 'example-2', status: 'script', title: 'Top 5 strongest anime heroes', sizeBytes: 0, durationSec: 0 }} example />
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Toggle on onChange={() => {}} label="Example switch" />
+              <Seg label="Example choice" value="big" onChange={() => {}} options={[{ id: 'medium', label: 'Medium' }, { id: 'big', label: 'Big' }]} className="w-44" />
+              <StatusChip s="sent" />
+            </div>
+            <TabBar tabs={['Videos', 'Settings', 'Guide'] as const} active="Videos" onChange={() => {}} place="demo" />
+          </div>
+        </Example>
       </Section>
 
       <Section title="📅 Daily series (one subject, a new famous name every day)">
