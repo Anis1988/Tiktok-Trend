@@ -2,6 +2,7 @@ import type { VideoRecord, VideoStats } from '../../src/lib/types';
 import { getMeta, listVideos, writeJson } from './store';
 import { youtubeReadToken } from './youtube';
 import { linkTikTok } from './tiktokLink';
+import { videoScore } from '../../src/lib/hooks';
 
 /**
  * "Learn from your results": views and likes of your past videos, so the AI picks topics and hooks like your best ones.
@@ -73,15 +74,8 @@ export async function refreshStats(log: (...a: unknown[]) => void = console.log)
   log(`Updated the numbers of ${fresh.size} videos`);
 }
 
-/** One number to compare videos: the most views on any platform (likes count a bit when there are no views). */
-export function score(v: VideoRecord): number | null {
-  const s = v.stats;
-  if (!s) return null;
-  const views = Math.max(s.tiktok?.views ?? 0, s.youtube?.views ?? 0);
-  const likes = Math.max(s.tiktok?.likes ?? 0, s.youtube?.likes ?? 0, s.instagram?.likes ?? 0);
-  if (!views && !likes) return null;
-  return views || likes * 25;
-}
+/** One number to compare videos (shared with the A/B hooks: src/lib/hooks.ts). */
+export const score = videoScore;
 
 const n = (x: number) => (x >= 1e6 ? `${(x / 1e6).toFixed(1)}M` : x >= 1e3 ? `${(x / 1e3).toFixed(1)}K` : String(Math.round(x)));
 

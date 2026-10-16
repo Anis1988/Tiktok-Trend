@@ -7,6 +7,8 @@ import { ScriptEditor } from '../components/ScriptEditor';
 import { ClipCard } from '../components/MyClips';
 import { AutoPostView, SeriesView } from '../components/DailySeries';
 import { DEFAULT_SETTINGS } from '../lib/types';
+import { HookABPanel } from '../components/HookAB';
+import type { HookAB } from '../lib/hooks';
 import type { Niche } from '../lib/niches';
 
 /* made-up example, only for this guide */
@@ -28,6 +30,16 @@ const EXAMPLE: Video = {
   firstComment: 'Team "stays up" or team "watches it on TikTok tomorrow"? 🌕',
   sources: [{ title: 'Rare blood moon visible tonight', url: 'https://example.com/moon', site: 'Example News' }],
   durationSec: 38, sizeBytes: 1, voice: 'Kokoro af_heart', footage: [{ by: 'Jane Doe', url: 'https://pixabay.com', site: 'Pixabay' }], model: 'claude-opus-5-5',
+};
+
+/* made-up example, only for this guide */
+const EXAMPLE_AB: HookAB = {
+  options: [
+    { style: 'question', text: 'Why is the moon turning red tonight?', keywords: ['red'] },
+    { style: 'claim', text: 'The moon is doing its villain era tonight.', keywords: ['villain era'] },
+  ],
+  chosen: 0, group: 'science',
+  why: 'Your question hooks (science) average 2.3k views vs 1.1k for bold-claim hooks (4 vs 3 videos).',
 };
 
 function Section({ title, children, open: start = false }: { title: string; children: ReactNode; open?: boolean }) {
@@ -69,7 +81,7 @@ export function Guide() {
         <ol className="list-decimal space-y-2 pl-5">
           <li><b>Find a topic.</b> If you set up "My channel" (see below), the app reads today's news for your niche, plus what's trending in that category on YouTube. Otherwise it mixes three free signals of what people care about right now: what they search (Google Trends), what they suddenly read on Wikipedia (articles read at least twice as much as usual, and Wikipedia's "In the news"), and YouTube's trending chart. You can also pick the subject for one video yourself (see "Choosing the subject").</li>
           <li><b>YouTube trending</b> needs YouTube connected in Settings (or a free <code>YOUTUBE_API_KEY</code>, see "Setting it up"); without it, the other sources are used.</li>
-          <li><b>Write the script.</b> Claude picks one good topic and writes a 30 to 60 second script using only facts from the headlines. It tries 3 opening lines and keeps the one most likely to stop someone scrolling, adds a clever line or comparison, and ends with a punchline or a fun question. It also writes the caption and a witty comment for you to pin. No subject is skipped, on daily videos or ones you start (politics and politicians included). Only the legal limits stay: no false claims about real people, no copied lyrics or text, no private people, no hate. When <b>you</b> type or pick the subject, it always makes it.</li>
+          <li><b>Write the script.</b> Claude picks one good topic and writes a 30 to 60 second script using only facts from the headlines. It writes 2 different opening lines (an A/B test, see "A/B hooks") and the app keeps the kind that worked better on your channel, adds a clever line or comparison, and ends with a punchline or a fun question. It also writes the caption and a witty comment for you to pin. No subject is skipped, on daily videos or ones you start (politics and politicians included). Only the legal limits stay: no false claims about real people, no copied lyrics or text, no private people, no hate. When <b>you</b> type or pick the subject, it always makes it.</li>
           <li><b>Make the video.</b> A natural-sounding AI voice (Kokoro) reads the script. Sharp stock clips from Pixabay play behind it with a slow zoom and smooth transitions between them (glides, zooms, soft fades, taken in turn so the video keeps moving). Captions show 1 to 3 words at a time, with the word being spoken in yellow, timed to the real voice (free speech recognition hears when each word is said). The sound is cleaned up and set to TikTok's standard loudness. Full HD vertical video (1080×1920), ready for TikTok.</li>
           <li><b>Email you.</b> You get an email with a link. Watch it, then tap <b>Approve</b> or <b>Reject</b>.</li>
           <li><b>Tell your phone (Android app).</b> With the Android app, you also get a phone notification ("New video to review", "In your TikTok drafts", or "Video failed"). Tapping it opens the video. One-time setup: upload your Firebase key in <b>Settings → Phone notifications</b>.</li>
@@ -222,9 +234,10 @@ export function Guide() {
       <Section title="Check the script first">
         <p>Turn on <b>Check the script first</b> (in Video style &amp; effects) if you want to read the words before a video is made. Each run then only writes the script; you get an email, and the video shows as "Script ready · check it".</p>
         <Example caption="Made-up example; the buttons do nothing here.">
-          <ScriptEditor example v={{ ...EXAMPLE, status: 'script', draft: { lines: EXAMPLE.lines.map((text, i) => ({ text, footage: ['night sky moon', 'telescope stars', 'earth from space', 'cloudy night', 'alarm clock'][i] ?? 'night sky', keywords: i === 0 ? ['villain era'] : [] })) } }} />
+          <ScriptEditor example v={{ ...EXAMPLE, status: 'script', hookAB: { ...EXAMPLE_AB, chosen: 1, why: 'Trying bold-claim hooks this time (1 video in 5 tests the other style), although your question hooks (science) average 2.3k views vs 1.1k for bold-claim hooks.' }, draft: { lines: EXAMPLE.lines.map((text, i) => ({ text, footage: ['night sky moon', 'telescope stars', 'earth from space', 'cloudy night', 'alarm clock'][i] ?? 'night sky', keywords: i === 0 ? ['villain era'] : [] })) } }} />
         </Example>
         <ul className="list-disc space-y-1.5 pl-5">
+          <li>Pick the other of the 2 hooks with <b>Use this one</b> (see "A/B hooks").</li>
           <li>Change any sentence, the hook, the caption or the comment. You can also change the footage search words, the words that pop, the real photo, character or thing to show, the title on screen (like "#3 Levi Ackerman"), and pick one of your clips for a line.</li>
           <li>Tap <b>Build video</b>: the video is made in 3 to 5 minutes and you get the usual email to approve it. Building uses no extra AI.</li>
           <li><b>Discard</b> if you don't like it: no video is made.</li>
@@ -338,6 +351,21 @@ export function Guide() {
         </Example>
       </Section>
 
+      <Section title="A/B hooks (two openings)">
+        <p>The first seconds decide if people keep watching. So for every video the AI writes <b>two different opening lines</b> in the same go (no extra AI cost): for example a question ("Why is the moon turning red tonight?") and a bold claim ("The moon is doing its villain era tonight.").</p>
+        <Example caption="Made-up example with made-up numbers.">
+          <HookABPanel ab={EXAMPLE_AB} />
+        </Example>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li><b>Four kinds of hooks:</b> a question, a bold claim, a surprising number, or a "nobody tells you this" tease (curiosity gap).</li>
+          <li><b>How it picks:</b> it looks at your videos' views (TikTok and YouTube, the same numbers as "Learning from your results") and compares the average views of each kind of hook, first for the same kind of videos (your niche, or your daily series), otherwise all of them. The kind with more views wins.</li>
+          <li><b>It keeps testing:</b> 1 video in 5 uses the other kind anyway, so a kind that was unlucky early on can still win later. Until each kind has at least 2 videos with views, the kinds simply take turns.</li>
+          <li><b>See why:</b> each video shows both hooks, which one was used, and why (like the example above).</li>
+          <li><b>Change it yourself:</b> with "Check the script first" on, tap <b>Use this one</b> on the other hook before you build: the first spoken line, its colour words and the big hook title change with it. Tap Save or Build video to keep it.</li>
+          <li>Older videos made before this have no A/B box; the app guesses their kind of hook from the words (a "?" = question, a number = number…) so their views still count.</li>
+        </ul>
+      </Section>
+
       <Section title="Learning from your results">
         <p>The app learns what works on <b>your</b> channel. Before writing each new script, it tells the AI which of your recent videos did best and worst (their topics, hooks and extras), so new videos lean toward what your viewers like.</p>
         <ul className="list-disc space-y-1.5 pl-5">
@@ -437,6 +465,7 @@ export function Guide() {
       <Section title="What it costs">
         <ul className="list-disc space-y-1 pl-5">
           <li>AI script: about 2 to 5 cents per video from your Anthropic API credit. Capped by "Most AI scripts per day" in Settings.</li>
+          <li>Your <b>My apps</b> page shows this app's AI use (scripts written today, this week and this month, and what they cost), counted from the tokens Anthropic reports. It asks for this app's access code. Days before 16 October 2026 weren't counted.</li>
           <li>Voice (Kokoro, with Piper as a backup), stock clips (Pixabay), video building (GitHub Actions), email (EmailJS), hosting (Netlify): free at this size.</li>
         </ul>
       </Section>

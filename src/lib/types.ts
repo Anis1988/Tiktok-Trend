@@ -1,5 +1,6 @@
 /** Shared between the app, the Netlify functions and the video pipeline (GitHub Actions). */
 import type { Niche } from './niches';
+import type { HookAB } from './hooks';
 
 export type VideoStatus =
   | 'script' // script written, waiting for you to check it before the video is built
@@ -111,6 +112,7 @@ export interface VideoRecord {
   series?: { subject: string; pick: string; minSeconds: number; ok?: boolean }; // 📅 a daily series video: who it is about (ok: passed the series check)
   auto?: { at: string; youtube?: boolean; tiktok?: 'drafts' | 'public'; notes?: string[] }; // 🚀 posted by itself (series auto-post)
   episode?: number; // number in your series ("Daily Tech Drop #14")
+  hookAB?: HookAB; // 🅰️🅱️ the 2 hooks the AI wrote, the one used (chosen) and why; older videos have none
   checks?: string[]; // quality check notes: what was fixed or could be better
   comment?: { text: string; by?: string }; // reply videos: the comment it answers
   /** Other platforms, each with its own Send button (after you approve). */

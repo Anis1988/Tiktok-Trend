@@ -35,6 +35,7 @@ const Post = z.discriminatedUnion('action', [
     action: z.literal('save-script'), id: z.string().max(40), sig: z.string().max(64).optional(),
     title: z.string().trim().min(1).max(80), hook: z.string().trim().min(1).max(120),
     caption: z.string().trim().max(150), firstComment: z.string().trim().max(150), cover: z.string().trim().max(40).optional(),
+    hookChosen: z.number().int().min(0).max(1).optional(), // 🅰️🅱️ which of the 2 AI hooks is used now
     lines: z.array(z.object({
       text: z.string().trim().min(1).max(220), footage: z.string().trim().min(1).max(60), keywords: z.array(z.string().trim().max(30)).max(3),
       real: z.string().trim().max(80).optional(), media: z.string().max(30).optional(),
@@ -136,6 +137,7 @@ export default async (req: Request): Promise<Response> => {
         title: body.title, hook: body.hook, caption: body.caption, firstComment: body.firstComment || undefined,
         cover: body.cover === undefined ? v.cover : body.cover || undefined, // an emptied box removes the cover words
         lines: lines.map((l) => l.text), draft: { lines },
+        hookAB: v.hookAB && body.hookChosen !== undefined && body.hookChosen !== v.hookAB.chosen ? { ...v.hookAB, chosen: body.hookChosen, swapped: !v.hookAB.swapped } : v.hookAB,
       }))!));
     }
     if (body.action === 'build') {

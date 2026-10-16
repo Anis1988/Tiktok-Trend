@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, type Video } from '../lib/api';
 import { STICKERS, type DraftLine, type MediaItem } from '../lib/types';
 import { toast } from './ui';
+import { HookABPanel } from './HookAB';
 
 type Line = DraftLine;
 
@@ -27,6 +28,16 @@ export function ScriptEditor({ v, onChange, example = false }: { v: Video; onCha
   const setLine = (i: number, patch: Partial<Line>) => setLines((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   // The key-word boxes keep exactly what you type (commas, spaces); the words are taken from it when saving.
   const [kw, setKw] = useState<string[]>(() => lines.map((l) => l.keywords.join(', ')));
+  // 🅰️🅱️ Swap to the other AI hook: the first spoken line, its pop words and the hook title change together.
+  const [ab, setAb] = useState(v.hookAB);
+  const swapHook = (i: number) => {
+    const o = ab?.options[i];
+    if (!ab || !o) return;
+    setAb({ ...ab, chosen: i, swapped: i !== v.hookAB?.chosen ? !v.hookAB?.swapped : v.hookAB?.swapped });
+    setHook(o.text);
+    setLine(0, { text: o.text });
+    setKw((k) => k.map((x, j) => (j === 0 ? o.keywords.join(', ') : x)));
+  };
   const save = async (quiet = false) => {
     // Fit everything to what the server accepts, so Save and Build never fail on a long AI line or an emptied box.
     const clean = lines
@@ -44,7 +55,7 @@ export function ScriptEditor({ v, onChange, example = false }: { v: Video; onCha
     const firstLine = clean[0].text;
     const next = await api.saveScript(v.id, v.sig, {
       title: (title.trim() || v.title).slice(0, 80), hook: (hook.trim() || firstLine || v.hook).slice(0, 120),
-      caption: caption.slice(0, 150), firstComment: comment.slice(0, 150), cover: cover.trim().slice(0, 40), lines: clean,
+      caption: caption.slice(0, 150), firstComment: comment.slice(0, 150), cover: cover.trim().slice(0, 40), lines: clean, hookChosen: ab?.chosen,
     });
     onChange?.(next);
     if (!quiet) toast('success', 'Script saved.');
@@ -80,6 +91,7 @@ export function ScriptEditor({ v, onChange, example = false }: { v: Video; onCha
       )}
       <label className="block space-y-1"><span className="label">Title (for you)</span>
         <input className={field} value={title} maxLength={80} disabled={building} onChange={(e) => setTitle(e.target.value)} /></label>
+      {ab && <HookABPanel ab={ab} onSwap={building ? undefined : swapHook} disabled={building || !!busy} />}
       <label className="block space-y-1"><span className="label">Hook (big text at the start)</span>
         <input className={field} value={hook} maxLength={120} disabled={building} onChange={(e) => setHook(e.target.value)} /></label>
       {v.extras?.includes('cover') && (
