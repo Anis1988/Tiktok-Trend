@@ -14,7 +14,9 @@ import { emailReady, sendEmail } from '../netlify/lib/mailer';
 import { LISTY, bingNews, feedNews, findCandidates, nicheCandidates, seriesTrending, subjectNews, type Candidate } from '../netlify/lib/trends';
 import { CATEGORIES, DEFAULT_LOOK, findCategory, subsOf, type Niche } from '../src/lib/niches';
 import { cleanUp } from '../netlify/lib/cleanup';
-import { MODEL, writeScript, type ScriptOut, type SeriesBrief } from './lib/script';
+import { MODEL, writeScript, type AiUsage, type ScriptOut, type SeriesBrief } from './lib/script';
+import { HOOK_INFO, hookGroup, planHooks, type HookAB } from '../src/lib/hooks';
+import { noteAiCall } from '../netlify/lib/aiUse';
 import { refreshStats, resultsNote } from '../netlify/lib/stats';
 import { recapDue, recapScript } from './lib/recap';
 import { kineticClip } from './lib/graphics';
@@ -199,11 +201,24 @@ async function main() {
   const results = resultsNote(await listVideos());
   if (results) log('Using your recent results to guide the script.');
 
+  // 🅰️🅱️ A/B hooks: which 2 hook styles the AI writes, and which one is used (from your past videos' views).
+  const plan = planHooks(await listVideos(), hookGroup({ series: seriesRun, pick: pickRaw, niche: s.niche?.category }));
+  log(`Hooks A/B: ${HOOK_INFO[plan.styles[0]].label} vs ${HOOK_INFO[plan.styles[1]].label} -> ${HOOK_INFO[plan.styles[plan.pick]].label}. ${plan.why}`);
+  // One paid call, counted per day (with its tokens) for the cost on the "My apps" page.
+  const ask = async (...a: Parameters<typeof writeScript>) => {
+    let usage: AiUsage | null = null;
+    try {
+      return await writeScript(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], plan.styles, (u) => (usage = u));
+    } finally {
+      await noteAiCall(MODEL, usage);
+    }
+  };
+
   budget.n++;
   await writeJson('ai', budget);
   // The AI also sees your last month of videos, so it never makes the same story (or the same person) again.
   const avoid = subject ? [] : videos.filter((v) => v.createdAt >= new Date(Date.now() - 30 * 86400_000).toISOString() && v.status !== 'failed').slice(0, 40).map((v) => v.title || v.topic);
-  let sc = await writeScript(candidates, s, extras, !!subject || !!series, results, comment, avoid, series); // your own subject: only legal limits apply
+  let sc = await ask(candidates, s, extras, !!subject || !!series, results, comment, avoid, series); // your own subject: only legal limits apply
   if (series) {
     // At least N facts, long enough, and someone new: otherwise the AI is asked once more (1 more AI check, within the limit).
     let problem = seriesProblem(sc, series);
@@ -212,7 +227,7 @@ async function main() {
       log(`Series script not right (${problem}): asking the AI once more.`);
       budget.n++;
       await writeJson('ai', budget);
-      const again = await writeScript(candidates, s, extras, true, results, comment, avoid, { ...series, retry: `Your last try was rejected: ${problem}. Fix that.` });
+      const again = await ask(candidates, s, extras, true, results, comment, avoid, { ...series, retry: `Your last try was rejected: ${problem}. Fix that.` });
       const p2 = seriesProblem(again, series);
       if (!p2 || seriesWorse(problem, p2)) { sc = again; problem = p2; seriesOk = !p2; }
     }
@@ -230,9 +245,15 @@ async function main() {
   log(`Topic: ${cand.topic} — ${sc.why}`);
 
   const id = `${day()}-${randomBytes(3).toString('hex')}`;
+  const hookAB = hooksOf(sc, plan);
+  if (hookAB && sc.lines[0]) {
+    // The voice starts with the chosen hook (the AI wrote hook A as line 1).
+    const h = hookAB.options[hookAB.chosen];
+    sc.lines[0] = { ...sc.lines[0], text: h.text, keywords: h.keywords };
+  } else log('The AI did not give 2 usable hooks: using its first line.');
   const base: VideoRecord = {
     id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), status: 'failed',
-    topic: cand.topic, title: sc.title.slice(0, 80), hook: sc.hook, lines: sc.lines.map((l) => l.text),
+    topic: cand.topic, title: sc.title.slice(0, 80), hook: (sc.lines[0]?.text ?? sc.title).slice(0, 120), lines: sc.lines.map((l) => l.text),
     caption: sc.caption.slice(0, 150), firstComment: sc.firstComment.slice(0, 150) || undefined, hashtags: sc.hashtags.map((h) => h.replace(/^#/, '').replace(/\s+/g, '')).filter((h) => h && !/^(fyp|foryou|foryoupage|viral|trending)$/i.test(h)).slice(0, 5),
     searchWords: (sc.searchWords ?? []).map((w) => w.trim().slice(0, 50)).filter(Boolean).slice(0, 3),
     sources: sc.sources.map((i) => cand.headlines[i]).filter(Boolean), durationSec: 0, sizeBytes: 0,
@@ -261,6 +282,7 @@ async function main() {
     comment,
     series: series ? { subject: series.subject, pick: sc.seriesPick.trim().slice(0, 100), minSeconds: series.minSeconds, ok: seriesOk } : undefined,
     episode: s.seriesName.trim() ? await nextEpisode() : undefined,
+    hookAB,
   };
   // Reply videos open on the comment itself.
   if (comment && base.draft?.lines[0]) base.draft.lines[0].comment = comment;
@@ -277,6 +299,16 @@ async function main() {
     return;
   }
   await build(base, s);
+}
+
+/** 🅰️🅱️ The 2 hooks from the script, with the one the plan picked. Undefined if the AI didn't give 2 different ones. */
+function hooksOf(sc: ScriptOut, plan: ReturnType<typeof planHooks>): HookAB | undefined {
+  const opts = (sc.hooks ?? []).slice(0, 2).map((h, i) => {
+    const text = h.text.replace(/\s+/g, ' ').trim().slice(0, 120);
+    return { style: plan.styles[i] ?? h.style, text, keywords: (h.keywords ?? []).filter((k) => k.trim() && text.toLowerCase().includes(k.trim().toLowerCase())).slice(0, 3) };
+  });
+  if (opts.length < 2 || !opts[0].text || !opts[1].text || opts[0].text === opts[1].text) return undefined;
+  return { options: opts, chosen: plan.pick, why: plan.why, group: plan.group };
 }
 
 /** 📅 A series video was made: its name goes into "Used so far" (re-read: the app may have changed settings meanwhile). */

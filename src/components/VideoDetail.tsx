@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api, downloadVideo, fileUrl, type Video } from '../lib/api';
 import { StatusChip, toast, when } from './ui';
 import { ScriptEditor } from './ScriptEditor';
+import { HookABPanel } from './HookAB';
 import { EXTRA_LABEL, PLATFORM_INFO, PLATFORMS, VOICE_LABEL, type PlatformId } from '../lib/types';
 
 /** What a YouTube upload became. */
@@ -268,6 +269,7 @@ export function VideoDetail({ v, onChange, onDeleted, tiktokConnected, sendTo = 
             <p className="text-xs text-slate-500">After posting, add this as the first comment and pin it (long-press it → Pin). It gets people replying.</p>
           </div>
         )}
+        {v.hookAB && <HookABPanel ab={v.hookAB} />}
         <div className="panel space-y-1">
           <p className="label">What the voice says</p>
           <ol className="list-decimal space-y-1 pl-5 text-sm text-slate-300">{v.lines.map((l, i) => <li key={i}>{l}</li>)}</ol>
