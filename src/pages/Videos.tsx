@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { pushWidget } from '../lib/widget';
 import { api, fileUrl, sendTargets, type Status, type Video } from '../lib/api';
 import { VideoDetail } from '../components/VideoDetail';
 import { EmptyState, Seg, Sheet, Skeleton, StatusChip, toast, when } from '../components/ui';
@@ -39,10 +40,11 @@ export function Videos() {
   const load = useCallback(async (quick = false) => {
     try {
       // Quick (auto-refresh): only the video list, to keep server calls low.
-      if (quick) return setList(await api.videos());
+      if (quick) { const v = await api.videos(); pushWidget(v); return setList(v); }
       const [v, s] = await Promise.all([api.videos(), api.status()]);
       if (!settingsLoaded.current) api.settings().then((x) => ((settingsLoaded.current = true), setSettings(x)), () => undefined);
       setList(v);
+      pushWidget(v); // 🎬 Android home-screen widget
       setStatus(s);
       setErr('');
     } catch (e) {

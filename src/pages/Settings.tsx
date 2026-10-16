@@ -4,7 +4,7 @@ import { Card, Field, Skeleton, Toggle, toast } from '../components/ui';
 import { useSettings } from '../lib/useSettings';
 import { PhonePush } from '../components/PhonePush';
 import { isNative, openExternal } from '../lib/native';
-import { APP_BUILD, downloadApp, latestApp } from '../components/AppUpdate';
+import { APP_BUILD, installUpdate, latestApp } from '../components/AppUpdate';
 import { SeriesView } from '../components/DailySeries';
 import type { YouTubePrivacy } from '../lib/types';
 
@@ -198,7 +198,7 @@ export function Settings() {
             <button className="btn" onClick={() => void latestApp().then((r) => {
               if (!r) toast('error', 'Could not reach the download page. Try again in a minute.');
               else if (r.build <= APP_BUILD) toast('success', 'You have the latest version.');
-              else void downloadApp(r.url);
+              else void installUpdate(r.url);
             }, () => toast('error', 'Could not reach the download page. Try again in a minute.'))}>Check for updates</button>
           </Field>
         )}

@@ -97,11 +97,12 @@ export function Guide() {
         <p className="text-xs text-slate-500">Example: the banner you see when a new version is ready (made-up numbers).</p>
         <ul className="list-disc space-y-1 pl-5">
           <li><b>Install:</b> on your phone, open the GitHub page <b>Tiktok-Trend → Releases → android-latest</b> and tap <b>TrendVideos.apk</b>. The first time, Android asks to allow installing apps from your browser: allow it once. Then enter your access code.</li>
-          <li><b>Updates:</b> a banner shows at the top of the app. Tap <b>Update</b>, then <b>Install</b>; your data stays. <b>Later</b> hides it until the next version. Or check in <b>Settings → App version</b>.</li>
+          <li><b>Updates:</b> a banner shows at the top of the app. Tap <b>Update</b>: the app downloads the new version itself (a download notification shows its progress) and then opens Android's installer: tap <b>Update</b> (or Install) there; your data stays. The very first time, Android asks you to allow Trend Videos to install updates: switch it on, come back and tap Update again. If that doesn't work on your phone, the download opens in your browser instead: tap the downloaded file. <b>Later</b> hides it until the next version. Or check in <b>Settings → App version</b>.</li>
           <li><b>Download</b> on a video opens the phone's Share menu: save it to the phone, or send it straight to TikTok, WhatsApp…</li>
           <li><b>Connect TikTok / YouTube / Facebook</b> opens the phone's browser for the login, then come back to the app.</li>
           <li><b>Phone notifications:</b> turn on <b>Settings → Phone notifications</b> in the app. Tapping "New video to review" opens that video.</li>
           <li><b>One-time Firebase setup</b> (Google's free notification service, the same project as your Trading app): in Firebase, add an <b>Android</b> app named <b>app.tiktoktrend</b> and give the new <b>google-services.json</b> to Claude (it is not a password). Then upload your Firebase <b>private key</b> file in <b>Settings → Phone notifications</b> on the website (never send that one to anyone).</li>
+          <li><b>🎬 Home-screen widget:</b> long-press your home screen → Widgets → <b>Trend Videos</b>. It shows how many videos are waiting for you, your newest video's title and what it's at ("Waiting for you", "In your TikTok drafts"…), and today's series name. It updates each time the app refreshes your video list (open the app to update it). Tap it to open the app.</li>
           <li>The phone's back button closes an open video first, then goes back to Videos, then closes the app.</li>
         </ul>
       </Section>

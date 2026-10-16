@@ -4,4 +4,5 @@
     <string name="title_activity_main">Trend Videos</string>
     <string name="package_name">app.tiktoktrend</string>
     <string name="custom_url_scheme">app.tiktoktrend</string>
+    <string name="widget_description">Videos waiting for you, your newest video and today's series</string>
 </resources>
