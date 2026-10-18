@@ -134,7 +134,7 @@ export function Guide() {
           <li><b>YouTube:</b> posted publicly as a Short. If your Google app isn’t verified yet, Google keeps it Private; the app tells you.</li>
           <li><b>TikTok “To drafts”:</b> sent to your TikTok drafts by itself; open TikTok and tap Post (that’s TikTok’s rule for this app today).</li>
           <li><b>TikTok “Post it” 🔒:</b> opens once TikTok approves “Direct Post” for your app. Until TikTok audits the app, those posts are visible only to you.</li>
-          <li><b>Safety:</b> only series videos that passed every check (facts, a new name, long enough). Anything not right waits for you as usual, with the reason. At most 1 a day on each.</li>
+          <li><b>Safety:</b> only series videos that passed every check (facts, a new name, long enough). Anything not right waits for you as usual, with the reason. At most as many a day on each as your "Videos per day".</li>
           <li><b>You’re told:</b> a phone notification and an email with the links. On the video: “🚀 Posted by itself” and <b>Remove from YouTube</b> (opens YouTube Studio: ⋮ → Delete).</li>
         </ul>
         <Example caption="Made-up example; tapping does nothing here.">
