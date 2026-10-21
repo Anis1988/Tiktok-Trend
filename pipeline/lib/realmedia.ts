@@ -52,11 +52,13 @@ interface CommonsInfo {
 }
 type Pages = { query?: { pages?: Record<string, { title?: string; missing?: string; imageinfo?: CommonsInfo[]; pageimage?: string; pageprops?: { wikibase_item?: string } }> } };
 
-/** Picks a usable Commons file (free licence, big enough, photo-like) and returns it with its credit. */
-export function pickCommons(pages: Pages, mustContain: string[] = []): { url: string; credit: string; page: string; by: string } | null {
+/** Picks a usable Commons file (free licence, big enough, photo-like, not used yet in this video) and returns it with its credit. */
+export function pickCommons(pages: Pages, mustContain: string[] = [], used?: Set<string>): { url: string; credit: string; page: string; by: string; key: string } | null {
   for (const p of Object.values(pages.query?.pages ?? {})) {
     const ii = p.imageinfo?.[0];
     if (!ii || p.missing !== undefined) continue;
+    const key = `commons:${p.title ?? ii.url}`;
+    if (used?.has(key)) continue;
     if (!/^image\/(jpeg|png|webp)$/.test(ii.mime) || ii.width < 700 || ii.height < 500) continue;
     const title = (p.title ?? '').toLowerCase();
     if (mustContain.some((w) => !title.includes(w))) continue;
@@ -64,7 +66,7 @@ export function pickCommons(pages: Pages, mustContain: string[] = []): { url: st
     const licence = strip(meta.LicenseShortName?.value) || strip(meta.UsageTerms?.value);
     if (!freeLicence(licence)) continue;
     const by = (strip(meta.Artist?.value) || 'Unknown').slice(0, 40);
-    return { url: ii.thumburl ?? ii.url, credit: `Photo: ${by} · ${licence} · Wikimedia Commons`, page: ii.descriptionurl ?? ii.url, by };
+    return { url: ii.thumburl ?? ii.url, credit: `Photo: ${by} · ${licence} · Wikimedia Commons`, page: ii.descriptionurl ?? ii.url, by, key };
   }
   return null;
 }
@@ -72,26 +74,30 @@ export function pickCommons(pages: Pages, mustContain: string[] = []): { url: st
 const commonsInfo = (q: string) =>
   `https://commons.wikimedia.org/w/api.php?action=query&format=json&prop=imageinfo&iiprop=url|extmetadata|size|mime&iiurlwidth=1600&${q}`;
 
-/** The main photo of the matching Wikipedia article, if it is a free file on Commons; else a Commons search. */
-async function wikimedia(query: string, out: string): Promise<RealMedia | null> {
+/**
+ * The main photo of the matching Wikipedia article, if it is a free file on Commons; else a Commons search.
+ * Never a photo already used in this video: the next lines about the same person get other photos of them.
+ */
+async function wikimedia(query: string, out: string, used?: Set<string>): Promise<RealMedia | null> {
   const wiki = await getJson<Pages>(`https://en.wikipedia.org/w/api.php?action=query&format=json&redirects=1&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=1&prop=pageimages|pageprops&piprop=name&ppprop=wikibase_item`);
   const page = Object.values(wiki.query?.pages ?? {})[0];
   const name = page?.pageimage;
-  let found = name ? pickCommons(await getJson<Pages>(commonsInfo(`titles=${encodeURIComponent(`File:${name}`)}`))) : null;
+  let found = name ? pickCommons(await getJson<Pages>(commonsInfo(`titles=${encodeURIComponent(`File:${name}`)}`)), [], used) : null;
   if (!found && page?.pageprops?.wikibase_item) {
     // The article's main photo is not free (common for famous people): Wikidata's "image" is always a free Commons file.
     const claims = await getJson<{ claims?: { P18?: { mainsnak?: { datavalue?: { value?: string } } }[] } }>(
       `https://www.wikidata.org/w/api.php?action=wbgetclaims&format=json&property=P18&entity=${encodeURIComponent(page.pageprops.wikibase_item)}`,
     ).catch(() => ({}) as { claims?: undefined });
     const file = claims.claims?.P18?.[0]?.mainsnak?.datavalue?.value;
-    if (file) found = pickCommons(await getJson<Pages>(commonsInfo(`titles=${encodeURIComponent(`File:${file}`)}`)));
+    if (file) found = pickCommons(await getJson<Pages>(commonsInfo(`titles=${encodeURIComponent(`File:${file}`)}`)), [], used);
   }
   if (!found) {
     // Commons search: only files whose name contains every word of the query (so it is really about it).
     const words = query.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
-    found = pickCommons(await getJson<Pages>(commonsInfo(`generator=search&gsrnamespace=6&gsrlimit=10&gsrsearch=${encodeURIComponent(`${query} filetype:bitmap`)}`)), words);
+    found = pickCommons(await getJson<Pages>(commonsInfo(`generator=search&gsrnamespace=6&gsrlimit=30&gsrsearch=${encodeURIComponent(`${query} filetype:bitmap`)}`)), words, used);
   }
   if (!found || !(await download(found.url, out))) return null;
+  used?.add(found.key);
   return { kind: 'image', path: out, credit: found.credit, url: found.page, site: 'Wikimedia', by: found.by };
 }
 
@@ -146,14 +152,15 @@ export async function openverse(query: string, out: string, mustContain: string[
 
 const SPACE = /\b(nasa|space|rocket|launch|moon|lunar|mars|jupiter|saturn|venus|mercury|planet|galaxy|nebula|star|sun|solar|eclipse|comet|asteroid|meteor|telescope|webb|hubble|astronaut|iss|space station|artemis|orbit|aurora|hurricane|earth from)\b/i;
 
-/** A real photo or clip of `query`, or null. Space and science: NASA first. Then Wikimedia, then Openverse. */
-export async function findReal(query: string, outBase: string): Promise<RealMedia | null> {
+/** A real photo or clip of `query`, or null. Space and science: NASA first. Then Wikimedia, then Openverse. `used`: never the same photo twice in one video. */
+export async function findReal(query: string, outBase: string, used?: Set<string>): Promise<RealMedia | null> {
   const q = query.trim().slice(0, 80);
   if (!q) return null;
   // Openverse only with every word of the name in the photo's title, so it is really that person or place.
   const words = q.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
-  const ov = (x: string, out: string) => openverse(x, out, words);
-  const order = SPACE.test(q) ? [nasa, wikimedia, ov] : [wikimedia, ov]; // NASA only for space and science topics
+  const ov = (x: string, out: string) => openverse(x, out, words, used);
+  const wm = (x: string, out: string) => wikimedia(x, out, used);
+  const order = SPACE.test(q) ? [nasa, wm, ov] : [wm, ov]; // NASA only for space and science topics
   for (const source of order) {
     try {
       const r = source === nasa ? await nasa(q, outBase) : await source(q, `${outBase}.jpg`);
