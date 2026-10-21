@@ -437,7 +437,9 @@ async function build(base: VideoRecord, s: AppSettings) {
   const dir = `out/${id}`;
   await mkdir(dir, { recursive: true });
   try {
-    const used = new Set<string>();
+    // Photos already shown in earlier videos are never shown again (stock clips may come back).
+    const pastPhotos = await readJson<string[]>('usedPhotos', []).catch(() => [] as string[]);
+    const used = new Set<string>(pastPhotos);
     const scenes: Scene[] = [];
     const credits: Credit[] = [];
     const checks: string[] = [];
@@ -500,6 +502,8 @@ async function build(base: VideoRecord, s: AppSettings) {
     };
     await saveVideo(rec);
     log(`Saved ${id}`);
+    const newPhotos = [...used].filter((k) => PHOTO_KEY.test(k) && !pastPhotos.includes(k));
+    if (newPhotos.length) await writeJson('usedPhotos', [...pastPhotos, ...newPhotos].slice(-5000)).catch((e) => log('Used photos not saved:', e instanceof Error ? e.message : e));
     if (rec.series) await markSeriesUsed(rec.series.subject, rec.series.pick);
     if (rec.episode) await writeJson('episode', Math.max(rec.episode, await readJson<number>('episode', 0)));
     if (process.env.SAVE_COPY_DIR) {
@@ -518,6 +522,9 @@ async function build(base: VideoRecord, s: AppSettings) {
     if (!process.env.KEEP_OUT) await rm(dir, { recursive: true, force: true });
   }
 }
+
+/** Photo keys kept across videos (Wikimedia, Openverse, Pixabay and Pexels photos). */
+const PHOTO_KEY = /^(commons|openverse|pixabay-photo|pexels-photo):/;
 
 /** RENDER_ID: build the video for a script you checked in the app (no AI call). */
 async function buildChecked(id: string, saved: AppSettings) {
