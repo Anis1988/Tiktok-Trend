@@ -437,7 +437,9 @@ async function build(base: VideoRecord, s: AppSettings) {
   const dir = `out/${id}`;
   await mkdir(dir, { recursive: true });
   try {
-    const used = new Set<string>();
+    // Photos already shown in earlier videos are never shown again (stock clips may come back).
+    const pastPhotos = await readJson<string[]>('usedPhotos', []).catch(() => [] as string[]);
+    const used = new Set<string>(pastPhotos);
     const scenes: Scene[] = [];
     const credits: Credit[] = [];
     const checks: string[] = [];
@@ -500,6 +502,8 @@ async function build(base: VideoRecord, s: AppSettings) {
     };
     await saveVideo(rec);
     log(`Saved ${id}`);
+    const newPhotos = [...used].filter((k) => PHOTO_KEY.test(k) && !pastPhotos.includes(k));
+    if (newPhotos.length) await writeJson('usedPhotos', [...pastPhotos, ...newPhotos].slice(-5000)).catch((e) => log('Used photos not saved:', e instanceof Error ? e.message : e));
     if (rec.series) await markSeriesUsed(rec.series.subject, rec.series.pick);
     if (rec.episode) await writeJson('episode', Math.max(rec.episode, await readJson<number>('episode', 0)));
     if (process.env.SAVE_COPY_DIR) {
@@ -519,6 +523,9 @@ async function build(base: VideoRecord, s: AppSettings) {
   }
 }
 
+/** Photo keys kept across videos (Wikimedia, Openverse, Pixabay and Pexels photos). */
+const PHOTO_KEY = /^(commons|openverse|pixabay-photo|pexels-photo):/;
+
 /** RENDER_ID: build the video for a script you checked in the app (no AI call). */
 async function buildChecked(id: string, saved: AppSettings) {
   const rec = (await listVideos()).find((v) => v.id === id);
@@ -531,7 +538,7 @@ async function buildChecked(id: string, saved: AppSettings) {
 
 /**
  * 🚀 Series auto-post (owner's choice, Settings → Daily series): a series video that passed every check is posted by
- * itself, at most 1 a day per platform: YouTube public, TikTok to your drafts (or posted, once TikTok approved Direct
+ * itself, at most "Videos per day" a day per platform: YouTube public, TikTok to your drafts (or posted, once TikTok approved Direct
  * Post). Anything not right (series check, too short, quality notes about length, already 1 today, not connected): it
  * waits for you as usual. Returns true when it handled the video (and told you), false to fall back to the review email.
  */
@@ -549,10 +556,11 @@ async function autoPost(rec: VideoRecord, s: AppSettings): Promise<boolean> {
   let tiktok: 'off' | 'drafts' | 'public' = ap.tiktok;
   if (tiktok === 'public' && !canPublish(tt?.scope)) { tiktok = 'drafts'; notes.push('TikTok hasn’t approved Direct Post yet, so it went to your drafts.'); }
   if (tiktok !== 'off' && !tt) { tiktok = 'off'; notes.push('TikTok isn’t connected.'); }
-  if (tiktok !== 'off' && doneToday.some((v) => v.auto?.tiktok)) { tiktok = 'off'; notes.push('Already 1 automatic TikTok today.'); }
+  const max = Math.max(1, s.perDay || 1); // as many a day as "Videos per day"
+  if (tiktok !== 'off' && doneToday.filter((v) => v.auto?.tiktok).length >= max) { tiktok = 'off'; notes.push(`Already ${max} automatic TikTok today.`); }
   let youtube = ap.youtube;
   if (youtube && !yt) { youtube = false; notes.push('YouTube isn’t connected.'); }
-  if (youtube && doneToday.some((v) => v.auto?.youtube)) { youtube = false; notes.push('Already 1 automatic YouTube video today.'); }
+  if (youtube && doneToday.filter((v) => v.auto?.youtube).length >= max) { youtube = false; notes.push(`Already ${max} automatic YouTube today.`); }
   if (why.length || (tiktok === 'off' && !youtube)) {
     log(`Auto-post skipped: ${[...why, ...notes].join('; ') || 'nothing to post to'}`);
     await patchVideo(rec.id, { checks: [...(rec.checks ?? []), `Not posted automatically: ${[...why, ...notes].join('; ') || 'nothing to post to'}. Approve it yourself.`] });

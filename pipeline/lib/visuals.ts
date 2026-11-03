@@ -35,7 +35,7 @@ const fail = (what: string) => (e: unknown) => (console.log(`${what} failed:`, e
 /** A still picture of a named thing (for "This or that"): a real photo, else a photo of the object. */
 async function stillOf(name: string, out: string, o: { real: boolean; used: Set<string>; credits: Credit[] }): Promise<string | null> {
   if (o.real) {
-    const r = await findReal(name, out.replace(/\.jpg$/, '')).catch(() => null);
+    const r = await findReal(name, out.replace(/\.jpg$/, ''), o.used).catch(() => null);
     if (r?.kind === 'image') return (o.credits.push({ by: r.by, url: r.url, site: r.site }), r.path);
     if (r?.kind === 'video') {
       // A clip (NASA): take one frame from it.
@@ -105,7 +105,7 @@ export async function visualFor(
     console.log(`Scene ${i + 1}: no picture found for character "${l.character}"`);
   }
   if (o.real && l.real?.trim()) {
-    const r = await findReal(l.real, `${dir}/real${i}`);
+    const r = await findReal(l.real, `${dir}/real${i}`, o.used);
     if (r) {
       o.credits.push({ by: r.by, url: r.url, site: r.site });
       return r.kind === 'image' ? { clip: null, image: r.path, credit: r.credit, kind: 'real' } : { clip: r.path, credit: r.credit, kind: 'real' };

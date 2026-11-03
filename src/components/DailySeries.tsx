@@ -74,7 +74,7 @@ export function SeriesView({ v, onChange, onUnuse, onMake, busy, links }: { v: D
 
 /**
  * 🚀 Post series videos by themselves (owner's choice): YouTube public, TikTok to drafts or (once TikTok approved
- * Direct Post) posted. Only series videos that passed every check, at most 1 a day per platform; you get a message.
+ * Direct Post) posted. Only series videos that passed every check, at most "Videos per day" a day per platform; you get a message.
  */
 export function AutoPostView({ a, links, onChange }: { a: AutoPost; links?: { tiktok: boolean; youtube: boolean; canPublish: boolean }; onChange?: (a: AutoPost) => void }) {
   const on = a.youtube || a.tiktok !== 'off';
@@ -83,7 +83,7 @@ export function AutoPostView({ a, links, onChange }: { a: AutoPost; links?: { ti
     <div className={`space-y-2.5 rounded-xl border p-3 ${on ? 'border-fuchsia-300/40 bg-fuchsia-500/[0.06]' : 'border-white/10 bg-black/20'}`}>
       <div>
         <p className="text-sm font-semibold text-slate-100">🚀 Post by itself</p>
-        <p className="text-xs text-slate-400">Series videos only, without waiting for you, when every check passed. At most 1 a day on each. You get a message with the links.</p>
+        <p className="text-xs text-slate-400">Series videos only, without waiting for you, when every check passed. At most as many a day on each as your "Videos per day". You get a message with the links.</p>
       </div>
       <Field label="YouTube" hint={links && !links.youtube ? 'Connect YouTube first (Settings → YouTube).' : 'Posted publicly as a Short.'}>
         <Toggle on={a.youtube} onChange={(x) => set({ youtube: x })} label="Post to YouTube by itself" />
