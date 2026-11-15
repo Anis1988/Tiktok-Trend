@@ -431,11 +431,14 @@ export function Guide() {
       </Section>
 
       <Section title="Auto clean-up (saving space)">
-        <p>Each video file is about 20 to 50 MB. To keep storage and Netlify use low, the app can delete the <b>video file</b> of finished videos (posted, rejected, failed or already in your TikTok drafts) after a number of days. The text stays: title, script, caption, comment and sources.</p>
+        <p>Each video file is about 20 to 50 MB. To keep storage and Netlify use low, the app can delete old videos <b>for good</b> after a number of days: the video, its picture and its text (title, script, caption, sources), so it disappears from your list.</p>
         <ul className="list-disc space-y-1.5 pl-5">
           <li>Change it in <b>Settings → Auto clean-up</b>: on or off, and after 7, 14, 30 (default), 60 or 90 days.</li>
-          <li>Videos waiting for you or approved (not yet posted) are never deleted.</li>
-          <li>It runs during the daily video job on GitHub, so it costs nothing.</li>
+          <li><b>Every</b> video older than that is deleted, whatever its status: posted, sent, approved, waiting for you, rejected or failed.</li>
+          <li>Only a video being made or sent at that very moment waits for the next clean-up.</li>
+          <li>Posts already on TikTok, YouTube, Facebook or Instagram stay there: only the copy in this app is deleted.</li>
+          <li>Deleted videos no longer count when the app learns which hook style gets more views (A/B hooks).</li>
+          <li>It runs every 2 hours and during the video jobs on GitHub, so it costs nothing. It doesn't run while the app is paused (⏸).</li>
         </ul>
       </Section>
 
