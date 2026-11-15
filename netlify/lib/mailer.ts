@@ -1,9 +1,12 @@
+import { assertNotPaused } from './pause';
+
 /** EmailJS over REST (same account and template as the trading app). Needs the private key for server use. */
 export const emailReady = () =>
   !!(process.env.EMAILJS_SERVICE_ID && process.env.EMAILJS_TEMPLATE_ID && process.env.EMAILJS_USER_ID && process.env.EMAILJS_PRIVATE_KEY);
 
 export async function sendEmail(to: string, subject: string, text: string): Promise<void> {
   if (!emailReady()) throw new Error('Email needs EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_USER_ID and EMAILJS_PRIVATE_KEY.');
+  await assertNotPaused('Sending email'); // ⏸ no email while paused
   const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

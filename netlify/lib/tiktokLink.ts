@@ -1,6 +1,7 @@
 import type { VideoRecord } from '../../src/lib/types';
 import { getTikTok, listVideos, writeJson } from './store';
 import { canList, myTikToks, type MyTikTok } from './tiktok';
+import { isPaused } from './pause';
 
 /**
  * 🔗 After you post a video from your TikTok drafts, find that post (by its caption, posted after the video was sent)
@@ -23,6 +24,7 @@ export function matchScore(v: Pick<VideoRecord, 'caption' | 'hashtags'>, p: Pick
 export const MATCH = 0.6;
 
 export async function linkTikTok(log: (...a: unknown[]) => void = console.log, opts: { only?: string } = {}): Promise<{ linked: number; updated: number; reason?: string }> {
+  if (await isPaused()) return { linked: 0, updated: 0, reason: 'The app is paused (⏸): press Resume first.' };
   const auth = await getTikTok();
   if (!auth) return { linked: 0, updated: 0, reason: 'TikTok is not connected.' };
   if (!canList(auth.scope)) return { linked: 0, updated: 0, reason: 'Connect TikTok again in Settings so the app may see your posts (one time).' };

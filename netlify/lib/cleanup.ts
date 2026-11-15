@@ -1,33 +1,34 @@
-import type { AppSettings } from '../../src/lib/types';
+import type { AppSettings, VideoRecord } from '../../src/lib/types';
 import { listVideos, store, writeJson } from './store';
 
-/** Finished videos: their files can go once they are old enough. Waiting or approved videos are never touched. */
-const FINISHED = new Set(['posted', 'rejected', 'failed', 'sent']);
-
 /**
- * Auto clean-up (Settings): deletes the video file and thumbnail of finished videos older than `days`, and any
- * file no longer in the list. The text (script, caption, sources) stays. Runs in the GitHub job, not on Netlify.
+ * Auto clean-up (Settings, owner's choice): every video older than `days` is deleted for good, whatever its status
+ * (waiting, approved, posted…): its entry in the list, the video file and the thumbnail. The only ones left alone are
+ * videos being built or sent at this very moment (they are deleted on a later run). Also removes any file no longer in
+ * the list. Runs in the GitHub jobs and every 2 hours on Netlify (tiktok-link): quick, no AI, free.
  */
+const BUSY_MS = 20 * 60_000;
+const busy = (v: VideoRecord, now: number) =>
+  ((v.status === 'building' || v.status === 'publishing') && now - Date.parse(v.updatedAt) < BUSY_MS) ||
+  Object.values(v.platforms ?? {}).some((x) => x?.state === 'sending' && now - Date.parse(x.at) < 15 * 60_000);
+
 export async function cleanUp(s: AppSettings, log: (...a: unknown[]) => void): Promise<void> {
   if (!s.cleanup?.enabled) return;
-  const cutoff = Date.now() - s.cleanup.days * 86400_000;
+  const now = Date.now();
+  const cutoff = now - s.cleanup.days * 86400_000;
   const files = store('tt-files');
   const videos = await listVideos();
-  let removed = 0;
-  const gone = new Map<string, string>(); // id -> time its file was removed
-  for (const v of videos) {
-    if (!FINISHED.has(v.status) || v.fileRemovedAt || Date.parse(v.createdAt) > cutoff) continue;
-    if (Object.values(v.platforms ?? {}).some((x) => x?.state === 'sending')) continue; // being sent to YouTube / Facebook / Instagram
-    await Promise.all([files.delete(`${v.id}.mp4`), files.delete(`${v.id}.jpg`)]);
-    gone.set(v.id, new Date().toISOString());
-    removed++;
+  const old = videos.filter((v) => Date.parse(v.createdAt) < cutoff && !busy(v, now));
+  const ids = new Set(old.map((v) => v.id));
+  if (ids.size) {
+    // The list first (re-read just before writing, so a change made meanwhile is kept), then the files.
+    await writeJson('videos', (await listVideos()).filter((v) => !ids.has(v.id)));
+    await Promise.all(old.flatMap((v) => [files.delete(`${v.id}.mp4`), files.delete(`${v.id}.jpg`)]));
   }
-  // Re-read just before writing: an approve, reject or send that happened meanwhile is kept.
-  if (gone.size) await writeJson('videos', (await listVideos()).map((v) => (gone.has(v.id) ? { ...v, fileRemovedAt: gone.get(v.id), sizeBytes: 0 } : v)));
-  // Files of videos that dropped off the list (it keeps the latest 200).
-  const known = new Set(videos.map((v) => v.id));
+  // Files of videos that are no longer in the list (deleted, or dropped off the latest 200).
+  const known = new Set((await listVideos()).map((v) => v.id));
   const { blobs } = await files.list();
   const orphans = blobs.map((b) => b.key).filter((k) => !known.has(k.replace(/\.(mp4|jpg)$/, '')));
   await Promise.all(orphans.map((k) => files.delete(k)));
-  if (removed || orphans.length) log(`Clean-up: removed ${removed} old video file(s)${orphans.length ? ` and ${orphans.length} leftover file(s)` : ''}.`);
+  if (ids.size || orphans.length) log(`Clean-up: deleted ${ids.size} video(s) older than ${s.cleanup.days} days${orphans.length ? ` and ${orphans.length} leftover file(s)` : ''}.`);
 }

@@ -1,6 +1,7 @@
 import { json, rateLimited } from '../lib/guard';
 import { getSettings, listVideos, readJson } from '../lib/store';
 import { EST_PER_CALL, type AiDays } from '../lib/aiUse';
+import { getPause } from '../lib/pause';
 import type { VideoRecord } from '../../src/lib/types';
 
 export const config = { path: '/api/summary' };
@@ -41,11 +42,12 @@ export default async (req: Request): Promise<Response> => {
   const limited = rateLimited(req, 'summary', 20);
   if (limited) return new Response(limited.body, { status: limited.status, headers: { ...Object.fromEntries(limited.headers), ...h } });
 
-  const [videos, settings, days, today] = await Promise.all([listVideos(), getSettings(), readJson<AiDays>('aiDays', {}), readJson<{ day: string; n: number }>('ai', { day: '', n: 0 })]);
+  const [videos, settings, days, today, pause] = await Promise.all([listVideos(), getSettings(), readJson<AiDays>('aiDays', {}), readJson<{ day: string; n: number }>('ai', { day: '', n: 0 }), getPause()]);
   const now = Date.now();
   const day = new Date(now).toISOString().slice(0, 10);
   const lines: { icon: string; text: string; tone: 'good' | 'warn' | 'info' }[] = [];
 
+  if (pause.on) lines.push({ icon: '⏸', text: 'PAUSED: no AI, emails, posting or scheduled videos', tone: 'warn' });
   const waiting = videos.filter((v) => v.status === 'pending' || v.status === 'script');
   const scripts = waiting.filter((v) => v.status === 'script').length;
   lines.push(waiting.length
@@ -76,6 +78,7 @@ export default async (req: Request): Promise<Response> => {
   const estimate = extraToday > 0 || Object.entries(days).some(([d, r]) => d >= (weekFrom < monthFrom ? weekFrom : monthFrom) && r.est > 0);
   return json({
     app: 'trend-videos',
+    paused: pause.on,
     lines: lines.slice(0, 3),
     ai: {
       today: sum(day),

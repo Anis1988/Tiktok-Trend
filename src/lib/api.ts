@@ -210,3 +210,8 @@ export const fileUrl = (v: { id: string; sig: string; sizeBytes?: number }, kind
 /** Which platforms have a Send button, from the connections in /api/status. */
 export const sendTargets = (st: Status | null): PlatformId[] =>
   !st ? [] : [...(st.youtube?.connected ? ['youtube' as const] : []), ...(st.meta?.connected ? ['facebook' as const] : []), ...(st.meta?.connected && st.meta.instagram ? ['instagram' as const] : [])];
+
+/** ⏸ Pause everything (big red button at the top). */
+export interface PauseState { on: boolean; at?: string; cancelled?: number }
+export const getPause = () => call<PauseState>('/api/pause');
+export const setPause = (on: boolean) => post<PauseState>('/api/pause', { on });

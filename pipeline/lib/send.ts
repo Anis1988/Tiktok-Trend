@@ -9,11 +9,13 @@ import { uploadToYouTube, youtubeStatus } from '../../netlify/lib/youtube';
 import { postToInstagram, sendToFacebook } from '../../netlify/lib/meta';
 import type { PlatformId, VideoRecord, YouTubePrivacy } from '../../src/lib/types';
 import { fcmAll } from '../../netlify/lib/fcm';
+import { assertNotPaused } from '../../netlify/lib/pause';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** TikTok: `drafts` = your inbox (you post it from the TikTok app); `public` = Direct Post (needs video.publish). */
 export async function sendTikTok(v: VideoRecord, mode: 'drafts' | 'public' = 'drafts', opts: { quiet?: boolean } = {}): Promise<void> {
+  await assertNotPaused('Sending to TikTok'); // ⏸
   const id = v.id;
   // Already sent (e.g. Approve tapped twice): never send a second copy.
   if (v.status === 'sent' || v.tiktok?.sentAt) return console.log('Already sent to TikTok drafts.');
@@ -57,6 +59,7 @@ export async function sendTikTok(v: VideoRecord, mode: 'drafts' | 'public' = 'dr
 export async function sendOther(v: VideoRecord, p: PlatformId, want?: YouTubePrivacy) {
   if (!['youtube', 'facebook', 'instagram'].includes(p)) throw new Error(`Unknown platform ${p}.`);
   try {
+    await assertNotPaused(`Sending to ${p}`); // ⏸
     if (v.status === 'pending' || v.status === 'rejected' || v.status === 'script' || v.status === 'building') throw new Error('The video is not approved.');
     if (v.platforms?.[p]?.state === 'sent') return console.log(`Already sent to ${p}.`);
     const data = await store('tt-files').get(`${v.id}.mp4`, { type: 'arrayBuffer' });

@@ -231,7 +231,7 @@ export interface AppSettings {
   voice: VoiceId;
   tone: Tone;
   music: boolean; // soft background music under the voice (off: add a TikTok sound when posting)
-  cleanup: { enabled: boolean; days: number }; // delete video files of finished videos after this many days
+  cleanup: { enabled: boolean; days: number }; // delete every video (entry + files) older than this many days
   effects: VideoEffects;
   captionStyle: { color: CaptionColor; size: 'medium' | 'big' };
   endCardName: string; // shown on the end card, e.g. "@yourname" (optional)

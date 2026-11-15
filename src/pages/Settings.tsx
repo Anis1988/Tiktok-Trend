@@ -93,9 +93,9 @@ export function Settings() {
         {s.enabled && <SeriesView key={s.series.subject} v={s.series} onChange={(series) => void save({ series })} onUnuse={(key, name) => void save({ series: { ...s.series, used: { ...s.series.used, [key]: (s.series.used[key] ?? []).filter((x) => x !== name) } }, seriesUnuse: { key, name } })} onMake={() => void makeSeries()} busy={making} links={st ? { tiktok: st.tiktok.connected, youtube: st.youtube.connected, canPublish: !!st.tiktok.canPublish } : undefined} />}
       </Card>
 
-      <Card title="Auto clean-up" subtitle="Saves storage: deletes old video files, keeps their text">
-        <Field label="Delete old video files" hint="Only finished videos (posted, rejected, failed or sent to TikTok). Waiting and approved videos are never deleted.">
-          <Toggle on={s.cleanup.enabled} onChange={(v) => void save({ cleanup: { ...s.cleanup, enabled: v } })} label="Delete old video files" />
+      <Card title="Auto clean-up" subtitle="Deletes old videos for good, whatever their status">
+        <Field label="Delete old videos" hint="Every video older than this goes: the video, its text and its picture, posted or not. Only a video being made or sent right now waits for the next clean-up.">
+          <Toggle on={s.cleanup.enabled} onChange={(v) => void save({ cleanup: { ...s.cleanup, enabled: v } })} label="Delete old videos" />
         </Field>
         {s.cleanup.enabled && (
           <Field label="After">
