@@ -3,7 +3,10 @@
   publish = "build"
   # Skip the Netlify build (and its credits) when only the GitHub jobs or the video pipeline changed.
   # The Android app (branch "android") is built by GitHub, not Netlify: always skipped here.
-  ignore = "[ \"$BRANCH\" = \"android\" ] || git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- . ':(exclude).github' ':(exclude)pipeline' ':(exclude)README.md'"
+  # Exit 0 = skip. When Netlify has no last-built commit (its cache was lost, so CACHED_COMMIT_REF is empty), or it
+  # equals this one, or git can't compare them, it builds: an empty ref made the plain diff say "no change" and skip
+  # every deploy since Oct 15.
+  ignore = "[ \"$BRANCH\" = \"android\" ] || { [ -n \"$CACHED_COMMIT_REF\" ] && [ \"$CACHED_COMMIT_REF\" != \"$COMMIT_REF\" ] && git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- . ':(exclude).github' ':(exclude)pipeline' ':(exclude)README.md'; }"
 
 [build.environment]
   NODE_VERSION = "20"
