@@ -7,11 +7,13 @@ import { appendFile } from 'node:fs/promises';
 import { getSettings, listVideos } from '../netlify/lib/store';
 import { cleanUp } from '../netlify/lib/cleanup';
 import { recapDue, recapScript } from './lib/recap';
+import { isPaused } from '../netlify/lib/pause';
 
 const day = () => new Date().toISOString().slice(0, 10);
 const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
 async function due(): Promise<boolean> {
+  if (await isPaused()) return (log('The app is paused (⏸). Nothing to do until you press Resume.'), false);
   const s = await getSettings();
   await cleanUp(s, log).catch((e) => log('Clean-up failed:', e instanceof Error ? e.message : e));
   if (!s.enabled) return (log('Scheduled videos are turned off in Settings. Nothing to do.'), false);

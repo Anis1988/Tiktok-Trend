@@ -90,6 +90,29 @@ export function Guide() {
         <p>Nothing is ever posted without your OK.</p>
       </Section>
 
+      <Section title="⏸ Pause all (the big red button)">
+        <p>The red <b>Pause all</b> button at the top of every page stops the whole app at once, until you press <b>Resume</b>. Use it if something looks wrong, or to make sure nothing costs money while you are away.</p>
+        <Example caption="Top right of the app. Tap it once: everything stops right away, no question asked.">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-red-300/60 bg-red-600 px-4 text-sm font-extrabold uppercase tracking-wide text-white shadow-[0_0_18px_rgba(239,68,68,0.6)]"><span aria-hidden="true">⏸</span> Pause all</span>
+            <span className="text-sm text-slate-400">→ turns into</span>
+            <span className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-emerald-500 px-4 text-sm font-extrabold uppercase tracking-wide text-ink-950">▶ Resume</span>
+          </div>
+        </Example>
+        <Example caption="While paused, this red bar stays under the header on every page.">
+          <div className="rounded-xl bg-red-600/90 px-3 py-2.5 text-sm text-white"><b className="font-extrabold">⏸ PAUSED since Nov 15, 4:20 PM.</b> No AI, no emails, no phone notifications, no posting and no scheduled videos until you resume.</div>
+        </Example>
+        <p><b>While paused:</b></p>
+        <ul className="list-disc space-y-1 pl-5">
+          <li><b>No AI cost.</b> The script writer (the only paid part) is never called.</li>
+          <li><b>No emails</b> and <b>no phone notifications</b>.</li>
+          <li><b>Nothing is made or sent.</b> "Make a video now", building a checked script, Approve (to TikTok drafts) and the Send buttons for YouTube, Facebook and Instagram say "paused" instead. The 🚀 series auto-post does not run.</li>
+          <li><b>No timer runs.</b> The daily videos, the weekly recap, the auto clean-up and the TikTok link-back (every 2 hours) do nothing.</li>
+          <li><b>Jobs already running are stopped</b> (the video or send that was being made at that moment). A video that was cut off this way can be tried again after you resume.</li>
+        </ul>
+        <p>You can still look at your videos, edit scripts, reject or delete videos and change Settings. Pressing <b>Resume</b> turns everything back on; nothing missed is made later on its own (the next timer run just carries on as usual).</p>
+      </Section>
+
       <Section title="✦ How it looks (Neon Studio)">
         <p>The app has a dark "Neon Studio" look, made to be used on a phone with one thumb:</p>
         <ul className="list-disc space-y-1.5 pl-5">

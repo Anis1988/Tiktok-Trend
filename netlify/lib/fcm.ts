@@ -1,5 +1,6 @@
 import { createSign } from 'node:crypto';
 import { readJson, writeJson } from './store';
+import { isPaused } from './pause';
 
 /**
  * Phone notifications for the Android app, through Google's free Firebase Cloud Messaging (FCM).
@@ -52,6 +53,7 @@ async function accessToken(k: FirebaseKey): Promise<string> {
 
 /** Sends to every phone with the app; drops phones that uninstalled the app. Returns how many were delivered. */
 export async function fcmAll(payload: { title: string; body: string; tag?: string; url?: string }): Promise<number> {
+  if (await isPaused()) return 0; // ⏸ no phone notifications while paused
   const k = await firebaseKey();
   const tokens = await getFcmTokens();
   if (!k || !tokens.length) return 0;

@@ -6,6 +6,7 @@ import { Guide } from './pages/Guide';
 import { Review } from './pages/Review';
 import { Privacy, Terms } from './pages/Legal';
 import { getCode, setCode } from './lib/api';
+import { PauseButton, PausedBanner, usePause } from './components/PauseAll';
 
 const TABS = ['Videos', 'Settings', 'Guide'] as const;
 type Tab = (typeof TABS)[number];
@@ -77,6 +78,8 @@ export default function App() {
   };
 
   const bar = !review && !legal;
+  const showPause = bar && hasCode;
+  const pause = usePause(showPause);
   return (
     <div className={`min-h-screen ${bar ? 'with-bar' : ''}`}>
       <div className="aurora" aria-hidden="true"><i /><i /><i /></div>
@@ -88,7 +91,9 @@ export default function App() {
             <span className="truncate whitespace-nowrap font-display text-[17px] font-semibold tracking-tight">Trend <span className="neon-text">Videos</span></span>
           </a>
           {bar && <div className="ml-auto hidden md:block"><TabBar tabs={TABS} active={tab} onChange={go} place="top" /></div>}
+          {showPause && <PauseButton state={pause} />}
         </div>
+        {showPause && <PausedBanner state={pause} />}
       </header>
       <main key={review || legal ? 'page' : tab} className="page-in mx-auto max-w-[1400px] px-4 pb-10 pt-4 sm:pt-6 lg:px-6">
         {legal ? (

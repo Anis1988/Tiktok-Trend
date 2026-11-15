@@ -11,6 +11,7 @@ import { canPublish } from '../netlify/lib/tiktok';
 import { getSettings, getTikTok, getVideo, getYouTube, listVideos, patchVideo, readJson, saveVideo, store, writeJson } from '../netlify/lib/store';
 import { sign } from '../netlify/lib/sign';
 import { emailReady, sendEmail } from '../netlify/lib/mailer';
+import { isPaused } from '../netlify/lib/pause';
 import { LISTY, bingNews, feedNews, findCandidates, nicheCandidates, seriesTrending, subjectNews, type Candidate } from '../netlify/lib/trends';
 import { CATEGORIES, DEFAULT_LOOK, findCategory, subsOf, type Niche } from '../src/lib/niches';
 import { cleanUp } from '../netlify/lib/cleanup';
@@ -107,6 +108,8 @@ function settingsFor(raw: string | undefined, saved: AppSettings): AppSettings {
 }
 
 async function main() {
+  // ⏸ Paused in the app: no AI, no clean-up, no video, no email, no posting. Ends here without an error.
+  if (await isPaused()) return log('The app is paused (⏸). Nothing done. Press Resume at the top of the app.');
   if (process.env.SAMPLE === '1') return sample();
   const manual = process.env.MANUAL === '1';
   if (!process.env.ANTHROPIC_API_KEY?.trim()) throw new Error('ANTHROPIC_API_KEY is missing. Add it in GitHub: Settings → Secrets and variables → Actions → New repository secret.');
