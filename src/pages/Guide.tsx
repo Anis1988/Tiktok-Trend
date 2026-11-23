@@ -110,6 +110,7 @@ export function Guide() {
           <li><b>No timer runs.</b> The daily videos, the weekly recap, the auto clean-up and the TikTok link-back (every 2 hours) do nothing.</li>
           <li><b>Jobs already running are stopped</b> (the video or send that was being made at that moment). A video that was cut off this way can be tried again after you resume.</li>
         </ul>
+        <p><b>🎛️ From Master</b> (your dashboard of all your apps): pausing this app in Master works the same way (no AI, emails, notifications, videos or timers), and Master’s “AI off everywhere” stops only the script writer: the rest keeps going. Resume it in Master: it counts here within a minute.</p>
         <p>You can still look at your videos, edit scripts, reject or delete videos and change Settings. Pressing <b>Resume</b> turns everything back on; nothing missed is made later on its own (the next timer run just carries on as usual).</p>
       </Section>
 
