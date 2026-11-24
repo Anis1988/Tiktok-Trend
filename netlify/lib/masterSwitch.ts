@@ -8,7 +8,7 @@
  * `MASTER_URL` points it at another Master address.
  */
 const APP_ID = 'trend-videos';
-const masterUrl = () => (process.env.MASTER_URL || 'https://master-app-anis-s-team1.vercel.app').replace(/\/$/, '');
+export const masterUrl = () => (process.env.MASTER_URL || 'https://master-app-anis-s-team1.vercel.app').replace(/\/$/, '');
 
 export interface MasterSwitch { ai: boolean; work: boolean }
 

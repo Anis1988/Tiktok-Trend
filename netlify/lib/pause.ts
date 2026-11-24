@@ -1,5 +1,5 @@
 import { readJson, writeJson } from './store';
-import { MASTER_AI_TEXT, MASTER_PAUSED_TEXT, masterSwitch } from './masterSwitch';
+import { MASTER_AI_TEXT, MASTER_PAUSED_TEXT, masterSwitch, masterUrl } from './masterSwitch';
 
 /**
  * ⏸ Pause everything (the big red button at the top of the app). While paused:
@@ -14,6 +14,9 @@ export interface PauseState { on: boolean; at?: string; cancelled?: number }
 export const getPause = () => readJson<PauseState>('pause', { on: false });
 export const setPause = (p: PauseState) => writeJson('pause', p);
 export const isPaused = async () => (await getPause()).on || (await masterSwitch()).work;
+
+/** What the screen shows (GET /api/pause): this app's own ⏸ plus Master's answer and where to resume it there. */
+export const pauseView = async () => ({ ...(await getPause()), master: { ...(await masterSwitch()), url: masterUrl() } });
 
 export const PAUSED_TEXT = 'The app is paused (⏸). Press Resume at the top of the app first.';
 
