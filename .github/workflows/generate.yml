@@ -76,7 +76,8 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
       - name: Install the natural voice (Kokoro)
         if: steps.check.outputs.due != 'false'
-        run: npm install --no-save --no-audit --no-fund kokoro-js@1.2.1
+        # No GPU here: skip the CUDA download (its file is gone from GitHub, 404). The normal CPU voice still installs.
+        run: npm install --no-save --no-audit --no-fund --onnxruntime-node-install-cuda=skip kokoro-js@1.2.1
       - name: Install ffmpeg and caption font
         if: steps.check.outputs.due != 'false'
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core

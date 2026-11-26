@@ -16,6 +16,7 @@ const EXAMPLE_SERIES = { on: true, subject: 'Fun facts about a famous person', f
 
 const EXAMPLE_NICHE: Niche = { category: 'gaming', subs: ['nintendo', 'pc'], focus: ['Zelda', 'GTA 6'], mix: 'niche' };
 import { Seg, StatusChip, TabBar, Toggle } from '../components/ui';
+import { MasterBanner } from '../components/PauseAll';
 import type { Video } from '../lib/api';
 import type { VideoStatus } from '../lib/types';
 import { STATUS_LABEL } from '../lib/types';
@@ -127,6 +128,10 @@ export function Guide() {
           <li><b>No timer runs.</b> The daily videos, the weekly recap, the auto clean-up and the TikTok link-back (every 2 hours) do nothing.</li>
           <li><b>Jobs already running are stopped</b> (the video or send that was being made at that moment). A video that was cut off this way can be tried again after you resume.</li>
         </ul>
+        <p><b>🎛️ From Master</b> (your dashboard of all your apps): pausing this app in Master works the same way (no AI, emails, notifications, videos or timers), and Master’s “AI off everywhere” stops only the script writer: the rest keeps going. A bar under the header says so on every page, with an <b>Open Master</b> button: it can only be turned back on in Master (it counts here within a minute). The site itself stays open, so you can still look at everything.</p>
+        <Example caption="Made-up: paused from Master (red), or only the AI switched off there (amber).">
+          <div className="space-y-2 overflow-hidden rounded-xl"><MasterBanner work /><MasterBanner work={false} /></div>
+        </Example>
         <p>You can still look at your videos, edit scripts, reject or delete videos and change Settings. Pressing <b>Resume</b> turns everything back on; nothing missed is made later on its own (the next timer run just carries on as usual).</p>
       </Section>
 
